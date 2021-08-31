@@ -42,7 +42,6 @@ main() {
             fi
         fi
 
-
     else
         # applet run manually, should pass dir of data and (optionally) sample sheet
         if [ $sample_sheet ];
@@ -66,6 +65,10 @@ main() {
     # now we need to know what samples we have, to trigger the appropriate workflows
     # use the config and sample sheet names
 
+    #### DO SOME MAGIC WITH A CONFIG FILE TO SET CORRECT ASSAYS
 
+
+
+    # now the fun begins of triggering each workflow type, not sure what to do for now...
 
 }
