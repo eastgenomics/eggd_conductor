@@ -16,6 +16,36 @@
         "*"
       ],
       "help": ""
+    },
+    {
+      "name": "samplesheet",
+      "label": "Samplesheet for given run, if not given will attempt to find in data",
+      "class": "file",
+      "optional": true,
+      "patterns": [
+        "*"
+      ],
+      "help": ""
+    },
+    {
+      "name": "config",
+      "label": "config file of sample naming -> assay types",
+      "class": "file",
+      "optional": true,
+      "patterns": [
+        "*"
+      ],
+      "help": ""
+    },
+    {
+      "name": "assay_type",
+      "label": "Type of assay to over ride using config",
+      "class": "string",
+      "optional": true,
+      "patterns": [
+        "*"
+      ],
+      "help": ""
     }
   ],
   "outputSpec": [],
