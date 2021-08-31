@@ -1,0 +1,49 @@
+{
+  "name": "eggd_conductor_v1.0.0",
+  "title": "eggd_conductor_v1.0.0",
+  "summary": "eggd_conductor",
+  "dxapi": "1.0.0",
+  "properties": {
+    "githubRelease": "v1.0.0"
+  },
+  "inputSpec": [
+    {
+      "name": "data_dir",
+      "label": "Directory of data to process",
+      "class": "array:file",
+      "optional": true,
+      "patterns": [
+        "*"
+      ],
+      "help": ""
+    }
+  ],
+  "outputSpec": [],
+  "runSpec": {
+    "timeoutPolicy": {
+      "*": {
+        "hours": 2
+      }
+    },
+    "interpreter": "bash",
+    "file": "src/eggd_conductor.sh",
+    "distribution": "Ubuntu",
+    "release": "16.04",
+    "version": "1"
+  },
+  "access": {
+    "network": [
+      "*"
+    ],
+    "project": "CONTRIBUTE"
+  },
+  "regionalOptions": {
+    "aws:us-east-1": {
+      "systemRequirements": {
+        "*": {
+          "instanceType": "mem1_ssd1_v2_x4"
+        }
+      }
+    }
+  }
+}
