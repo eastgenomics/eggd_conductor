@@ -75,6 +75,7 @@ main() {
         # build array of samples to assays
         declare -A sample_to_assay
 
+        # for each sample, parse the eggd code, get associated assay from config and build array of assay -> sample names
         for name in $sample_list;
         do
             sample_eggd_code=$(echo $name | awk -F_ '{print $NF}')  # get eggd code from end of name for now
@@ -91,7 +92,7 @@ main() {
             # add sample name to associated assay code in array, comma separated to parse later
             if [ -v sample_to_assay[$sample_assay] ];
             then
-                # assay key already exists
+                # assay key already exists => append to existing sample list
                 sample_to_assay["$sample_assay"]="sample_to_assay[$sample_assay], $name"
             else
                 # new assay key
@@ -99,6 +100,7 @@ main() {
             fi
         done
     fi
+
     # we now have an array of assay codes to sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000001_EGG1, X000002_EGG1...
@@ -113,6 +115,7 @@ main() {
     # low level configs for each assay
     # check correct data for each sample available
     # check if it is already demultiplexed or need to run bcl2fastq
-
+    
+    
 
 }
