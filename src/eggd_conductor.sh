@@ -41,7 +41,6 @@ main() {
                 exit 1
             fi
         fi
-
     else
         # applet run manually, should pass dir of data and (optionally) sample sheet
         if [ $sample_sheet ];
@@ -59,27 +58,31 @@ main() {
     # we now need to do some sample sheet validation first, then check what types of samples
     # are present to determine the workflow(s) to run
 
+
     #### SAMPLE SHEET VALIDATION HERE ####
 
 
     # now we need to know what samples we have, to trigger the appropriate workflows
-    # use the config and sample sheet names
-
-    #### DO SOME MAGIC WITH A CONFIG FILE TO SET CORRECT ASSAYS
-
+    # use the config and sample sheet names to infer which to use if a specific assay not passed
     if [ -z $assay_type ];
     then
+        dx download $config_file
+
         # assay type not specified, use sample names and config file
         sample_list=$(tail -n +20 "$sample_sheet" | cut -d',' -f 1)
 
         # build array of samples to assays
         declare -A sample_to_assay
 
-        # for each sample, parse the eggd code, get associated assay from config and build array of assay -> sample names
+        # for each sample, parse the eggd code, get associated assay from config
+        # and build array of assay -> sample names
         for name in $sample_list;
         do
-            sample_eggd_code=$(echo $name | awk -F_ '{print $NF}')  # get eggd code from end of name for now
-            sample_assay=$(grep $sample_eggd_code $config_file | awk '{print $NF}')  # get associated assay from config
+            # get eggd code from end of name for now
+            sample_eggd_code=$(echo $name | awk -F_ '{print $NF}')
+
+            # get associated assay from config
+            sample_assay=$(grep $sample_eggd_code $config_file | awk '{print $NF}')
 
             if [ -z $sample_assay ];
             then
@@ -103,7 +106,7 @@ main() {
 
     # we now have an array of assay codes to sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
-    # TSOE: X000001_EGG1, X000002_EGG1...
+    # TSOE: X000003_EGG1, X000004_EGG1...
 
     # access all array keys with ${!sample_to_assay[@]}
     # access all array value with ${sample_to_assay[@]}
@@ -115,7 +118,7 @@ main() {
     # low level configs for each assay
     # check correct data for each sample available
     # check if it is already demultiplexed or need to run bcl2fastq
-    
+    # trigger each workflow(s) for each set of samples
     
 
 }

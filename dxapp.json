@@ -28,7 +28,7 @@
       "help": ""
     },
     {
-      "name": "config",
+      "name": "config_file",
       "label": "config file of sample naming -> assay types",
       "class": "file",
       "optional": true,
