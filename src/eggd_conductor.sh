@@ -10,10 +10,7 @@ set -exo pipefail
 main() {
 
     if [ $upload_sentinel_record ]; then
-        # sentinel file specified when run via dx-streaming-upload
-
-        # do things
-        # - get sample sheet by file id from sentinel file
+        # sentinel file passed when run automatically via dx-streaming-upload
 
         # get json of details to parse required info from
         sentinel_details=$(dx describe --details --json "$upload_sentinel_record")
@@ -71,11 +68,10 @@ main() {
         # assay type not specified, use sample names and config file
         sample_list=$(tail -n +20 "$sample_sheet" | cut -d',' -f 1)
 
-        # build array of samples to assays
+        # build associative array (i.e. key value pairs) of samples to assays
         declare -A sample_to_assay
 
         # for each sample, parse the eggd code, get associated assay from config
-        # and build array of assay -> sample names
         for name in $sample_list;
         do
             # get eggd code from end of name for now
@@ -104,7 +100,7 @@ main() {
         done
     fi
 
-    # we now have an array of assay codes to sample names i.e.
+    # we now have an array of assay codes to comma separated sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000003_EGG1, X000004_EGG1...
 
@@ -120,5 +116,9 @@ main() {
     # check if it is already demultiplexed or need to run bcl2fastq
     # trigger each workflow(s) for each set of samples
     
+    # Option A:
+        # write a python script to parse the low level config for an assay, and call the
+        # workflow / app from the config and other inputs (sample name / fastqs etc.)
+        # needs to be able to handle all workflows and extra inputs etc.
 
 }
