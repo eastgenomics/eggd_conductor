@@ -82,7 +82,7 @@ main() {
             sample_eggd_code=$(echo $name | awk -F_ '{print $NF}')
 
             # get associated assay from config
-            assay_type=$(grep $sample_eggd_code $high_level_config | awk '{print $NF}')
+            assay_type=$(grep $sample_eggd_code $high_level_config | awk '{print $2}')
 
             if [ -z $assay_type ];
             then
@@ -154,5 +154,17 @@ main() {
         # workflow / app from the config and other inputs (sample name / fastqs etc.)
         # needs to be able to handle all workflows and extra inputs etc.
 
+    # trigger workflows using config for each set of samples for an assay
+    for i in "${sample_to_assay[@]}"
+    do
+        echo "Calling workflow for assay $i on samples ${sample_to_assay[$i]}"
+
+        # get file id for config file & download
+        config_file_id=$(grep $i $high_level_config | awk '{print $NF}')
+        config_name=$(dx describe --json $config_file_id | jq -r '.name')
+        dx download $config_file_id
+
+        python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}"
+    done
 
 }

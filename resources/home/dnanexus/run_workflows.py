@@ -8,7 +8,7 @@ from datetime import datetime
 import json
 import os
 
-import dxpy
+# import dxpy
 
 
 def time_stamp() -> str:
@@ -44,11 +44,17 @@ def parse_args():
         help='list of sample names to run analysis on'
     )
 
+    args = parser.parse_args()
+
+    return args
+
 
 def main():
     """
+    Main function to run workflows
     """
-    pass
+    args = parse_args()
+    print(args)
 
 
 if __name__ == "__main__":
