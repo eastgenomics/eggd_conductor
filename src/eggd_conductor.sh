@@ -115,10 +115,37 @@ main() {
     # check correct data for each sample available
     # check if it is already demultiplexed or need to run bcl2fastq
     # trigger each workflow(s) for each set of samples
-    
+
     # Option A:
         # write a python script to parse the low level config for an assay, and call the
         # workflow / app from the config and other inputs (sample name / fastqs etc.)
         # needs to be able to handle all workflows and extra inputs etc.
+
+    # issue - need to split the output of bcl2fastq by sample to start appropriate workflow
+        # solution A - hold this app until bcl2fastq finishes, then get file ids of the output
+        #               and start appropriate workflows, not ideal but it only runs for ~ 1 1/2
+        #               hours and small instance is cheap so ¯\_(ツ)_/¯
+
+
+    #### start bcl2fastq app, either with sentinel file if run from dx-streaming-upload or
+    #### a directory of tars (+ optionally a sample sheet)
+    #### can also skip bcl2fastq if it is run with a dir of fastqs
+
+
+    if [ $upload_sentinel_record ];
+    then
+        # running using sentinel record => from dx-streaming-upload
+        # dx run {bcl2fastq-applet-id} -iupload_sentinel_record $upload_sentinel_record
+    elif [ $data_dir ];
+    then
+        # running from dir of tars
+        # dx run {bcl2fastq-applet-id} -irun_archive
+    fi
+
+    # now we have run bcl2fastq and the output is an array of files
+    # we need to match the fastqs output for the samples and start the workflow(s)
+    dx describe --json {bcl2fastq-job-id} | jq -r '.output.output'  # file ids of all outputs
+
+
 
 }
