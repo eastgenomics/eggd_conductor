@@ -61,44 +61,49 @@ main() {
 
     # now we need to know what samples we have, to trigger the appropriate workflows
     # use the config and sample sheet names to infer which to use if a specific assay not passed
-    if [ -z $assay_type ];
-    then
-        dx download $config_file
+    
 
-        # assay type not specified, use sample names and config file
-        sample_list=$(tail -n +20 "$sample_sheet" | cut -d',' -f 1)
+    # get config file
+    dx download $high_level_config
 
-        # build associative array (i.e. key value pairs) of samples to assays
-        declare -A sample_to_assay
+    # get list of sample names from sample sheet
+    sample_list=$(tail -n +20 "$sample_sheet" | cut -d',' -f 1)
 
-        # for each sample, parse the eggd code, get associated assay from config
-        for name in $sample_list;
-        do
+    # build associative array (i.e. key value pairs) of samples to assays
+    declare -A sample_to_assay
+
+    # for each sample, parse the eggd code, get associated assay from config if not specified
+    for name in $sample_list;
+    do
+        if [ -z $assay_type ]; then
+            # assay type not specified, infer from eggd code and high level config
+    
             # get eggd code from end of name for now
             sample_eggd_code=$(echo $name | awk -F_ '{print $NF}')
 
             # get associated assay from config
-            sample_assay=$(grep $sample_eggd_code $config_file | awk '{print $NF}')
+            assay_type=$(grep $sample_eggd_code $high_level_config | awk '{print $NF}')
 
-            if [ -z $sample_assay ];
+            if [ -z $assay_type ];
             then
                 # appropriate assay not found from sample egg code
                 echo 'Assay for sample $name not found in config using the following eggd code: $sample_eggd_code'
                 echo 'Exiting now.'
                 exit 1
             fi
+        fi
 
-            # add sample name to associated assay code in array, comma separated to parse later
-            if [ -v sample_to_assay[$sample_assay] ];
-            then
-                # assay key already exists => append to existing sample list
-                sample_to_assay["$sample_assay"]="sample_to_assay[$sample_assay], $name"
-            else
-                # new assay key
-                sample_to_assay["$sample_assay"]="$name"
-            fi
-        done
-    fi
+        # add sample name to associated assay code in array, comma separated to parse later
+        if [ -v sample_to_assay[$assay_type] ];
+        then
+            # assay key already exists => append to existing sample list
+            sample_to_assay["$assay_type"]="sample_to_assay[$assay_type], $name"
+        else
+            # new assay key
+            sample_to_assay["$assay_type"]="$name"
+        fi
+    done
+
 
     # we now have an array of assay codes to comma separated sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
@@ -107,6 +112,34 @@ main() {
     # access all array keys with ${!sample_to_assay[@]}
     # access all array value with ${sample_to_assay[@]}
     # access specific key value with ${sample_to_assay[$key]}
+
+    # issue - need to split the output of bcl2fastq by sample to start appropriate workflow
+        # solution A - hold this app until bcl2fastq finishes, then get file ids of the output
+        #               and start appropriate workflows, not ideal but it only runs for ~ 1 1/2
+        #               hours and small instance is cheap so ¯\_(ツ)_/¯
+
+
+    #### start bcl2fastq app, either with sentinel file if run from dx-streaming-upload or
+    #### a directory of tars (+ optionally a sample sheet)
+    #### can also skip bcl2fastq if it is run with a dir of fastqs - TODO
+
+    echo "Starting bcl2fastq app"
+    echo "Holding app until demultiplexing complete to trigger downstream workflow(s)"
+
+    if [ $upload_sentinel_record ];
+    then
+        # running using sentinel record => from dx-streaming-upload
+        job_id=$(dx run --brief --wait --yes {bcl2fastq-applet-id} -iupload_sentinel_record $upload_sentinel_record)
+    elif [ $data_dir ];
+    then
+        # running from dir of tars
+        job_id=$(dx run --brief --wait --yes {bcl2fastq-applet-id} -irun_archive)
+    fi
+
+    # now we have run bcl2fastq and the output is an array of files
+    # we need to match the fastqs output for the samples and start the workflow(s)
+
+    dx describe --json $job_id | jq -r '.output.output'  # file ids of all outputs
 
     # now the fun begins of triggering each workflow type, not sure what to do for now...
 
@@ -120,32 +153,6 @@ main() {
         # write a python script to parse the low level config for an assay, and call the
         # workflow / app from the config and other inputs (sample name / fastqs etc.)
         # needs to be able to handle all workflows and extra inputs etc.
-
-    # issue - need to split the output of bcl2fastq by sample to start appropriate workflow
-        # solution A - hold this app until bcl2fastq finishes, then get file ids of the output
-        #               and start appropriate workflows, not ideal but it only runs for ~ 1 1/2
-        #               hours and small instance is cheap so ¯\_(ツ)_/¯
-
-
-    #### start bcl2fastq app, either with sentinel file if run from dx-streaming-upload or
-    #### a directory of tars (+ optionally a sample sheet)
-    #### can also skip bcl2fastq if it is run with a dir of fastqs
-
-
-    if [ $upload_sentinel_record ];
-    then
-        # running using sentinel record => from dx-streaming-upload
-        # dx run {bcl2fastq-applet-id} -iupload_sentinel_record $upload_sentinel_record
-    elif [ $data_dir ];
-    then
-        # running from dir of tars
-        # dx run {bcl2fastq-applet-id} -irun_archive
-    fi
-
-    # now we have run bcl2fastq and the output is an array of files
-    # we need to match the fastqs output for the samples and start the workflow(s)
-    dx describe --json {bcl2fastq-job-id} | jq -r '.output.output'  # file ids of all outputs
-
 
 
 }
