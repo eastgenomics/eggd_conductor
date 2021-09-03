@@ -14,6 +14,7 @@ main() {
 
         # get json of details to parse required info from
         sentinel_details=$(dx describe --details --json "$upload_sentinel_record")
+        run_id=$(echo $sentintel_details | jq -r '.run_id')
         run_dir=$(echo $sentinel_details | jq -r '.folder')
         tar_file_ids=$(echo $sentinel_details | jq -r '.details.tar_file_ids')
         sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
@@ -164,7 +165,11 @@ main() {
         config_name=$(dx describe --json $config_file_id | jq -r '.name')
         dx download $config_file_id
 
-        python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}"
+        optional_args=''
+        if [ $dx_project ]; then optional_args+="--dx-project $dx_project "
+        if [ $un_id ]; then optional_args+="--run_id $run_id "
+
+        python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"
     done
 
     echo "Workflows triggered for samples"
