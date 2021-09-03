@@ -47,7 +47,7 @@ def parse_args():
         help='list of sample names to run analysis on'
     )
     parser.add_argument(
-        '--dx_project',
+        '--dx_project', required=False,
         help='DNAnexus project to use to run analysis in'
     )
     parser.add_argument(
@@ -76,7 +76,7 @@ def main():
     Main function to run workflows
     """
     args = parse_args()
-    print(args)
+    # print(args)
 
     config = load_config(args.config_file)
 
@@ -94,20 +94,28 @@ def main():
             folder=bcl2fastq_folder, describe=True
         ))
         fastq_details = [(x['id'], x['describe']['name']) for x in fastq_details]
+    else:
+        # if we're here it means bcl2fastq wasn't run, so we have either a dir
+        # of fastqs being passed, this is for tso500 or something else weird
+        # this is going to need some thought and clever handling to know
+        # what is being passed
 
-    for executable, params in config.items():
+        pass
+
+
+    for executable, params in config['executables']:
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
         if params['per_sample']:
-            # per sample
+            # run workflow / app on every sample
             print(f'Calling {params["name"]} per sample')
 
             # loop over given samples, find data and run workflows
             for sample in args.samples:
-                pass
+                sample_fastqs = [x for x in fastq_details if sample in x[1]]
         else:
             # passing all samples to workflow
-
+            pass
 
     sys.exit()
 
