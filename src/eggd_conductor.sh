@@ -167,4 +167,5 @@ main() {
         python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}"
     done
 
+    echo "Workflows triggered for samples"
 }
