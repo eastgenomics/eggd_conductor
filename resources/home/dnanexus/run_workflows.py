@@ -4,6 +4,7 @@ Script to call workflow(s) / apps from a given config
 Jethro Rainford 210902
 """
 import argparse
+from copy import deepcopy
 from contextlib import redirect_stdout
 from datetime import datetime
 from io import StringIO
@@ -79,6 +80,7 @@ def main():
     # print(args)
 
     config = load_config(args.config_file)
+    run_time = time_stamp()
 
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing
@@ -106,13 +108,56 @@ def main():
     for executable, params in config['executables']:
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
+
+        # create output folder for workflow, unique by datetime stamp
+        workflow_out_folder = f'{executable["name"]}-{run_time}'
+        dxpy.bindings.dxproject.DXContainer(
+            dxid=args.dx_project_id).new_folder(workflow_out_folder)
+
         if params['per_sample']:
             # run workflow / app on every sample
             print(f'Calling {params["name"]} per sample')
 
-            # loop over given samples, find data and run workflows
+            # loop over given samples, find data, add to config and call workflow
             for sample in args.samples:
+                # copy config to add sample info to for calling workflow
+                sample_config = deepcopy(config)
+
                 sample_fastqs = [x for x in fastq_details if sample in x[1]]
+
+                # fastqs should always be named with R1/2_001
+                r1_fastqs = [x for x in sample_fastqs if 'R1_001.fastq' in x[1]]
+                r2_fastqs = [x for x in sample_fastqs if 'R2_001.fastq' in x[1]]
+
+                print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
+
+                input_dict = sample_config['executables'][executable]['inputs']
+
+                # add fastq file ids to workflow input dict, for now this will
+                # support up to 2 of each fastq
+                input_dict['INPUT-R1_1'] = r1_fastqs[0][0]
+                if len(r1_fastqs) > 1:
+                    input_dict['INPUT-R1_2'] = r1_fastqs[1][0]
+
+                input_dict['INPUT-R2_1'] = r2_fastqs[0][0]
+                if len(r2_fastqs) > 1:
+                    input_dict['INPUT-R2_2'] = r2_fastqs[1][0]
+
+                # check if config has field(s) expecting the sample name as input
+                keys = [k for k, v in input_dict.items() if v == 'INPUT-SAMPLE_NAME']
+                if keys:
+                    for key in keys:
+                        input_dict[key] = sample
+                
+
+                # TODO: create the output folder dir structure here and pass to run() below
+                # http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html#dxpy.bindings.dxworkflow.DXWorkflow
+
+
+                dxpy.bindings.dxworkflow.DXWorkflow(
+                    dxid=executable, project=args.dx_project
+                ).run(workflow_input=input_dict)
+
         else:
             # passing all samples to workflow
             pass
@@ -131,6 +176,7 @@ def main():
                 summary=f'Analysis of run {args.run_id} with {args.assay_code}'
             )
         project_id = project_id.getvalue()
+        args.dx_project = project_id
 
         print(f'Created new project for output: {output_project}')
 

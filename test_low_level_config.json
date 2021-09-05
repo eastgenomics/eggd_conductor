@@ -1,0 +1,70 @@
+{
+    "demultiplex": true,
+    "executables": {
+        "workflow-G21Gx3Q433Gp80fK7z5jZ5XY": {
+            "name": "dias_single_testing",
+            "per_sample": true,
+            "inputs": {
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.sample": "INPUT-SAMPLE_NAME",
+                "stage-Fy6fvYQ40vZV1y8p9GYKPYyQ.bed": {
+                    "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
+                },
+                "stage-Fy6fx2Q40vZbFVxZ283xXGVY.bedfile": {
+                    "$dnanexus_link": "file-G2J5ZV0433GQJz7860vb4PB1"
+                },
+                "stage-Fy6fqy040vZV3Gj24vppvJgZ.bed_file": {
+                    "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
+                },
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads2_fastqgzs": [
+                    {
+                        "$dnanexus_link": "R2_1"
+                    },
+                    {
+                        "$dnanexus_link": "R2_2"
+                    }
+                ],
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads_fastqgzs": [
+                    {
+                        "$dnanexus_link": "INPUT-R1_1"
+                    },
+                    {
+                        "$dnanexus_link": "INPUT-R1_2"
+                    }
+                ],
+                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": [
+                    {
+                        "$dnanexus_link": "INPUT-R1_1"
+                    },
+                    {
+                        "$dnanexus_link": "INPUT-R1_2"
+                    },
+                    {
+                        "$dnanexus_link": "INPUT-R2_2"
+                    },
+                    {
+                        "$dnanexus_link": "INPUT-R2_2"
+                    }
+                ],
+                "stage-G21GzGj433Gky42j42Q5bJkf.input_bed": {
+                    "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
+                }
+            }
+        },
+        "workflow-FyQ2Gy0433Gz76Jp9j5YG80K": {
+            "name": "dias_multi_testing",
+            "per_sample": false,
+            "inputs": {
+                "stage-Fq1BPKj433Gx3K4Y8J35j0fv.panel_bed": {
+                    "$dnanexus_link": "file-G2V8k90433GVQ7v07gfj0ggX"
+                },
+                "stage-Fq1BPKj433Gx3K4Y8J35j0fv.prefix": "NA12878",
+                "stage-Fq1BPKj433Gx3K4Y8J35j0fv.query_vcf": {
+                    "$dnanexus_link": "file-G4jZ58846xJpbfb74jbBj9Xq"
+                },
+                "stage-Fybykxj433GV7vJKFGf3yVkK.SampleSheet": {
+                    "$dnanexus_link": "file-G4jQj704X8JqvVvJ4bg76YqX"
+                }
+            }
+        }
+    }
+}
