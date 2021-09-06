@@ -15,36 +15,9 @@
                 "stage-Fy6fqy040vZV3Gj24vppvJgZ.bed_file": {
                     "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
                 },
-                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads2_fastqgzs": [
-                    {
-                        "$dnanexus_link": "R2_1"
-                    },
-                    {
-                        "$dnanexus_link": "R2_2"
-                    }
-                ],
-                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads_fastqgzs": [
-                    {
-                        "$dnanexus_link": "INPUT-R1_1"
-                    },
-                    {
-                        "$dnanexus_link": "INPUT-R1_2"
-                    }
-                ],
-                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": [
-                    {
-                        "$dnanexus_link": "INPUT-R1_1"
-                    },
-                    {
-                        "$dnanexus_link": "INPUT-R1_2"
-                    },
-                    {
-                        "$dnanexus_link": "INPUT-R2_2"
-                    },
-                    {
-                        "$dnanexus_link": "INPUT-R2_2"
-                    }
-                ],
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads2_fastqgzs": "INPUT-R2",
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads_fastqgzs": "INPUT-R1",
+                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": "INPUT-R1-R2",
                 "stage-G21GzGj433Gky42j42Q5bJkf.input_bed": {
                     "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
                 }

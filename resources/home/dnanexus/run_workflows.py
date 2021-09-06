@@ -32,6 +32,28 @@ def load_config(config_file) -> dict:
     return config
 
 
+def create_project(args):
+    """
+    Create new project in DNAnexus
+    """
+    output_project = f'002_{args.run_id}_{args.assay_code}'
+
+    # create new project and capture returned project id and store
+    project_id = StringIO()
+    with redirect_stdout(project_id):
+        dxpy.bindings.dxproject.DXProject().new(
+            name=output_project,
+            summary=f'Analysis of run {args.run_id} with {args.assay_code}'
+        )
+    project_id = project_id.getvalue()
+    args.dx_project = project_id
+
+    print(f'Created new project for output: {output_project}')
+
+    return args
+
+
+
 def parse_args():
     """
     Parse command line arguments
@@ -82,6 +104,10 @@ def main():
     config = load_config(args.config_file)
     run_time = time_stamp()
 
+    if not args.dx_project:
+        # output project not specified, create new one from run id
+        args = create_project(args)
+
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing
         bcl2fastq_job = dxpy.bindings.dxjob.DXJob(
@@ -101,18 +127,24 @@ def main():
         # of fastqs being passed, this is for tso500 or something else weird
         # this is going to need some thought and clever handling to know
         # what is being passed
+        fastq_details = []
 
-        pass
+        # test data
+        fastq_details = [
+            ('file-Fykqgj84X7kV5VQ33fXVvzFV', 'X211628_S19_L003_R1_001.fastq.gz'),
+            ('file-Fykqgp04X7kZPXQ6JzYjV5kj', 'X211628_S19_L004_R1_001.fastq.gz'),
+            ('file-Fykqgkj4X7kV5VQ33fXVvzFY', 'X211628_S19_L003_R2_001.fastq.gz'),
+            ('file-Fykqgk84X7kkXzk73fV6jZ6j', 'X211628_S19_L004_R2_001.fastq.gz')
+        ]
 
-
-    for executable, params in config['executables']:
+    for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
 
         # create output folder for workflow, unique by datetime stamp
-        workflow_out_folder = f'{executable["name"]}-{run_time}'
-        dxpy.bindings.dxproject.DXContainer(
-            dxid=args.dx_project_id).new_folder(workflow_out_folder)
+        workflow_out_folder = f'{params["name"]}-{run_time}'
+        # dxpy.bindings.dxproject.DXContainer(
+        #     dxid=args.dx_project_id).new_folder(workflow_out_folder)
 
         if params['per_sample']:
             # run workflow / app on every sample
@@ -131,24 +163,34 @@ def main():
 
                 print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
 
+                # select input dict from config for current workflow / app
                 input_dict = sample_config['executables'][executable]['inputs']
 
-                # add fastq file ids to workflow input dict, for now this will
-                # support up to 2 of each fastq
-                input_dict['INPUT-R1_1'] = r1_fastqs[0][0]
-                if len(r1_fastqs) > 1:
-                    input_dict['INPUT-R1_2'] = r1_fastqs[1][0]
+                for stage, inputs in input_dict.items():
+                    # check each stage in input config for fastqs, format
+                    # as required with R1 and R2 fastqs
+                    if inputs == 'INPUT-R1':
+                        R1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
+                        input_dict[stage] = R1_input
 
-                input_dict['INPUT-R2_1'] = r2_fastqs[0][0]
-                if len(r2_fastqs) > 1:
-                    input_dict['INPUT-R2_2'] = r2_fastqs[1][0]
+                    if inputs == 'INPUT-R2':
+                        R2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
+                        input_dict[stage] = R2_input
+
+                    if inputs == 'INPUT-R1-R2':
+                        # stage requires all fastqs, build one list of dicts
+                        R1_R2_input = []
+                        R1_R2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
+                        R1_R2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
+                        input_dict[stage] = R1_R2_input
+
 
                 # check if config has field(s) expecting the sample name as input
                 keys = [k for k, v in input_dict.items() if v == 'INPUT-SAMPLE_NAME']
                 if keys:
                     for key in keys:
                         input_dict[key] = sample
-                
+
 
                 # TODO: create the output folder dir structure here and pass to run() below
                 # http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html#dxpy.bindings.dxworkflow.DXWorkflow
@@ -161,24 +203,6 @@ def main():
         else:
             # passing all samples to workflow
             pass
-
-    sys.exit()
-
-    if not args.dx_project:
-        # output project not specified, create new one from run id
-        output_project = f'002_{args.run_id}_{args.assay_code}'
-
-        # create new project and capture returned project id and store
-        project_id = StringIO()
-        with redirect_stdout(project_id):
-            dxpy.bindings.dxproject.DXProject().new(
-                name=output_project,
-                summary=f'Analysis of run {args.run_id} with {args.assay_code}'
-            )
-        project_id = project_id.getvalue()
-        args.dx_project = project_id
-
-        print(f'Created new project for output: {output_project}')
 
 
     
