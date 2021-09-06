@@ -13,6 +13,7 @@ import os
 import sys
 
 import dxpy
+from dxpy.bindings.search import find_projects
 
 
 def time_stamp() -> str:
@@ -32,26 +33,70 @@ def load_config(config_file) -> dict:
     return config
 
 
+def find_project(project_name):
+    """
+    Check if project already exists in DNAnexus
+    """
+    dx_projects = list(dxpy.bindings.search.find_projects(
+        name=project_name
+    ))
+
+    if len(dx_projects) == 0:
+        # found no project => create new one
+        return None
+
+    if len(dx_projects) > 1:
+        # this shouldn't happen as projects shouldn't be named the same,
+        # print warning and select first
+        names = ', '.join([x['describe']['name'] for x in dx_projects])
+        print('WARNING')
+        print(f'More than one project found for name: {project_name}: {names}')
+        print(f'Using project: {dx_projects[0]["describe"]["name"]}')
+
+    return dx_projects[0]['id']
+
+
+
 def create_project(args):
     """
     Create new project in DNAnexus
     """
     output_project = f'002_{args.run_id}_{args.assay_code}'
 
-    # create new project and capture returned project id and store
-    project_id = StringIO()
-    with redirect_stdout(project_id):
-        dxpy.bindings.dxproject.DXProject().new(
-            name=output_project,
-            summary=f'Analysis of run {args.run_id} with {args.assay_code}'
-        )
-    project_id = project_id.getvalue()
-    args.dx_project = project_id
+    project_id = find_project(output_project)
 
-    print(f'Created new project for output: {output_project}')
+    if not project_id:
+        # create new project and capture returned project id and store
+        project_id = StringIO()
+        with redirect_stdout(project_id):
+            dxpy.bindings.dxproject.DXProject().new(
+                name=output_project,
+                summary=f'Analysis of run {args.run_id} with {args.assay_code}'
+            )
+        project_id = project_id.getvalue()
+
+        print(f'Created new project for output: {output_project}')
+    else:
+        print(f'Using existing found project: {output_project} ({project_id})')
+
+    args.dx_project_id = project_id
 
     return args
 
+
+def call_dx_run(args, executable, input_dict):
+    """
+    Call workflow / app, returns id of submitted job
+    """
+    job_id = StringIO()
+    with redirect_stdout(job_id):
+        dxpy.bindings.dxworkflow.DXWorkflow(
+            dxid=executable, project=args.dx_project
+        ).run(workflow_input=input_dict)
+
+    job_id = job_id.getvalue()
+
+    return job_id
 
 
 def parse_args():
@@ -143,8 +188,8 @@ def main():
 
         # create output folder for workflow, unique by datetime stamp
         workflow_out_folder = f'{params["name"]}-{run_time}'
-        # dxpy.bindings.dxproject.DXContainer(
-        #     dxid=args.dx_project_id).new_folder(workflow_out_folder)
+        dxpy.bindings.dxproject.DXContainer(
+            dxid=args.dx_project_id).new_folder(workflow_out_folder)
 
         if params['per_sample']:
             # run workflow / app on every sample
@@ -153,7 +198,9 @@ def main():
             # loop over given samples, find data, add to config and call workflow
             for sample in args.samples:
                 # copy config to add sample info to for calling workflow
+                # select input dict from config for current workflow / app
                 sample_config = deepcopy(config)
+                input_dict = sample_config['executables'][executable]['inputs']
 
                 sample_fastqs = [x for x in fastq_details if sample in x[1]]
 
@@ -163,26 +210,23 @@ def main():
 
                 print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
 
-                # select input dict from config for current workflow / app
-                input_dict = sample_config['executables'][executable]['inputs']
-
                 for stage, inputs in input_dict.items():
                     # check each stage in input config for fastqs, format
                     # as required with R1 and R2 fastqs
                     if inputs == 'INPUT-R1':
-                        R1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
-                        input_dict[stage] = R1_input
+                        r1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
+                        input_dict[stage] = r1_input
 
                     if inputs == 'INPUT-R2':
-                        R2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
-                        input_dict[stage] = R2_input
+                        r2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
+                        input_dict[stage] = r2_input
 
                     if inputs == 'INPUT-R1-R2':
                         # stage requires all fastqs, build one list of dicts
-                        R1_R2_input = []
-                        R1_R2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
-                        R1_R2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
-                        input_dict[stage] = R1_R2_input
+                        r1_r2_input = []
+                        r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
+                        r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
+                        input_dict[stage] = r1_r2_input
 
 
                 # check if config has field(s) expecting the sample name as input
@@ -195,17 +239,15 @@ def main():
                 # TODO: create the output folder dir structure here and pass to run() below
                 # http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html#dxpy.bindings.dxworkflow.DXWorkflow
 
-
-                dxpy.bindings.dxworkflow.DXWorkflow(
-                    dxid=executable, project=args.dx_project
-                ).run(workflow_input=input_dict)
+                # call workflow for given sample wth configured input dict
+                call_dx_run(args, executable, input_dict)
 
         else:
             # passing all samples to workflow
             pass
 
 
-    
+
 
 if __name__ == "__main__":
     main()
