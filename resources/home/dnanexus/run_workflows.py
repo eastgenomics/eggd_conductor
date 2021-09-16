@@ -141,7 +141,7 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
         return output_dirs_dict
 
 
-def fastqs_2_input_dict(input_dict, fastq_details, sample):
+def add_fastqs(input_dict, fastq_details, sample):
     """
     If process_fastqs set to true, function is called to populate input dict
     with appropriate fastq file ids
@@ -171,16 +171,13 @@ def fastqs_2_input_dict(input_dict, fastq_details, sample):
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
             input_dict[stage] = r1_r2_input
-    
+
     return input_dict
 
 
-
-def call_per_sample(
-    sample, args, executable, input_dict, output_dirs_dict, out_folder, fastq_details=None
-    ):
+def add_sample_name(input_dict, sample):
     """
-    Call executable per sample
+    Adds sample name to input dict
     """
     # check if config has field(s) expecting the sample name as input
     keys = [k for k, v in input_dict.items() if v == 'INPUT-SAMPLE_NAME']
@@ -188,10 +185,105 @@ def call_per_sample(
         for key in keys:
             input_dict[key] = sample
 
+    return input_dict
 
-    # TODO: create the output folder dir structure here and pass to run() below
-    # http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html#dxpy.bindings.dxworkflow.DXWorkflow
 
+def find_job_inputs(input_dict, key_path=[]):
+    """
+    Recursive function to find all values with identifying prefix, these
+    require replacing with appropriate job output file ids. Returns a generator
+    with input fields to replace
+    """
+    input_prefix = 'INPUTS-'
+
+    for key, value in input_dict.items():
+        if isinstance(value, dict):
+            key_path.append(key)
+            yield from find_job_inputs(value, key_path)
+        elif value.startswith(input_prefix):
+            key_path.append(key)
+            yield value
+
+            key_path.clear()  # remove path for next key
+
+
+def replace_job_inputs(input_dict, job_input, output_file):
+    """
+    Traverse through nested dictionary and replace any matching INPUT- with
+    given DNAnexus file id in correct format
+    job_input = INPUTS-{output name (i.e. vcf)}
+    output_file = dx file id
+    """
+    for k, v in input_dict.items():
+        if isinstance(v, dict):
+            replace_job_inputs(v, job_input, output_file)
+        if v == job_input:
+            input_dict[k] = output_file
+
+
+def populate_input_dict(job_outputs_dict, input_dict, sample=None):
+    """
+    Check input dict for remaining 'INPUTS-', any left *should* be
+    outputs of previous jobs and stored in the job_outputs_dict and can
+    be parsed in to link up outputs
+    """
+    if sample:
+        # ensure we only use outputs for given sample for per sample workflow
+        job_outputs_dict = job_outputs_dict[sample]
+
+    for job_input in find_job_inputs(input_dict):
+        # find_job_inputs() returns generator, loop through for each input
+
+        # for each input, find it's associated file ids from previous job
+        # output dict and replace in input_dict
+        input_name = job_input.replace('INPUTS-', '')  # just the output name
+
+        # job output has 'stage-id.filename', find full key name then select id
+        output_file = [x for x in job_outputs_dict.keys() if input_name in x]
+
+        # job out should always(?) only have one output with given name, exit
+        # for now if more found
+        if len(output_file) > 1:
+            raise RuntimeError(
+                f'More than one output file found for {job_input}: {output_file}'
+            )
+
+        if not output_file:
+            raise ValueError((
+                f"No file found for {job_input} in output files from previous "
+                "workflow, please check config INPUTS- matches output names"
+            ))
+
+        # get file id for given field from dict to replace in input_dict
+        output_file = job_outputs_dict[output_file[0]]
+        replace_job_inputs(input_dict, job_input, output_file[0])
+
+    return input_dict
+
+
+def get_job_output(job_output_dict, job_id, sample=None):
+    """
+    Get all file ids for given job and add to dict of all output files
+
+    """
+    job_details = dxpy.api.analysis_describe(job_id)
+    job_output = job_details['output']
+
+    if sample:
+        # job run per sample, store output by sample name
+        job_output_dict[sample] = job_output
+    else:
+        job_output.update(job_output)
+
+    return job_output
+
+
+def call_per_sample(
+    sample, args, executable, input_dict, output_dirs_dict, fastq_details=None
+    ):
+    """
+    Call executable per sample
+    """
     # call workflow for given sample wth configured input dict
     job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
 
@@ -201,6 +293,7 @@ def call_per_sample(
 def call_all_samples(args, executable, input_dict, output_dirs_dict, fastq_details):
     """
     """
+    pass
 
 
 def parse_args():
@@ -303,40 +396,65 @@ def main():
         out_folder = f'{params["name"]}-{run_time}'
         dxpy.bindings.dxproject.DXContainer(
             dxid=args.dx_project_id).new_folder(out_folder)
-        
+
         # pass in app/workflow name to each apps output directory path
         # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
         # name is the human readable name of each stage defined in the config
         populate_output_dir_config(executable, output_dirs_dict, out_folder)
 
+        # check if stage requires fastqs passing
+        if "process_fastqs" in params:
+            input_dict = add_fastqs(input_dict, fastq_details, sample)
+
+        # add sample name to config fields where needed
+        input_dict = add_sample_name(input_dict, sample)
+
         if params['per_sample']:
-            # run workflow / app on every sample to start from fastqs
+            # run workflow / app on every sample
             print(f'Calling {params["name"]} per sample')
 
-            # loop over given samples, find data, add to config and call workflow
+            # loop over given sample and call workflow
             for sample in args.samples:
+                # check for any more inputs to add
+                input_dict = populate_input_dict(
+                    input_dict, job_outputs_dict, sample=sample
+                )
+
+                # call dx run to start jobs
                 job_id = call_per_sample(
                     sample, args, executable, input_dict, output_dirs_dict,
                     fastq_details
                 )
+
+                # call describe on job id to get file ids of all outputs
+                job_output_dict = get_job_output(
+                    job_output_dict, job_id, sample=sample
+                )
         elif params['per_sample'] == False:
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
-            
+
+            # check for any more inputs to add
+            input_dict = populate_input_dict(input_dict, job_outputs_dict)
+
             # passing all samples to workflow
             print(f'Calling {params["name"]} for all samples')
             call_all_samples(
                 args, executable, input_dict, output_dirs_dict, fastq_details
             )
-            pass
+
+            # call describe on job id to get file ids of all outputs
+            job_output_dict = get_job_output(job_output_dict, job_id)
         else:
             # not defined if running per sample or not, exiting
             raise ValueError(
-                f"Missing per_sample declaration for {executable}, please check the config"
+                f"Missing per_sample declaration for {executable} ",
+                "Please check the config and add per_sample parameter"
             )
+        
+        # job called, store output file ids in dict
 
-
-
+    print("Completed calling jobs")
 
 if __name__ == "__main__":
     main()
