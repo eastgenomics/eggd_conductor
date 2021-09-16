@@ -4,6 +4,7 @@
         "workflow-G21Gx3Q433Gp80fK7z5jZ5XY": {
             "name": "dias_single_testing",
             "per_sample": true,
+            "process_fastqs": true,
             "inputs": {
                 "stage-Fy6fpk040vZZPPbq96Jb2KfK.sample": "INPUT-SAMPLE_NAME",
                 "stage-Fy6fvYQ40vZV1y8p9GYKPYyQ.bed": {
@@ -20,6 +21,18 @@
                 "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": "INPUT-R1-R2",
                 "stage-G21GzGj433Gky42j42Q5bJkf.input_bed": {
                     "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
+                },
+            "output_dirs": {
+                "stage-Fy6fpV840vZZ0v6J8qBQYqZF": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fq5840vZfYPKj25827FbZ": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fqQj40vZqfGBg6YXxyV1x": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fqf840vZx8V5KBzfYZvPg": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fqy040vZV3Gj24vppvJgZ": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G21GzGj433Gky42j42Q5bJkf": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fvx040vZfybXg85Zgkjv0": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fx2Q40vZbFVxZ283xXGVY": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy6fvYQ40vZV1y8p9GYKPYyQ": "/output/OUT-FOLDER/APP-NAME"
                 }
             }
         },
@@ -32,11 +45,105 @@
                 },
                 "stage-Fq1BPKj433Gx3K4Y8J35j0fv.prefix": "NA12878",
                 "stage-Fq1BPKj433Gx3K4Y8J35j0fv.query_vcf": {
-                    "$dnanexus_link": "file-G4jZ58846xJpbfb74jbBj9Xq"
+                    "$dnanexus_link": "INPUTS-{NA12878}.variants_vcf"
                 },
                 "stage-Fybykxj433GV7vJKFGf3yVkK.SampleSheet": {
-                    "$dnanexus_link": "file-G4jQj704X8JqvVvJ4bg76YqX"
+                    "$dnanexus_link": "INPUTS-samplesheet"
                 }
+            },
+            "output_dirs": {
+                "stage-Fybykxj433GV7vJKFGf3yVkK": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fq1BPKj433Gx3K4Y8J35j0fv": "/output/OUT-FOLDER/APP-NAME"
+            }
+        },
+        "workflow-G2qf48Q433GpjyxZ6x9vB4p1": {
+            "name": "reports",
+            "per_sample": true,
+            "process_fastqs": false,
+            "inputs": {
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.nirvana_genes2transcripts": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-G2gjxVj433GqpFB3K45bZx6V"
+                    }
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.annotated_vcf": {
+                    "$dnanexus_link": "file-G29Px1j4kG873XkZ93ZZygxJ"
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.genepanels_file": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-G2gg1F0433GjQbzVKgYpQfX0"
+                    }
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.raw_vcf": {
+                    "$dnanexus_link": "file-G29PB7Q487xPZKXQ42BPPByz"
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.flagstat_file": {
+                    "$dnanexus_link": "file-G29PbQ84vVybyzJj4246G5fb"
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.sample_coverage_file": {
+                    "$dnanexus_link": "file-G29Pvx84gppFY2Zf41YqgGpq"
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.list_panel_names_genes": "R27.1a_Congenital malformation and dysmorphism syndromes - microarray and sequence (DDG2P)_P",
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.bioinformatic_manifest": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-G2gg12Q433Gp47b0JGGzZXZB"
+                    }
+                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.sample_coverage_index": {
+                    "$dnanexus_link": "file-G29Pvxj4gpp9BF1z4252gZGj"
+                },
+                "stage-Fyq5yy0433GXxz691bKyvjPJ.exons_nirvana": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-Fq18Yp0433GjB7172630p9Yv"
+                    }
+                },
+                "stage-Fyq5yy0433GXxz691bKyvjPJ.panel": "R27.1a_Congenital malformation and dysmorphism syndromes - microarray and sequence (DDG2P)_P",
+                "stage-Fyq5yy0433GXxz691bKyvjPJ.nirvana_genes2transcripts": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-G2gjxVj433GqpFB3K45bZx6V"
+                    }
+                },
+                "stage-Fyq5yy0433GXxz691bKyvjPJ.gene_panels": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-G2gg1F0433GjQbzVKgYpQfX0"
+                    }
+                },
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.limit": 100,
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.summary": true,
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.panel_bed": {
+                    "$dnanexus_link": {
+                        "analysis": "analysis-G3B3v0j4P4pQBX2b55b9zYkY",
+                        "stage": "stage-Fyq5yy0433GXxz691bKyvjPJ",
+                        "field": "bed_file",
+                        "wasInternal": true
+                    }
+                },
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.exons_nirvana": {
+                    "$dnanexus_link": {
+                        "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                        "id": "file-Fq18Yp0433GjB7172630p9Yv"
+                    }
+                },
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.mosdepth_files": [
+                {
+                    "$dnanexus_link": "file-G29Pb8Q4K5gzZKXQ42BPPFy4"
+                },
+                {
+                    "$dnanexus_link": "file-G29Pb884K5gp2jJ741g1Xv6g"
+                }
+                ],
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.name": "INPUT-SAMPLE_NAME"
+            },
+            "output_dirs": {
+                "stage-Fyq5ypj433GzxPK360B8Qfg5": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fyq5yy0433GXxz691bKyvjPJ": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fyq5z18433GfYZbp3vX1KqjB": "/output/OUT-FOLDER/APP-NAME"
             }
         }
     }

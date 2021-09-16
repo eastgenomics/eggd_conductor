@@ -40,7 +40,7 @@ main() {
             fi
         fi
     else
-        # applet run manually, should pass dir of data and (optionally) sample sheet
+        # applet run manually without sentinel file, should pass dir of data and (optionally) sample sheet
         if [ $sample_sheet ];
         then
             dx download $sample_sheet
