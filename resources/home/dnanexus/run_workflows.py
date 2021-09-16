@@ -209,16 +209,17 @@ def find_job_inputs(input_dict, key_path=[]):
 
 def replace_job_inputs(input_dict, job_input, output_file):
     """
-    Traverse through nested dictionary and replace any matching INPUT- with
-    given DNAnexus file id in correct format
+    Recursively traverse through nested dictionary and replace any matching
+    INPUT- with given DNAnexus file id in correct format.
+
     job_input = INPUTS-{output name (i.e. vcf)}
     output_file = dx file id
     """
-    for k, v in input_dict.items():
-        if isinstance(v, dict):
-            replace_job_inputs(v, job_input, output_file)
-        if v == job_input:
-            input_dict[k] = output_file
+    for key, val in input_dict.items():
+        if isinstance(val, dict):
+            replace_job_inputs(val, job_input, output_file)
+        if val == job_input:
+            input_dict[key] = output_file
 
 
 def populate_input_dict(job_outputs_dict, input_dict, sample=None):
@@ -279,7 +280,7 @@ def get_job_output(job_output_dict, job_id, sample=None):
 
 
 def call_per_sample(
-    sample, args, executable, input_dict, output_dirs_dict, fastq_details=None
+        sample, args, executable, input_dict, output_dirs_dict, fastq_details=None
     ):
     """
     Call executable per sample
@@ -406,15 +407,15 @@ def main():
         if "process_fastqs" in params:
             input_dict = add_fastqs(input_dict, fastq_details, sample)
 
-        # add sample name to config fields where needed
-        input_dict = add_sample_name(input_dict, sample)
-
         if params['per_sample']:
             # run workflow / app on every sample
             print(f'Calling {params["name"]} per sample')
 
             # loop over given sample and call workflow
             for sample in args.samples:
+                # add sample name where required
+                input_dict = add_sample_name(input_dict, sample)
+
                 # check for any more inputs to add
                 input_dict = populate_input_dict(
                     input_dict, job_outputs_dict, sample=sample
