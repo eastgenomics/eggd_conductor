@@ -10,6 +10,7 @@ from datetime import datetime
 from io import StringIO
 import json
 import os
+import re
 import sys
 
 import dxpy
@@ -233,31 +234,44 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None):
         job_outputs_dict = job_outputs_dict[sample]
 
     for job_input in find_job_inputs(input_dict):
-        # find_job_inputs() returns generator, loop through for each input
+        # find_job_inputs() returns generator, loop through for each input to
+        # replace in the input dict
 
-        # for each input, find it's associated file ids from previous job
-        # output dict and replace in input_dict
-        input_name = job_input.replace('INPUTS-', '')  # just the output name
+        # for each input, use the workflow/app id to get the job id containing
+        # the required output
+        match = re.search(r'(workflow|app|applet)-[A-Za-z0-9]*', job_input)
+        if not match:
+            # doesn't seem to be a valid app or worklfow, we cry
+            raise RuntimeError(
+                f'{job_input} does not seem to be a valid app or workflow'
+            )
 
-        # job output has 'stage-id.filename', find full key name then select id
-        output_file = [x for x in job_outputs_dict.keys() if input_name in x]
+        executable_id = match.group(0)
+
+        # job output has workflow-id: job-id, select job id for appropriate
+        # workflow id
+        job_id = [x for x in job_outputs_dict.keys() if executable_id in x]
 
         # job out should always(?) only have one output with given name, exit
         # for now if more found
-        if len(output_file) > 1:
+        if len(job_id) > 1:
             raise RuntimeError(
-                f'More than one output file found for {job_input}: {output_file}'
+                f'More than one job found for {job_input}: {job_id}'
             )
 
-        if not output_file:
+        if not job_id:
             raise ValueError((
                 f"No file found for {job_input} in output files from previous "
                 "workflow, please check config INPUTS- matches output names"
             ))
 
+        # format for parsing into input_dict
+        output_file = job_input.replace('INPUT-', '').replace(executable_id, '')
+        output_file = f'{job_id}:{output_file}'
+
         # get file id for given field from dict to replace in input_dict
-        output_file = job_outputs_dict[output_file[0]]
-        replace_job_inputs(input_dict, job_input, output_file[0])
+
+        replace_job_inputs(input_dict, job_input, output_file)
 
     return input_dict
 
@@ -427,10 +441,9 @@ def main():
                     fastq_details
                 )
 
-                # call describe on job id to get file ids of all outputs
-                job_output_dict = get_job_output(
-                    job_output_dict, job_id, sample=sample
-                )
+                # map workflow id to created dx job id
+                job_outputs_dict[sample][executable] = job_id
+
         elif params['per_sample'] == False:
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
@@ -444,8 +457,8 @@ def main():
                 args, executable, input_dict, output_dirs_dict, fastq_details
             )
 
-            # call describe on job id to get file ids of all outputs
-            job_output_dict = get_job_output(job_output_dict, job_id)
+            # map workflow id to created dx job id
+            job_outputs_dict[executable] = job_id
         else:
             # not defined if running per sample or not, exiting
             raise ValueError(
@@ -456,6 +469,7 @@ def main():
         # job called, store output file ids in dict
 
     print("Completed calling jobs")
+
 
 if __name__ == "__main__":
     main()
