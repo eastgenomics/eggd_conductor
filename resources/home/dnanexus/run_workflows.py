@@ -142,12 +142,14 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
         return output_dirs_dict
 
 
-def add_fastqs(input_dict, fastq_details, sample):
+def add_fastqs(input_dict, fastq_details, sample=None):
     """
     If process_fastqs set to true, function is called to populate input dict
     with appropriate fastq file ids
     """
-    sample_fastqs = [x for x in fastq_details if sample in x[1]]
+    if sample:
+        # sample specified => running per sample, if not using all fastqs
+        sample_fastqs = [x for x in fastq_details if sample in x[1]]
 
     # fastqs should always be named with R1/2_001
     r1_fastqs = [x for x in sample_fastqs if 'R1_001.fastq' in x[1]]
@@ -417,16 +419,16 @@ def main():
         # name is the human readable name of each stage defined in the config
         populate_output_dir_config(executable, output_dirs_dict, out_folder)
 
-        # check if stage requires fastqs passing
-        if "process_fastqs" in params:
-            input_dict = add_fastqs(input_dict, fastq_details, sample)
-
         if params['per_sample']:
             # run workflow / app on every sample
             print(f'Calling {params["name"]} per sample')
 
             # loop over given sample and call workflow
             for sample in args.samples:
+                # check if stage requires fastqs passing
+                if "process_fastqs" in params:
+                    input_dict = add_fastqs(input_dict, fastq_details, sample)
+                
                 # add sample name where required
                 input_dict = add_sample_name(input_dict, sample)
 
@@ -448,6 +450,9 @@ def main():
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
 
+            if "process_fastqs" in params:
+                input_dict = add_fastqs(input_dict, fastq_details)
+
             # check for any more inputs to add
             input_dict = populate_input_dict(input_dict, job_outputs_dict)
 
@@ -465,7 +470,7 @@ def main():
                 f"Missing per_sample declaration for {executable} ",
                 "Please check the config and add per_sample parameter"
             )
-        
+
         # job called, store output file ids in dict
 
     print("Completed calling jobs")
