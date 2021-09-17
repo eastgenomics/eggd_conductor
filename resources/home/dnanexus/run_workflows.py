@@ -85,6 +85,38 @@ def create_project(args):
     return args
 
 
+def create_folder(args, out_folder):
+    """
+    Create output folder in DNAnexus project
+    """
+    for i in range(1, 100):
+        out_folder = f'{out_folder}-{i}'
+        try:
+            dxpy.api.project_new_folder(
+                args.dx_project_id,
+                input_params={'folder': out_folder}
+            )
+            print(f'Created output folder: {out_folder}')
+            break
+        except dxpy.exceptions.ResourceNotFound:
+            # work around for bug in dxpy, if parents True is specified
+            # and folder already exists it will not correctly raise
+            # exception, therefore first try without to force creating
+            # parent /output/, then the normal try will correctly increment
+            # the numbering
+            print("/output/ not yet created, trying again")
+            dxpy.api.project_new_folder(
+                args.dx_project_id,
+                input_params={'folder': out_folder, 'parents': True}
+            )
+            print(f'Created output folder: {out_folder}')
+            break
+        except dxpy.exceptions.InvalidState:
+            # catch exception where folder already exists
+            print(f'{out_folder} already exists, creating new folder')
+            continue
+
+
 def call_dx_run(args, executable, input_dict, output_dirs_dict):
     """
     Call workflow / app, returns id of submitted job
@@ -92,14 +124,14 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict):
     job_id = StringIO()
 
     if 'workflow-' in executable:
-        with redirect_stdout(job_id):
-            dxpy.bindings.dxworkflow.DXWorkflow(
-                dxid=executable, project=args.dx_project
-            ).run(workflow_input=input_dict, stage_folders=output_dirs_dict)
+        # with redirect_stdout(job_id):
+        dxpy.bindings.dxworkflow.DXWorkflow(
+            dxid=executable, project=args.dx_project_id
+        ).run(workflow_input=input_dict, stage_folders=output_dirs_dict)
     elif 'applet-' in executable:
         with redirect_stdout(job_id):
             dxpy.bindings.dxapp.DXApp(dxid=executable).run(
-                executable_input=input_dict, project=args.dx_project,
+                executable_input=input_dict, project=args.dx_project_id,
                 folder=output_dirs_dict[executable]
             )
     else:
@@ -108,13 +140,18 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict):
 
     job_id = job_id.getvalue()
 
+    print(f'Started analysis in project {args.dx_project_id}: {job_id} ')
+
     return job_id
 
 
 def populate_output_dir_config(executable, output_dirs_dict, out_folder):
     """
     Loops over stages in dict for output directory naming and adds worlflow /
-    app name 
+    app name.
+    # pass in app/workflow name to each apps output directory path
+    # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
+    # name is the human readable name of each stage defined in the config
     """
     for stage, dir in output_dirs_dict.items():
         if "OUT-FOLDER" in dir:
@@ -205,7 +242,7 @@ def find_job_inputs(input_dict, key_path=[]):
         if isinstance(value, dict):
             key_path.append(key)
             yield from find_job_inputs(value, key_path)
-        elif value.startswith(input_prefix):
+        elif input_prefix in value:
             key_path.append(key)
             yield value
 
@@ -233,9 +270,30 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None):
     outputs of previous jobs and stored in the job_outputs_dict and can
     be parsed in to link up outputs
     """
+    # first checking if any INPUT- in dict to fill, if not return
+    # stops error of trying to select sample from output dict if this is the
+    # first job and won't have anything in the dict or any more inputs to fill
+    print('in func', input_dict)
+    inputs = find_job_inputs(input_dict)
+    _empty = object()
+
+    if next(inputs, _empty) == _empty:
+        # generator returned empty object => no inputs found to fill
+        print('No more inputs to fill')
+        return input_dict
+
     if sample:
         # ensure we only use outputs for given sample for per sample workflow
-        job_outputs_dict = job_outputs_dict[sample]
+        try:
+            job_outputs_dict = job_outputs_dict[sample]
+        except KeyError:
+            raise KeyError((
+                f'{sample} not found in output dict, this is most likely from '
+                'this being the first executable called and having a misconfigured '
+                'input section in config (i.e. misspelt input) that should have '
+                'been parsed earlier. Check config and try again. Input dict given: '
+                f'{input_dict}'
+            ))
 
     for job_input in find_job_inputs(input_dict):
         # find_job_inputs() returns generator, loop through for each input to
@@ -304,7 +362,6 @@ def call_per_sample(
     Call executable per sample
     """
     # call workflow for given sample wth configured input dict
-    sys.exit()
     job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
 
     return job_id
@@ -332,7 +389,7 @@ def parse_args():
         help='list of sample names to run analysis on'
     )
     parser.add_argument(
-        '--dx_project', required=False,
+        '--dx_project_id', required=False,
         help='DNAnexus project to use to run analysis in'
     )
     parser.add_argument(
@@ -365,7 +422,7 @@ def main():
     config = load_config(args.config_file)
     run_time = time_stamp()
 
-    if not args.dx_project:
+    if not args.dx_project_id:
         # output project not specified, create new one from run id
         args = create_project(args)
 
@@ -409,47 +466,11 @@ def main():
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
-
-        # copy config to add sample info to for calling workflow
-        # select input and output dict from config for current workflow / app
-        sample_config = deepcopy(config)
-        input_dict = sample_config['executables'][executable]['inputs']
-        output_dirs_dict = sample_config['executables'][executable]['output_dirs']
+        print(f'Configuring {executable} to start jobs')
 
         # create output folder for workflow, unique by datetime stamp
-        for i in range(1, 100):
-            out_folder = f'/output/{params["name"]}-{run_time}-{i}'
-            try:
-                dxpy.api.project_new_folder(
-                    args.dx_project_id,
-                    input_params={'folder': out_folder}
-                )
-                print(f'Created output folder: {out_folder}')
-                break
-            except dxpy.exceptions.ResourceNotFound:
-                # work around for bug in dxpy, if parents True is specified
-                # and folder already exists it will not correctly raise
-                # exception, therefore first try without to force creating
-                # parent /output, then the normal try will correctly increment
-                # the numbering
-                print("/output/ not yet created, trying again")
-                dxpy.api.project_new_folder(
-                    args.dx_project_id,
-                    input_params={'folder': out_folder, 'parents': True}
-                )
-                print(f'Created output folder: {out_folder}')
-                break
-            except dxpy.exceptions.InvalidState:
-                # catch exception where folder already exists
-                print(f'{out_folder} already exists, creating new folder')
-                continue
-
-
-        sys.exit()
-        # pass in app/workflow name to each apps output directory path
-        # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
-        # name is the human readable name of each stage defined in the config
-        populate_output_dir_config(executable, output_dirs_dict, out_folder)
+        out_folder = f'/output/{params["name"]}-{run_time}'
+        create_folder(args, out_folder)
 
         if params['per_sample']:
             # run workflow / app on every sample
@@ -457,6 +478,15 @@ def main():
 
             # loop over given sample and call workflow
             for sample in args.samples:
+                # copy config to add sample info to for calling workflow
+                # select input and output dict from config for current workflow / app
+                sample_config = deepcopy(config)
+                input_dict = sample_config['executables'][executable]['inputs']
+                output_dirs_dict = sample_config['executables'][executable]['output_dirs']
+
+                # create output directory structure in config
+                populate_output_dir_config(executable, output_dirs_dict, out_folder)
+
                 # check if stage requires fastqs passing
                 if "process_fastqs" in params:
                     input_dict = add_fastqs(input_dict, fastq_details, sample)
@@ -466,21 +496,33 @@ def main():
 
                 # check for any more inputs to add
                 input_dict = populate_input_dict(
-                    input_dict, job_outputs_dict, sample=sample
+                    job_outputs_dict, input_dict, sample=sample
                 )
 
                 # call dx run to start jobs
+                print(f"Calling {executable} on sample {sample}")
                 job_id = call_per_sample(
                     sample, args, executable, input_dict, output_dirs_dict,
                     fastq_details
                 )
 
                 # map workflow id to created dx job id
-                job_outputs_dict[sample][executable] = job_id
+                # job_outputs_dict[sample][executable] = job_id
+                print('DONEEEEEE')
+                sys.exit()
 
         elif params['per_sample'] == False:
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
+
+            # copy config to add sample info to for calling workflow
+            # select input and output dict from config for current workflow / app
+            sample_config = deepcopy(config)
+            input_dict = sample_config['executables'][executable]['inputs']
+            output_dirs_dict = sample_config['executables'][executable]['output_dirs']
+
+            # create output directory structure in config
+            populate_output_dir_config(executable, output_dirs_dict, out_folder)
 
             if "process_fastqs" in params:
                 input_dict = add_fastqs(input_dict, fastq_details)
@@ -496,6 +538,8 @@ def main():
 
             # map workflow id to created dx job id
             job_outputs_dict[executable] = job_id
+
+            sys.exit()
         else:
             # not defined if running per sample or not, exiting
             raise ValueError(
