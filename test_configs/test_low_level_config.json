@@ -67,9 +67,7 @@
                         "id": "file-G2gjxVj433GqpFB3K45bZx6V"
                     }
                 },
-                "stage-Fyq5ypj433GzxPK360B8Qfg5.annotated_vcf": {
-                    "$dnanexus_link": "file-G29Px1j4kG873XkZ93ZZygxJ"
-                },
+                "stage-Fyq5ypj433GzxPK360B8Qfg5.annotated_vcf": "workflow-id:annotated_vcf",
                 "stage-Fyq5ypj433GzxPK360B8Qfg5.genepanels_file": {
                     "$dnanexus_link": {
                         "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
