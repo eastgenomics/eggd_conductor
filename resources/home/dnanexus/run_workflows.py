@@ -5,9 +5,7 @@ Jethro Rainford 210902
 """
 import argparse
 from copy import deepcopy
-from contextlib import redirect_stdout
 from datetime import datetime
-from io import StringIO
 import json
 import re
 import sys
@@ -32,7 +30,7 @@ def load_config(config_file) -> dict:
     return config
 
 
-def find_project(project_name):
+def find_dx_project(project_name) -> str:
     """
     Check if project already exists in DNAnexus
     """
@@ -52,27 +50,25 @@ def find_project(project_name):
         print(f'More than one project found for name: {project_name}: {names}')
         print(f'Using project: {dx_projects[0]["describe"]["name"]}')
 
-    return dx_projects[0]['id']
+    dx_project = dx_projects[0]['id']
+
+    return dx_project
 
 
-def create_project(args):
+def create_dx_project(args) -> argparse.ArgumentParser:
     """
     Create new project in DNAnexus
     """
     output_project = f'002_{args.run_id}_{args.assay_code}'
 
-    project_id = find_project(output_project)
+    project_id = find_dx_project(output_project)
 
     if not project_id:
         # create new project and capture returned project id and store
-        project_id = StringIO()
-        with redirect_stdout(project_id):
-            dxpy.bindings.dxproject.DXProject().new(
-                name=output_project,
-                summary=f'Analysis of run {args.run_id} with {args.assay_code}'
-            )
-        project_id = project_id.getvalue()
-
+        project_id = dxpy.bindings.dxproject.DXProject().new(
+            name=output_project,
+            summary=f'Analysis of run {args.run_id} with {args.assay_code}'
+        )
         print(
             f'Created new project for output: {output_project} ({project_id})'
         )
@@ -84,11 +80,12 @@ def create_project(args):
     return args
 
 
-def create_folder(args, out_folder):
+def create_dx_folder(args, out_folder):
     """
     Create output folder in DNAnexus project
     """
     for i in range(1, 100):
+        # sanity check, should only be 1 or 2 already existing at most
         out_folder = f'{out_folder}-{i}'
         try:
             dxpy.api.project_new_folder(
@@ -111,7 +108,7 @@ def create_folder(args, out_folder):
             print(f'Created output folder: {out_folder}')
             break
         except dxpy.exceptions.InvalidState:
-            # catch exception where folder already exists
+            # catch exception where folder already exists, increment number
             print(f'{out_folder} already exists, creating new folder')
             continue
 
@@ -120,64 +117,22 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict):
     """
     Call workflow / app, returns id of submitted job
     """
-    job_id = StringIO()
-
     if 'workflow-' in executable:
-        # with redirect_stdout(job_id):
-        dxpy.bindings.dxworkflow.DXWorkflow(
+        job_id = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
         ).run(workflow_input=input_dict, stage_folders=output_dirs_dict)
     elif 'applet-' in executable:
-        with redirect_stdout(job_id):
-            dxpy.bindings.dxapp.DXApp(dxid=executable).run(
-                executable_input=input_dict, project=args.dx_project_id,
-                folder=output_dirs_dict[executable]
-            )
+        job_id = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
+            executable_input=input_dict, project=args.dx_project_id,
+            folder=output_dirs_dict[executable]
+        )
     else:
         # doesn't appear to be valid workflow or app
         raise Exception
 
-    job_id = job_id.getvalue()
-
     print(f'Started analysis in project {args.dx_project_id}: {job_id} ')
 
     return job_id
-
-
-def populate_output_dir_config(executable, output_dirs_dict, out_folder):
-    """
-    Loops over stages in dict for output directory naming and adds worlflow /
-    app name.
-    # pass in app/workflow name to each apps output directory path
-    # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
-    # name is the human readable name of each stage defined in the config
-    """
-    for stage, dir in output_dirs_dict.items():
-        if "OUT-FOLDER" in dir:
-            output_dirs_dict[stage] = dir.replace("OUT-FOLDER", out_folder)
-        if "APP-NAME" in dir:
-            # use describe method to get actual name of app with version
-            if 'workflow-' in executable:
-                workflow_details = dxpy.api.workflow_describe(executable)
-                stage_app_id = [
-                    (x['id'], x['executable'])
-                    for x in workflow_details['stages']
-                    if x['id'] == stage
-                ]
-                if stage_app_id:
-                    # get applet id for given stage id
-                    stage_app_id = stage_app_id[0][1]
-                    applet_details = dxpy.api.workflow_describe(stage_app_id)
-                    app_name = applet_details['name']
-                else:
-                    # not found app ID for stage, going to print message
-                    # and continue with using stage id
-                    print('Error finding applet ID for naming output dir')
-                    stage_app_id = stage
-
-                output_dirs_dict[stage] = dir.replace("APP-NAME", app_name)
-
-        return output_dirs_dict
 
 
 def add_fastqs(input_dict, fastq_details, sample=None):
@@ -337,39 +292,40 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None):
     return input_dict
 
 
-def get_job_output(job_output_dict, job_id, sample=None):
+def populate_output_dir_config(executable, output_dirs_dict, out_folder):
     """
-    Get all file ids for given job and add to dict of all output files
-
+    Loops over stages in dict for output directory naming and adds worlflow /
+    app name.
+    # pass in app/workflow name to each apps output directory path
+    # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
+    # name is the human readable name of each stage defined in the config
     """
-    job_details = dxpy.api.analysis_describe(job_id)
-    job_output = job_details['output']
+    for stage, dir in output_dirs_dict.items():
+        if "OUT-FOLDER" in dir:
+            output_dirs_dict[stage] = dir.replace("OUT-FOLDER", out_folder)
+        if "APP-NAME" in dir:
+            # use describe method to get actual name of app with version
+            if 'workflow-' in executable:
+                workflow_details = dxpy.api.workflow_describe(executable)
+                stage_app_id = [
+                    (x['id'], x['executable'])
+                    for x in workflow_details['stages']
+                    if x['id'] == stage
+                ]
+                if stage_app_id:
+                    # get applet id for given stage id
+                    stage_app_id = stage_app_id[0][1]
+                    applet_details = dxpy.api.workflow_describe(stage_app_id)
+                    app_name = applet_details['name']
+                else:
+                    # not found app ID for stage, going to print message
+                    # and continue with using stage id
+                    print('Error finding applet ID for naming output dir')
+                    stage_app_id = stage
 
-    if sample:
-        # job run per sample, store output by sample name
-        job_output_dict[sample] = job_output
-    else:
-        job_output.update(job_output)
+                output_dirs_dict[stage] = dir.replace("APP-NAME", app_name)
 
-    return job_output
-
-
-def call_per_sample(
-        sample, args, executable, input_dict, output_dirs_dict, fastq_details=None
-    ):
-    """
-    Call executable per sample
-    """
-    # call workflow for given sample wth configured input dict
-    job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
-
-    return job_id
-
-
-def call_all_samples(args, executable, input_dict, output_dirs_dict, fastq_details):
-    """
-    """
-    pass
+        return output_dirs_dict
 
 
 def parse_args():
@@ -423,7 +379,7 @@ def main():
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        args = create_project(args)
+        args = create_dx_project(args)
 
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing
@@ -458,6 +414,13 @@ def main():
             '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L002_R2_001.fastq.gz')
         ]
 
+    # check per_sample defined for all workflows / apps before starting
+    for executable in config['executables'].items():
+        assert 'per_sample' in executable.keys(), (
+            f"per_sample key missing from {executable} in config, check config"
+            "and re run"
+        )
+
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
     job_outputs_dict = {}
@@ -469,9 +432,9 @@ def main():
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
-        create_folder(args, out_folder)
+        create_dx_folder(args, out_folder)
 
-        if params['per_sample']:
+        if params['per_sample'] is True:
             # run workflow / app on every sample
             print(f'Calling {params["name"]} per sample')
 
@@ -480,6 +443,7 @@ def main():
                 # copy config to add sample info to for calling workflow
                 # select input and output dict from config for current workflow / app
                 sample_config = deepcopy(config)
+
                 input_dict = sample_config['executables'][executable]['inputs']
                 output_dirs_dict = sample_config['executables'][executable]['output_dirs']
 
@@ -500,17 +464,19 @@ def main():
 
                 # call dx run to start jobs
                 print(f"Calling {executable} on sample {sample}")
-                job_id = call_per_sample(
-                    sample, args, executable, input_dict, output_dirs_dict,
-                    fastq_details
-                )
+                job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
 
-                # map workflow id to created dx job id
-                # job_outputs_dict[sample][executable] = job_id
+                if sample not in job_outputs_dict.keys():
+                    # create new dict to store sample outputs
+                    job_outputs_dict[sample] = {}
+
+                # map workflow id to dx job id for sample
+                job_outputs_dict[sample].update({executable: job_id})
+
                 print('DONEEEEEE')
                 sys.exit()
 
-        elif params['per_sample'] == False:
+        elif params['per_sample'] is False:
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
 
@@ -531,19 +497,17 @@ def main():
 
             # passing all samples to workflow
             print(f'Calling {params["name"]} for all samples')
-            call_all_samples(
-                args, executable, input_dict, output_dirs_dict, fastq_details
-            )
+            job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
 
             # map workflow id to created dx job id
             job_outputs_dict[executable] = job_id
 
             sys.exit()
         else:
-            # not defined if running per sample or not, exiting
+            # per_sample is not True or False, exit
             raise ValueError(
-                f"Missing per_sample declaration for {executable} ",
-                "Please check the config and add per_sample parameter"
+                f"per_sample declaration for {executable} is not True or "
+                f"False ({params['per_sample']}). Please check the config"
             )
 
         # job called, store output file ids in dict
