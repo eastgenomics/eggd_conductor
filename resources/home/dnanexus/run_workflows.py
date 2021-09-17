@@ -9,7 +9,6 @@ from contextlib import redirect_stdout
 from datetime import datetime
 from io import StringIO
 import json
-import os
 import re
 import sys
 
