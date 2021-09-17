@@ -74,7 +74,9 @@ def create_project(args):
             )
         project_id = project_id.getvalue()
 
-        print(f'Created new project for output: {output_project}')
+        print(
+            f'Created new project for output: {output_project} ({project_id})'
+        )
     else:
         print(f'Using existing found project: {output_project} ({project_id})')
 
@@ -302,6 +304,7 @@ def call_per_sample(
     Call executable per sample
     """
     # call workflow for given sample wth configured input dict
+    sys.exit()
     job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
 
     return job_id
@@ -387,12 +390,16 @@ def main():
         # what is being passed
         fastq_details = []
 
-        # test data
+        # test data - myeloid sample
         fastq_details = [
-            ('file-Fykqgj84X7kV5VQ33fXVvzFV', 'X211628_S19_L003_R1_001.fastq.gz'),
-            ('file-Fykqgp04X7kZPXQ6JzYjV5kj', 'X211628_S19_L004_R1_001.fastq.gz'),
-            ('file-Fykqgkj4X7kV5VQ33fXVvzFY', 'X211628_S19_L003_R2_001.fastq.gz'),
-            ('file-Fykqgk84X7kkXzk73fV6jZ6j', 'X211628_S19_L004_R2_001.fastq.gz')
+            ('file-G50BZJQ4BQBZz22v4jVkP5f0',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L001_R1_001.fastq.gz'),
+            ('file-G50BbYj4BQBV0pQF4ZBbxXJF',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L002_R1_001.fastq.gz'),
+            ('file-G50BZK04BQBbfB794bBZQ5qV',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L001_R2_001.fastq.gz'),
+            ('file-G50BbZ84BQBvqx1xB8KBgBYJ',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L002_R2_001.fastq.gz')
         ]
 
     # dict to add all stage output names and file ids for every sample to,
@@ -410,10 +417,35 @@ def main():
         output_dirs_dict = sample_config['executables'][executable]['output_dirs']
 
         # create output folder for workflow, unique by datetime stamp
-        out_folder = f'{params["name"]}-{run_time}'
-        dxpy.bindings.dxproject.DXContainer(
-            dxid=args.dx_project_id).new_folder(out_folder)
+        for i in range(1, 100):
+            out_folder = f'/output/{params["name"]}-{run_time}-{i}'
+            try:
+                dxpy.api.project_new_folder(
+                    args.dx_project_id,
+                    input_params={'folder': out_folder}
+                )
+                print(f'Created output folder: {out_folder}')
+                break
+            except dxpy.exceptions.ResourceNotFound:
+                # work around for bug in dxpy, if parents True is specified
+                # and folder already exists it will not correctly raise
+                # exception, therefore first try without to force creating
+                # parent /output, then the normal try will correctly increment
+                # the numbering
+                print("/output/ not yet created, trying again")
+                dxpy.api.project_new_folder(
+                    args.dx_project_id,
+                    input_params={'folder': out_folder, 'parents': True}
+                )
+                print(f'Created output folder: {out_folder}')
+                break
+            except dxpy.exceptions.InvalidState:
+                # catch exception where folder already exists
+                print(f'{out_folder} already exists, creating new folder')
+                continue
 
+
+        sys.exit()
         # pass in app/workflow name to each apps output directory path
         # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
         # name is the human readable name of each stage defined in the config
@@ -428,7 +460,7 @@ def main():
                 # check if stage requires fastqs passing
                 if "process_fastqs" in params:
                     input_dict = add_fastqs(input_dict, fastq_details, sample)
-                
+
                 # add sample name where required
                 input_dict = add_sample_name(input_dict, sample)
 
