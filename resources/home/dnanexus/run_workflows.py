@@ -112,6 +112,8 @@ def create_dx_folder(args, out_folder):
             print(f'{out_folder} already exists, creating new folder')
             continue
 
+    return out_folder
+
 
 def call_dx_run(args, executable, input_dict, output_dirs_dict):
     """
@@ -130,7 +132,7 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict):
         # doesn't appear to be valid workflow or app
         raise Exception
 
-    print(f'Started analysis in project {args.dx_project_id}: {job_id} ')
+    print(f'Started analysis in project {args.dx_project_id}, job: {job_id} ')
 
     return job_id
 
@@ -227,13 +229,11 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None):
     # first checking if any INPUT- in dict to fill, if not return
     # stops error of trying to select sample from output dict if this is the
     # first job and won't have anything in the dict or any more inputs to fill
-    print('in func', input_dict)
     inputs = find_job_inputs(input_dict)
     _empty = object()
 
     if next(inputs, _empty) == _empty:
         # generator returned empty object => no inputs found to fill
-        print('No more inputs to fill')
         return input_dict
 
     if sample:
@@ -381,6 +381,9 @@ def main():
         # output project not specified, create new one from run id
         args = create_dx_project(args)
 
+    # set context for running jobs
+    dxpy.set_workspace_id(args.dx_project_id)
+
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing
         bcl2fastq_job = dxpy.bindings.dxjob.DXJob(
@@ -415,8 +418,8 @@ def main():
         ]
 
     # check per_sample defined for all workflows / apps before starting
-    for executable in config['executables'].items():
-        assert 'per_sample' in executable.keys(), (
+    for executable, params in config['executables'].items():
+        assert 'per_sample' in params.keys(), (
             f"per_sample key missing from {executable} in config, check config"
             "and re run"
         )
@@ -432,7 +435,7 @@ def main():
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
-        create_dx_folder(args, out_folder)
+        out_folder = create_dx_folder(args, out_folder)
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
