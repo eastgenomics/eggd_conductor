@@ -144,11 +144,11 @@ def add_fastqs(input_dict, fastq_details, sample=None):
     """
     if sample:
         # sample specified => running per sample, if not using all fastqs
-        sample_fastqs = [x for x in fastq_details if sample in x[1]]
+        fastq_details = [x for x in fastq_details if sample in x[1]]
 
     # fastqs should always be named with R1/2_001
-    r1_fastqs = [x for x in sample_fastqs if 'R1_001.fastq' in x[1]]
-    r2_fastqs = [x for x in sample_fastqs if 'R2_001.fastq' in x[1]]
+    r1_fastqs = [x for x in fastq_details if 'R1_001.fastq' in x[1]]
+    r2_fastqs = [x for x in fastq_details if 'R2_001.fastq' in x[1]]
 
     print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
 
@@ -193,7 +193,7 @@ def find_job_inputs(input_dict, key_path=[]):
     with input fields to replace
     """
     input_prefix = 'INPUTS-'
-
+    print('dicttt', input_dict)
     for key, value in input_dict.items():
         if isinstance(value, dict):
             key_path.append(key)
@@ -301,8 +301,10 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
     # name is the human readable name of each stage defined in the config
     """
     for stage, dir in output_dirs_dict.items():
+        print(stage, dir)
         if "OUT-FOLDER" in dir:
-            output_dirs_dict[stage] = dir.replace("OUT-FOLDER", out_folder)
+            out_folder = out_folder.replace('/output/', '')
+            dir = dir.replace("OUT-FOLDER", out_folder)
         if "APP-NAME" in dir:
             # use describe method to get actual name of app with version
             if 'workflow-' in executable:
@@ -323,9 +325,10 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
                     print('Error finding applet ID for naming output dir')
                     stage_app_id = stage
 
-                output_dirs_dict[stage] = dir.replace("APP-NAME", app_name)
+            dir = dir.replace("APP-NAME", app_name)
+            output_dirs_dict[stage] = dir
 
-        return output_dirs_dict
+    return output_dirs_dict
 
 
 def parse_args():
@@ -408,6 +411,14 @@ def main():
         # test data - myeloid sample
         fastq_details = [
             ('file-G50BZJQ4BQBZz22v4jVkP5f0',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L001_R1_001.fastq.gz'),
+            ('file-G50BbYj4BQBV0pQF4ZBbxXJF',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L002_R1_001.fastq.gz'),
+            ('file-G50BZK04BQBbfB794bBZQ5qV',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L001_R2_001.fastq.gz'),
+            ('file-G50BbZ84BQBvqx1xB8KBgBYJ',
+            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L002_R2_001.fastq.gz'),
+            ('file-G50BZJQ4BQBZz22v4jVkP5f0',
             '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L001_R1_001.fastq.gz'),
             ('file-G50BbYj4BQBV0pQF4ZBbxXJF',
             '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L002_R1_001.fastq.gz'),
@@ -477,7 +488,6 @@ def main():
                 job_outputs_dict[sample].update({executable: job_id})
 
                 print('DONEEEEEE')
-                sys.exit()
 
         elif params['per_sample'] is False:
             # need to explicitly check if False vs not given, must always be
@@ -505,7 +515,6 @@ def main():
             # map workflow id to created dx job id
             job_outputs_dict[executable] = job_id
 
-            sys.exit()
         else:
             # per_sample is not True or False, exit
             raise ValueError(
@@ -513,7 +522,8 @@ def main():
                 f"False ({params['per_sample']}). Please check the config"
             )
 
-        # job called, store output file ids in dict
+        input_dict.clear()
+        output_dirs_dict.clear()
 
     print("Completed calling jobs")
 
