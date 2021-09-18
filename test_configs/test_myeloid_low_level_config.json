@@ -35,7 +35,9 @@
             "analysis": "analysis_2",
             "per_sample": false,
             "process_fastqs": true,
-            "inputs": "INPUT-R1-R2",
+            "inputs": {
+                "fastqs": "INPUT-R1-R2"
+            },
             "output_dirs": {
                 "applet-FvyXygj433GbKPPY0QY8ZKQG": "/output/OUT-FOLDER/APP-NAME"
             }

@@ -7,6 +7,7 @@ import argparse
 from copy import deepcopy
 from datetime import datetime
 import json
+import pprint
 import re
 import sys
 
@@ -119,20 +120,29 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict):
     """
     Call workflow / app, returns id of submitted job
     """
+    print(input_dict)
     if 'workflow-' in executable:
-        job_id = dxpy.bindings.dxworkflow.DXWorkflow(
+        job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
         ).run(workflow_input=input_dict, stage_folders=output_dirs_dict)
+    elif 'app-' in executable:
+        job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
+            app_input=input_dict, project=args.dx_project_id,
+            folder=output_dirs_dict[executable]
+        )
     elif 'applet-' in executable:
-        job_id = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
-            executable_input=input_dict, project=args.dx_project_id,
+        job_handle = dxpy.bindings.dxapplet.DXApplet(dxid=executable).run(
+            applet_input=input_dict, project=args.dx_project_id,
             folder=output_dirs_dict[executable]
         )
     else:
         # doesn't appear to be valid workflow or app
         raise Exception
 
-    print(f'Started analysis in project {args.dx_project_id}, job: {job_id} ')
+    job_details = job_handle.describe()
+    job_id = job_details.get('id')
+
+    print(f'Started analysis in project {args.dx_project_id}, job: {job_id}')
 
     return job_id
 
@@ -193,7 +203,7 @@ def find_job_inputs(input_dict, key_path=[]):
     with input fields to replace
     """
     input_prefix = 'INPUTS-'
-    print('dicttt', input_dict)
+
     for key, value in input_dict.items():
         if isinstance(value, dict):
             key_path.append(key)
@@ -301,7 +311,6 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
     # name is the human readable name of each stage defined in the config
     """
     for stage, dir in output_dirs_dict.items():
-        print(stage, dir)
         if "OUT-FOLDER" in dir:
             out_folder = out_folder.replace('/output/', '')
             dir = dir.replace("OUT-FOLDER", out_folder)
@@ -323,8 +332,12 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
                     # not found app ID for stage, going to print message
                     # and continue with using stage id
                     print('Error finding applet ID for naming output dir')
-                    stage_app_id = stage
+                    app_name = stage
+            elif 'app-' or 'applet-' in executable:
+                app_details = dxpy.api.workflow_describe(executable)
+                app_name = app_details['name']
 
+            # add app/workflow name to output dir name
             dir = dir.replace("APP-NAME", app_name)
             output_dirs_dict[stage] = dir
 
@@ -379,6 +392,8 @@ def main():
 
     config = load_config(args.config_file)
     run_time = time_stamp()
+
+    pp = pprint.PrettyPrinter(indent=4)
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
@@ -480,14 +495,15 @@ def main():
                 print(f"Calling {executable} on sample {sample}")
                 job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
 
+                pp.pprint(input_dict)
+                pp.pprint(output_dirs_dict)
+
                 if sample not in job_outputs_dict.keys():
                     # create new dict to store sample outputs
                     job_outputs_dict[sample] = {}
 
                 # map workflow id to dx job id for sample
                 job_outputs_dict[sample].update({executable: job_id})
-
-                print('DONEEEEEE')
 
         elif params['per_sample'] is False:
             # need to explicitly check if False vs not given, must always be
@@ -506,11 +522,14 @@ def main():
                 input_dict = add_fastqs(input_dict, fastq_details)
 
             # check for any more inputs to add
-            input_dict = populate_input_dict(input_dict, job_outputs_dict)
+            input_dict = populate_input_dict(job_outputs_dict, input_dict)
 
             # passing all samples to workflow
             print(f'Calling {params["name"]} for all samples')
             job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
+
+            pp.pprint(input_dict)
+            pp.pprint(output_dirs_dict)
 
             # map workflow id to created dx job id
             job_outputs_dict[executable] = job_id
