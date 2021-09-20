@@ -1,5 +1,9 @@
 """
-Script to call workflow(s) / apps from a given config
+Using a config, calls all workflows / apps defined in config for given samples.
+Handles correctly interpreting and parsing inputs, defining output projects
+and directory structures, and linking up outputs of jobs to inputs of
+subsequent jobs. See readme for full documentation of how to structure the
+config file.
 
 Jethro Rainford 210902
 """
@@ -430,20 +434,17 @@ def call_per_run(
     return job_outputs_dict
 
 
-def load_test_data(args):
+def load_test_data(args) -> list:
     """
-    Temp function for reading test samples from file to test calling workflow
+    Read in file ids of fastqs and sample names from test_samples file to test
+    calling workflows
     """
     with open(args.test_samples) as f:
         fastq_details = f.read().splitlines()
 
     fastq_details = [(x.split()[0], x.split()[1]) for x in fastq_details]
 
-    print(fastq_details)
-    sys.exit()
-
     return fastq_details
-
 
 
 def parse_args() -> argparse.ArgumentParser:
