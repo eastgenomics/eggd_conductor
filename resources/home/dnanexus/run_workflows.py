@@ -202,53 +202,49 @@ def add_sample_name(input_dict, sample) -> dict:
     return input_dict
 
 
-def find_job_inputs(input_dict) -> Generator:
+def find_job_inputs(identifier, input_dict) -> Generator:
     """
     Recursive function to find all values with identifying prefix, these
     require replacing with appropriate job output file ids. Returns a generator
-    with input fields to replace
+    with input fields to replace.
     """
-    input_prefix = 'INPUT-'
-
     for _, value in input_dict.items():
         if isinstance(value, dict):
-            yield from find_job_inputs(value)
+            yield from find_job_inputs(identifier, value)
         if isinstance(value, list):
             # found list of dicts
             for list_val in value:
-                yield from find_job_inputs(list_val)
-        elif input_prefix in value:
+                yield from find_job_inputs(identifier, list_val)
+        elif identifier in value:
             # found input to replace
             yield value
 
 
-def replace_job_inputs(input_dict, job_input, output_file) -> Generator:
+def replace_job_inputs(input_dict, job_input, job_id) -> Generator:
     """
     Recursively traverse through nested dictionary and replace any matching
-    INPUT- with given DNAnexus file id in correct format.
-
-    job_input = INPUT-{output name (i.e. vcf)}
-    output_file = dx file id
+    analysis_ correct analysis id to link job output to next job input.
     """
     for key, val in input_dict.items():
         if isinstance(val, dict):
-            replace_job_inputs(val, job_input, output_file)
+            # found a dict, continue
+            replace_job_inputs(val, job_input, job_id)
         if isinstance(val, list):
-            # found list of dicts
+            # found list of dicts, check each dict
             for list_val in val:
-                replace_job_inputs(list_val, job_input, output_file)
+                replace_job_inputs(list_val, job_input, job_id)
         if val == job_input:
-            input_dict[key] = output_file
+            # replace analysis_ with correct job id
+            input_dict[key] = job_id
 
 
 def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
     """
-    Check input dict for remaining 'INPUT-', any left *should* be
-    outputs of previous jobs and stored in the job_outputs_dict and can
-    be parsed in to link up outputs
+    Check input dict for 'analysis_', these will be for linking outputs of
+    previous jobs and stored in the job_outputs_dict to input of next job
     """
-    # first checking if any INPUT- in dict to fill, if not return
-    inputs = find_job_inputs(input_dict)
+    # first checking if any analysis_ in dict to fill, if not return
+    inputs = find_job_inputs('analysis_', input_dict)
     _empty = object()
 
     if next(inputs, _empty) == _empty:
@@ -269,25 +265,24 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
                 f'{input_dict}'
             ))
 
-    for job_input in find_job_inputs(input_dict):
+    for job_input in find_job_inputs('analysis_', input_dict):
         print('found job inputs to replace')
         # find_job_inputs() returns generator, loop through for each input to
         # replace in the input dict
 
         # for each input, use the analysis id to get the job id containing
         # the required output from the job outputs dict
-        match = re.search(r'analysis-[0-9]+', job_input)
+        match = re.search(r'^analysis_[0-9]{1,2}$', job_input)
         if not match:
             # doesn't seem to be a valid app or worklfow, we cry
             raise RuntimeError(
-                f'{job_input} does not seem to be a valid app or workflow'
+                f'{job_input} does not seem to analysis id'
             )
 
         analysis_id = match.group(0)
-        print(f'analysis id found: {analysis_id}')
 
-        # job output has analysis-id: job-id, select job id for appropriate
-        # analysis id
+        # job output has analysis-id: job-id
+        # select job id for appropriate analysis id
         job_id = [v for k, v in job_outputs_dict.items() if analysis_id == k]
 
         # job out should always(?) only have one output with given name, exit
@@ -299,18 +294,13 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
 
         if not job_id:
             raise ValueError((
-                f"No file found for {job_input} in output files from previous "
-                "workflow, please check config INPUT- matches output names"
+                f"No job id found for given analysis id: {job_input}, please "
+                "check that it has the same analysis as a previous job in the "
+                "config"
             ))
 
-        # format for parsing into input_dict
-        outfile = job_input.replace('INPUT-', '').replace(
-            analysis_id, job_id[0])
-
-        print('new job input: ', outfile)
-
         # get file id for given field from dict to replace in input_dict
-        replace_job_inputs(input_dict, job_input, outfile)
+        replace_job_inputs(input_dict, job_input, job_id[0])
 
     return input_dict
 
@@ -357,6 +347,21 @@ def populate_output_dir_config(executable, output_dict, out_folder) -> dict:
     return output_dict
 
 
+def check_all_inputs(input_dict) -> None:
+    """
+    Check for any remaining INPUT-, should be none, if there is most likely
+    either a typo in config or invalid input given => raise AssertionError
+    """
+    # checking if any INPUT- in dict still present
+    inputs = find_job_inputs('INPUT-', input_dict)
+    _empty = object()
+
+    assert next(inputs, _empty) == _empty, (
+        f"Error: unparsed INPUT- still in config, please check readme for "
+        f"valid input parameters. Input dict: {input_dict}"
+    )
+
+
 def call_per_sample(
     args, executable, params, sample, config, out_folder,
         job_outputs_dict, fastq_details) -> dict:
@@ -379,10 +384,13 @@ def call_per_sample(
     # add sample name where required
     input_dict = add_sample_name(input_dict, sample)
 
-    # check for any more inputs to add
+    # check any inputs dependent on previous job outputs to add
     input_dict = populate_input_dict(
         job_outputs_dict, input_dict, sample=sample
     )
+
+    # check that all INPUT- have been parsed in config
+    check_all_inputs(input_dict)
 
     # call dx run to start jobs
     print(f"Calling {executable} on sample {sample}")
@@ -418,7 +426,7 @@ def call_per_run(
     if "process_fastqs" in params:
         input_dict = add_fastqs(input_dict, fastq_details)
 
-    # check for any more inputs to add
+    # check any inputs dependent on previous job outputs to add
     input_dict = populate_input_dict(job_outputs_dict, input_dict)
 
     # passing all samples to workflow
@@ -513,7 +521,7 @@ def main():
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing
         bcl2fastq_job = dxpy.bindings.dxjob.DXJob(
-            dxid=args.bcl2fastq_job).describe()
+            dxid=args.bcl2fastq_id).describe()
         bcl2fastq_project = bcl2fastq_job['project']
         bcl2fastq_folder = bcl2fastq_job['folder']
 
@@ -566,6 +574,7 @@ def main():
                 )
 
         elif params['per_sample'] is False:
+            # run workflow / app on all samples at once
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
             job_outputs_dict = call_per_run(
