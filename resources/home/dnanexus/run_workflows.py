@@ -10,6 +10,7 @@ import json
 import pprint
 import re
 import sys
+from typing import Generator
 
 import dxpy
 
@@ -81,7 +82,7 @@ def create_dx_project(args) -> argparse.ArgumentParser:
     return args
 
 
-def create_dx_folder(args, out_folder):
+def create_dx_folder(args, out_folder) -> str:
     """
     Create output folder in DNAnexus project
     """
@@ -116,7 +117,7 @@ def create_dx_folder(args, out_folder):
     return out_folder
 
 
-def call_dx_run(args, executable, input_dict, output_dirs_dict):
+def call_dx_run(args, executable, input_dict, output_dirs_dict) -> str:
     """
     Call workflow / app, returns id of submitted job
     """
@@ -147,7 +148,7 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict):
     return job_id
 
 
-def add_fastqs(input_dict, fastq_details, sample=None):
+def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     """
     If process_fastqs set to true, function is called to populate input dict
     with appropriate fastq file ids
@@ -183,7 +184,7 @@ def add_fastqs(input_dict, fastq_details, sample=None):
     return input_dict
 
 
-def add_sample_name(input_dict, sample):
+def add_sample_name(input_dict, sample) -> dict:
     """
     Adds sample name to input dict
     """
@@ -196,7 +197,7 @@ def add_sample_name(input_dict, sample):
     return input_dict
 
 
-def find_job_inputs(input_dict, key_path=[]):
+def find_job_inputs(input_dict):
     """
     Recursive function to find all values with identifying prefix, these
     require replacing with appropriate job output file ids. Returns a generator
@@ -206,13 +207,14 @@ def find_job_inputs(input_dict, key_path=[]):
 
     for key, value in input_dict.items():
         if isinstance(value, dict):
-            key_path.append(key)
-            yield from find_job_inputs(value, key_path)
+            yield from find_job_inputs(value)
+        if isinstance(value, list):
+            # found list of dicts
+            for list_val in value:
+                yield from find_job_inputs(list_val)
         elif input_prefix in value:
-            key_path.append(key)
+            # found input to replace
             yield value
-
-            key_path.clear()  # remove path for next key
 
 
 def replace_job_inputs(input_dict, job_input, output_file):
@@ -230,7 +232,7 @@ def replace_job_inputs(input_dict, job_input, output_file):
             input_dict[key] = output_file
 
 
-def populate_input_dict(job_outputs_dict, input_dict, sample=None):
+def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
     """
     Check input dict for remaining 'INPUTS-', any left *should* be
     outputs of previous jobs and stored in the job_outputs_dict and can
@@ -302,7 +304,7 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None):
     return input_dict
 
 
-def populate_output_dir_config(executable, output_dirs_dict, out_folder):
+def populate_output_dir_config(executable, output_dirs_dict, out_folder) -> dict:
     """
     Loops over stages in dict for output directory naming and adds worlflow /
     app name.
@@ -344,7 +346,7 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder):
     return output_dirs_dict
 
 
-def parse_args():
+def parse_args() -> argparse.ArgumentParser:
     """
     Parse command line arguments
     """
