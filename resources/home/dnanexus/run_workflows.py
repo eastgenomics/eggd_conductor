@@ -10,6 +10,7 @@ Jethro Rainford 210902
 import argparse
 from datetime import datetime
 import json
+from pathlib import Path
 import pprint
 import re
 import sys
@@ -122,24 +123,26 @@ def create_dx_folder(args, out_folder) -> str:
     return out_folder
 
 
-def call_dx_run(args, executable, input_dict, output_dict) -> str:
+def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
     """
     Call workflow / app, returns id of submitted job
     """
-    print(input_dict)
     if 'workflow-' in executable:
         job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
-        ).run(workflow_input=input_dict, stage_folders=output_dict)
+        ).run(
+            workflow_input=input_dict, stage_folders=output_dict,
+            depends_on=prev_jobs
+        )
     elif 'app-' in executable:
         job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
             app_input=input_dict, project=args.dx_project_id,
-            folder=output_dict[executable]
+            folder=output_dict[executable], depends_on=prev_jobs
         )
     elif 'applet-' in executable:
         job_handle = dxpy.bindings.dxapplet.DXApplet(dxid=executable).run(
             applet_input=input_dict, project=args.dx_project_id,
-            folder=output_dict[executable]
+            folder=output_dict[executable], depends_on=prev_jobs
         )
     else:
         # doesn't appear to be valid workflow or app
@@ -202,20 +205,77 @@ def add_sample_name(input_dict, sample) -> dict:
     return input_dict
 
 
-def find_job_inputs(identifier, input_dict) -> Generator:
+def add_other_inputs(input_dict, dx_project_id, executable_out_dirs) -> dict:
+    """
+    Generalised function for adding other INPUT-s, currently handles parsing:
+    workflow output directories and project id.
+
+    Extensible to add more in future, probably could be cleaner than a load of
+    if statements but oh well
+    """
+    # first checking if any INPUT- in dict to fill, if not return
+    inputs = find_job_inputs('INPUT-', input_dict, check_key=False)
+    _empty = object()
+
+    if next(inputs, _empty) == _empty:
+        # generator returned empty object => no inputs found to fill
+        return input_dict
+
+    print('found other inputs to fill')
+
+    for job_input in find_job_inputs('INPUT-', input_dict, check_key=False):
+        if job_input == 'INPUT-dx_project_id':
+            # add project id
+            replace_job_inputs(input_dict, job_input, dx_project_id)
+
+        out_folder_match = re.search(
+            r'^INPUT-analysis_[0-9]{1,2}-out_dir$', job_input)
+
+        if out_folder_match:
+            # passing an out folder for given analysis
+            # will be specified in format INPUT-analysis_1-out_dir, where
+            # job input should be replaced with respective out dir
+            analysis = job_input.strip('INPUT-').strip('-out_dir')
+            analysis_out_dir = executable_out_dirs.get(analysis)
+
+            if analysis_out_dir:
+                # removing /output/ for now to fit to MultiQC
+                analysis_out_dir = Path(analysis_out_dir).name
+                replace_job_inputs(input_dict, job_input, analysis_out_dir)
+            else:
+                raise KeyError((
+                    'Error trying to parse output directory to input dict.\n'
+                    f'No output directory found for given input: {job_input}\n'
+                    'Please check config to ensure job input is in the '
+                    'format: INPUT-analysis_[0-9]-out_dir'
+                ))
+
+    return input_dict
+
+
+def find_job_inputs(identifier, input_dict, check_key) -> Generator:
     """
     Recursive function to find all values with identifying prefix, these
     require replacing with appropriate job output file ids. Returns a generator
     with input fields to replace.
     """
-    for _, value in input_dict.items():
+    for key, value in input_dict.items():
+        # set field to check for identifier to either key or value
+        if check_key == True:
+            check_field = key
+        else:
+            check_field = value
+
         if isinstance(value, dict):
-            yield from find_job_inputs(identifier, value)
+            yield from find_job_inputs(identifier, value, check_key)
         if isinstance(value, list):
-            # found list of dicts
+            # found list of dicts -> loop over them
             for list_val in value:
-                yield from find_job_inputs(identifier, list_val)
-        elif identifier in value:
+                yield from find_job_inputs(identifier, list_val, check_key)
+        if isinstance(value, bool):
+            # stop it breaking on booleans
+            continue
+        if identifier in check_field:
             # found input to replace
             yield value
 
@@ -238,13 +298,39 @@ def replace_job_inputs(input_dict, job_input, job_id) -> Generator:
             input_dict[key] = job_id
 
 
-def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
+def get_dependent_jobs(params, job_outputs_dict, sample=None):
+    """
+    If app / workflow depends on previous job(s) completing these will be
+    passed with depends_on = [analysis_1, analysis_2...]. Get all job ids for
+    given analysis to pass to dx run.
+    """
+    if sample:
+        # running per sample, assume we only wait on the samples previous job
+        job_outputs_dict = job_outputs_dict[sample]
+
+    # check if job depends on previous jobs to hold till complete
+    dependent_analysis = params.get("depends_on")
+    dependent_jobs = []
+
+    if dependent_analysis:
+        for id in dependent_analysis:
+            # find jobs for every analysis id
+            for job in find_job_inputs(id, job_outputs_dict, check_key=True):
+                if job:
+                    dependent_jobs.append(job)
+
+    print(f'Dependent jobs found: {dependent_jobs}')
+
+    return dependent_jobs
+
+
+def link_inputs_to_outputs(job_outputs_dict, input_dict, sample=None) -> dict:
     """
     Check input dict for 'analysis_', these will be for linking outputs of
     previous jobs and stored in the job_outputs_dict to input of next job
     """
     # first checking if any analysis_ in dict to fill, if not return
-    inputs = find_job_inputs('analysis_', input_dict)
+    inputs = find_job_inputs('analysis_', input_dict, check_key=False)
     _empty = object()
 
     if next(inputs, _empty) == _empty:
@@ -265,7 +351,7 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
                 f'{input_dict}'
             ))
 
-    for job_input in find_job_inputs('analysis_', input_dict):
+    for job_input in find_job_inputs('analysis_', input_dict, check_key=False):
         print('found job inputs to replace')
         # find_job_inputs() returns generator, loop through for each input to
         # replace in the input dict
@@ -353,7 +439,7 @@ def check_all_inputs(input_dict) -> None:
     either a typo in config or invalid input given => raise AssertionError
     """
     # checking if any INPUT- in dict still present
-    inputs = find_job_inputs('INPUT-', input_dict)
+    inputs = find_job_inputs('INPUT-', input_dict, check_key=False)
     _empty = object()
 
     assert next(inputs, _empty) == _empty, (
@@ -364,7 +450,7 @@ def check_all_inputs(input_dict) -> None:
 
 def call_per_sample(
     args, executable, params, sample, config, out_folder,
-        job_outputs_dict, fastq_details) -> dict:
+        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
     """
     Populate input and output dicts for given workflow and sample, then call
     to dx to start job. Job id is returned and stored in output dict that maps
@@ -378,14 +464,25 @@ def call_per_sample(
     populate_output_dir_config(executable, output_dict, out_folder)
 
     # check if stage requires fastqs passing
-    if "process_fastqs" in params:
+    if params["process_fastqs"] is True:
         input_dict = add_fastqs(input_dict, fastq_details, sample)
+
+    # find all jobs for previous analyses if next job depends on them finishing
+    if params.get("depends_on"):
+        dependent_jobs = get_dependent_jobs(
+            params, job_outputs_dict, sample=sample)
+    else:
+        dependent_jobs = []
 
     # add sample name where required
     input_dict = add_sample_name(input_dict, sample)
 
+    # handle other inputs defined in config to add to inputs
+    input_dict = add_other_inputs(
+        input_dict, args.dx_project_id, executable_out_dirs)
+
     # check any inputs dependent on previous job outputs to add
-    input_dict = populate_input_dict(
+    input_dict = link_inputs_to_outputs(
         job_outputs_dict, input_dict, sample=sample
     )
 
@@ -394,7 +491,8 @@ def call_per_sample(
 
     # call dx run to start jobs
     print(f"Calling {executable} on sample {sample}")
-    job_id = call_dx_run(args, executable, input_dict, output_dict)
+    job_id = call_dx_run(
+        args, executable, input_dict, output_dict, dependent_jobs)
 
     PPRINT(input_dict)
     PPRINT(output_dict)
@@ -411,7 +509,7 @@ def call_per_sample(
 
 def call_per_run(
     args, executable, params, config, out_folder,
-        job_outputs_dict, fastq_details) -> dict:
+        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
     """
     Populates input and output dicts from config for given workflow, returns
     dx job id and stores in dict to map workflow -> dx job id.
@@ -423,15 +521,26 @@ def call_per_run(
     # create output directory structure in config
     populate_output_dir_config(executable, output_dict, out_folder)
 
-    if "process_fastqs" in params:
+    if params["process_fastqs"] is True:
         input_dict = add_fastqs(input_dict, fastq_details)
 
+    # handle other inputs defined in config to add to inputs
+    input_dict = add_other_inputs(
+        input_dict, args.dx_project_id, executable_out_dirs)
+
     # check any inputs dependent on previous job outputs to add
-    input_dict = populate_input_dict(job_outputs_dict, input_dict)
+    input_dict = link_inputs_to_outputs(job_outputs_dict, input_dict)
+
+    # find all jobs for previous analyses if next job depends on them finishing
+    if params.get("depends_on"):
+        dependent_jobs = get_dependent_jobs(params, job_outputs_dict)
+    else:
+        dependent_jobs = []
 
     # passing all samples to workflow
     print(f'Calling {params["name"]} for all samples')
-    job_id = call_dx_run(args, executable, input_dict, output_dict)
+    job_id = call_dx_run(
+        args, executable, input_dict, output_dict, dependent_jobs)
 
     PPRINT(input_dict)
     PPRINT(output_dict)
@@ -553,24 +662,29 @@ def main():
     # used to pass correct file ids to subsequent worklow/app calls
     job_outputs_dict = {}
 
+    # storing output folders used for each workflow/app, might be needed to
+    # store data together / access specific dirs of data
+    executable_out_dirs = {}
+
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
-        print(f'Configuring {executable} to start jobs')
+        print(f'\nConfiguring {executable} to start jobs\n')
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
         out_folder = create_dx_folder(args, out_folder)
+        executable_out_dirs[params['analysis']] = out_folder
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
-            print(f'Calling {params["name"]} per sample')
+            print(f'\nCalling {params["name"]} per sample')
 
             # loop over given sample and call workflow
             for sample in args.samples:
                 job_outputs_dict = call_per_sample(
                     args, executable, params, sample, config, out_folder,
-                    job_outputs_dict, fastq_details
+                    job_outputs_dict, executable_out_dirs, fastq_details
                 )
 
         elif params['per_sample'] is False:
@@ -579,7 +693,7 @@ def main():
             # defined to ensure running correctly
             job_outputs_dict = call_per_run(
                 args, executable, params, config, out_folder, job_outputs_dict,
-                fastq_details
+                executable_out_dirs, fastq_details
             )
         else:
             # per_sample is not True or False, exit
