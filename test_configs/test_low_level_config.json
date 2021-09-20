@@ -1,8 +1,14 @@
 {
+    "name": "Config for Dias",
+    "version": "v1.0.0",
+    "details": "Includes: dias single, dias multi, MultiQC and dias reports.",
     "demultiplex": true,
     "executables": {
         "workflow-G21Gx3Q433Gp80fK7z5jZ5XY": {
-            "name": "dias_single_testing",
+            "name": "dias_single",
+            "details": "",
+            "url": "https://github.com/eastgenomics/eggd_dias_single_workflow",
+            "analysis": "analysis_1",
             "per_sample": true,
             "process_fastqs": true,
             "inputs": {
@@ -16,12 +22,12 @@
                 "stage-Fy6fqy040vZV3Gj24vppvJgZ.bed_file": {
                     "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
                 },
-                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads2_fastqgzs": "INPUT-R2",
-                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads_fastqgzs": "INPUT-R1",
-                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": "INPUT-R1-R2",
                 "stage-G21GzGj433Gky42j42Q5bJkf.input_bed": {
                     "$dnanexus_link": "file-Fpz2X0Q433GVK5xxPvzqvVPB"
                 },
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads2_fastqgzs": "INPUT-R2",
+                "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads_fastqgzs": "INPUT-R1",
+                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": "INPUT-R1-R2",
             "output_dirs": {
                 "stage-Fy6fpV840vZZ0v6J8qBQYqZF": "/output/OUT-FOLDER/APP-NAME",
                 "stage-Fy6fpk040vZZPPbq96Jb2KfK": "/output/OUT-FOLDER/APP-NAME",
@@ -37,7 +43,10 @@
             }
         },
         "workflow-FyQ2Gy0433Gz76Jp9j5YG80K": {
-            "name": "dias_multi_testing",
+            "name": "dias_multi",
+            "details": "Includes: update_runfolders and vcfeval_hap.py",
+            "url": "https://github.com/eastgenomics/eggd_dias_multi_workflow",
+            "analysis": "analysis_2",
             "per_sample": false,
             "inputs": {
                 "stage-Fq1BPKj433Gx3K4Y8J35j0fv.panel_bed": {
@@ -57,7 +66,10 @@
             }
         },
         "workflow-G2qf48Q433GpjyxZ6x9vB4p1": {
-            "name": "reports",
+            "name": "dias_reports",
+            "details": "Includes: vcf2xls, generate_bed and athena",
+            "url": "https://github.com/eastgenomics/eggd_dias_reports_workflow",
+            "analysis": "analysis_3",
             "per_sample": true,
             "process_fastqs": false,
             "inputs": {
@@ -112,30 +124,21 @@
                         "id": "file-G2gg1F0433GjQbzVKgYpQfX0"
                     }
                 },
-                "stage-Fyq5z18433GfYZbp3vX1KqjB.limit": 100,
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.limit": 260,
                 "stage-Fyq5z18433GfYZbp3vX1KqjB.summary": true,
-                "stage-Fyq5z18433GfYZbp3vX1KqjB.panel_bed": {
-                    "$dnanexus_link": {
-                        "analysis": "analysis-G3B3v0j4P4pQBX2b55b9zYkY",
-                        "stage": "stage-Fyq5yy0433GXxz691bKyvjPJ",
-                        "field": "bed_file",
-                        "wasInternal": true
-                    }
-                },
                 "stage-Fyq5z18433GfYZbp3vX1KqjB.exons_nirvana": {
                     "$dnanexus_link": {
                         "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
                         "id": "file-Fq18Yp0433GjB7172630p9Yv"
                     }
                 },
-                "stage-Fyq5z18433GfYZbp3vX1KqjB.mosdepth_files": [
-                {
-                    "$dnanexus_link": "file-G29Pb8Q4K5gzZKXQ42BPPFy4"
+                "stage-Fyq5z18433GfYZbp3vX1KqjB.mosdepth_files": {
+                    "$dnanexus_link": {
+                        "analysis": "analysis_1",
+                        "stage": "stage-Fy6fvYQ40vZV1y8p9GYKPYyQ",
+                        "field": "mosdepth_output"
+                    }
                 },
-                {
-                    "$dnanexus_link": "file-G29Pb884K5gp2jJ741g1Xv6g"
-                }
-                ],
                 "stage-Fyq5z18433GfYZbp3vX1KqjB.name": "INPUT-SAMPLE_NAME"
             },
             "output_dirs": {

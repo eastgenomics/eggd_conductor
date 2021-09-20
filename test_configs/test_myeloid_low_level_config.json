@@ -42,11 +42,31 @@
                 "applet-FvyXygj433GbKPPY0QY8ZKQG": "/output/OUT-FOLDER/APP-NAME"
             }
         },
+        "applet-Fz93FfQ433Gvf6pKFZYbXZQf": {
+            "name": "MultiQC",
+            "details": "",
+            "url": "https://github.com/eastgenomics/eggd_multiqc",
+            "analysis": "analysis_3",
+            "per_sample": false,
+            "process_fastqs": false,
+            "depends_on": ["analysis_1"],
+            "inputs": {
+                "project_for_multiqc": "INPUT-dx_project_id",
+                "ss_for_multiqc": "INPUT-analysis_1-out_dir",
+                "custom_coverage": true,
+                "eggd_multiqc_config_file": {
+                    "$dnanexus_link": "file-G0K191j433Gv6JG63b43z8Gy"
+                }
+            },
+            "output_dirs": {
+                "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/output/OUT-FOLDER/APP-NAME"
+            }
+        },
         "workflow-G0bj928433GxbZY9632xXP9J": {
             "name": "uranus_annotation_workflow",
             "details": "Runs nirvana & nirvana2vcf to generate annotated VCF",
             "url": "https://github.com/eastgenomics/eggd_uranus_annotation_workflow",
-            "analysis": "analysis_3",
+            "analysis": "analysis_4",
             "per_sample": true,
             "process_fastqs": false,
             "inputs": {
