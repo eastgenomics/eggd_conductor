@@ -117,7 +117,7 @@ def create_dx_folder(args, out_folder) -> str:
     return out_folder
 
 
-def call_dx_run(args, executable, input_dict, output_dirs_dict) -> str:
+def call_dx_run(args, executable, input_dict, output_dict) -> str:
     """
     Call workflow / app, returns id of submitted job
     """
@@ -125,16 +125,16 @@ def call_dx_run(args, executable, input_dict, output_dirs_dict) -> str:
     if 'workflow-' in executable:
         job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
-        ).run(workflow_input=input_dict, stage_folders=output_dirs_dict)
+        ).run(workflow_input=input_dict, stage_folders=output_dict)
     elif 'app-' in executable:
         job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
             app_input=input_dict, project=args.dx_project_id,
-            folder=output_dirs_dict[executable]
+            folder=output_dict[executable]
         )
     elif 'applet-' in executable:
         job_handle = dxpy.bindings.dxapplet.DXApplet(dxid=executable).run(
             applet_input=input_dict, project=args.dx_project_id,
-            folder=output_dirs_dict[executable]
+            folder=output_dict[executable]
         )
     else:
         # doesn't appear to be valid workflow or app
@@ -197,15 +197,15 @@ def add_sample_name(input_dict, sample) -> dict:
     return input_dict
 
 
-def find_job_inputs(input_dict):
+def find_job_inputs(input_dict) -> Generator:
     """
     Recursive function to find all values with identifying prefix, these
     require replacing with appropriate job output file ids. Returns a generator
     with input fields to replace
     """
-    input_prefix = 'INPUTS-'
+    input_prefix = 'INPUT-'
 
-    for key, value in input_dict.items():
+    for _, value in input_dict.items():
         if isinstance(value, dict):
             yield from find_job_inputs(value)
         if isinstance(value, list):
@@ -217,30 +217,32 @@ def find_job_inputs(input_dict):
             yield value
 
 
-def replace_job_inputs(input_dict, job_input, output_file):
+def replace_job_inputs(input_dict, job_input, output_file) -> Generator:
     """
     Recursively traverse through nested dictionary and replace any matching
     INPUT- with given DNAnexus file id in correct format.
 
-    job_input = INPUTS-{output name (i.e. vcf)}
+    job_input = INPUT-{output name (i.e. vcf)}
     output_file = dx file id
     """
     for key, val in input_dict.items():
         if isinstance(val, dict):
             replace_job_inputs(val, job_input, output_file)
+        if isinstance(val, list):
+            # found list of dicts
+            for list_val in val:
+                replace_job_inputs(list_val, job_input, output_file)
         if val == job_input:
             input_dict[key] = output_file
 
 
 def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
     """
-    Check input dict for remaining 'INPUTS-', any left *should* be
+    Check input dict for remaining 'INPUT-', any left *should* be
     outputs of previous jobs and stored in the job_outputs_dict and can
     be parsed in to link up outputs
     """
     # first checking if any INPUT- in dict to fill, if not return
-    # stops error of trying to select sample from output dict if this is the
-    # first job and won't have anything in the dict or any more inputs to fill
     inputs = find_job_inputs(input_dict)
     _empty = object()
 
@@ -255,30 +257,33 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
         except KeyError:
             raise KeyError((
                 f'{sample} not found in output dict, this is most likely from '
-                'this being the first executable called and having a misconfigured '
-                'input section in config (i.e. misspelt input) that should have '
-                'been parsed earlier. Check config and try again. Input dict given: '
+                'this being the first executable called and having '
+                'a misconfigured input section in config (i.e. misspelt input)'
+                ' that should have been parsed earlier. Check config and try '
+                'again. Input dict given: '
                 f'{input_dict}'
             ))
 
     for job_input in find_job_inputs(input_dict):
+        print('found job inputs to replace')
         # find_job_inputs() returns generator, loop through for each input to
         # replace in the input dict
 
-        # for each input, use the workflow/app id to get the job id containing
-        # the required output
-        match = re.search(r'(workflow|app|applet)-[A-Za-z0-9]*', job_input)
+        # for each input, use the analysis id to get the job id containing
+        # the required output from the job outputs dict
+        match = re.search(r'analysis-[0-9]+', job_input)
         if not match:
             # doesn't seem to be a valid app or worklfow, we cry
             raise RuntimeError(
                 f'{job_input} does not seem to be a valid app or workflow'
             )
 
-        executable_id = match.group(0)
+        analysis_id = match.group(0)
+        print(f'analysis id found: {analysis_id}')
 
-        # job output has workflow-id: job-id, select job id for appropriate
-        # workflow id
-        job_id = [x for x in job_outputs_dict.keys() if executable_id in x]
+        # job output has analysis-id: job-id, select job id for appropriate
+        # analysis id
+        job_id = [v for k, v in job_outputs_dict.items() if analysis_id == k]
 
         # job out should always(?) only have one output with given name, exit
         # for now if more found
@@ -290,21 +295,22 @@ def populate_input_dict(job_outputs_dict, input_dict, sample=None) -> dict:
         if not job_id:
             raise ValueError((
                 f"No file found for {job_input} in output files from previous "
-                "workflow, please check config INPUTS- matches output names"
+                "workflow, please check config INPUT- matches output names"
             ))
 
         # format for parsing into input_dict
-        output_file = job_input.replace('INPUT-', '').replace(executable_id, '')
-        output_file = f'{job_id}:{output_file}'
+        outfile = job_input.replace('INPUT-', '').replace(
+            analysis_id, job_id[0])
+
+        print('new job input: ', outfile)
 
         # get file id for given field from dict to replace in input_dict
-
-        replace_job_inputs(input_dict, job_input, output_file)
+        replace_job_inputs(input_dict, job_input, outfile)
 
     return input_dict
 
 
-def populate_output_dir_config(executable, output_dirs_dict, out_folder) -> dict:
+def populate_output_dir_config(executable, output_dict, out_folder) -> dict:
     """
     Loops over stages in dict for output directory naming and adds worlflow /
     app name.
@@ -312,7 +318,7 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder) -> dict
     # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
     # name is the human readable name of each stage defined in the config
     """
-    for stage, dir in output_dirs_dict.items():
+    for stage, dir in output_dict.items():
         if "OUT-FOLDER" in dir:
             out_folder = out_folder.replace('/output/', '')
             dir = dir.replace("OUT-FOLDER", out_folder)
@@ -341,9 +347,9 @@ def populate_output_dir_config(executable, output_dirs_dict, out_folder) -> dict
 
             # add app/workflow name to output dir name
             dir = dir.replace("APP-NAME", app_name)
-            output_dirs_dict[stage] = dir
+            output_dict[stage] = dir
 
-    return output_dirs_dict
+    return output_dict
 
 
 def parse_args() -> argparse.ArgumentParser:
@@ -401,7 +407,7 @@ def main():
         # output project not specified, create new one from run id
         args = create_dx_project(args)
 
-    # set context for running jobs
+    # set context to project for running jobs
     dxpy.set_workspace_id(args.dx_project_id)
 
     if args.bcl2fastq_id:
@@ -476,10 +482,10 @@ def main():
                 sample_config = deepcopy(config)
 
                 input_dict = sample_config['executables'][executable]['inputs']
-                output_dirs_dict = sample_config['executables'][executable]['output_dirs']
+                output_dict = sample_config['executables'][executable]['output_dirs']
 
                 # create output directory structure in config
-                populate_output_dir_config(executable, output_dirs_dict, out_folder)
+                populate_output_dir_config(executable, output_dict, out_folder)
 
                 # check if stage requires fastqs passing
                 if "process_fastqs" in params:
@@ -495,17 +501,17 @@ def main():
 
                 # call dx run to start jobs
                 print(f"Calling {executable} on sample {sample}")
-                job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
+                job_id = call_dx_run(args, executable, input_dict, output_dict)
 
                 pp.pprint(input_dict)
-                pp.pprint(output_dirs_dict)
+                pp.pprint(output_dict)
 
                 if sample not in job_outputs_dict.keys():
                     # create new dict to store sample outputs
                     job_outputs_dict[sample] = {}
 
-                # map workflow id to dx job id for sample
-                job_outputs_dict[sample].update({executable: job_id})
+                # map analysis id to dx job id for sample
+                job_outputs_dict[sample].update({params['analysis']: job_id})
 
         elif params['per_sample'] is False:
             # need to explicitly check if False vs not given, must always be
@@ -515,10 +521,10 @@ def main():
             # select input and output dict from config for current workflow / app
             sample_config = deepcopy(config)
             input_dict = sample_config['executables'][executable]['inputs']
-            output_dirs_dict = sample_config['executables'][executable]['output_dirs']
+            output_dict = sample_config['executables'][executable]['output_dirs']
 
             # create output directory structure in config
-            populate_output_dir_config(executable, output_dirs_dict, out_folder)
+            populate_output_dir_config(executable, output_dict, out_folder)
 
             if "process_fastqs" in params:
                 input_dict = add_fastqs(input_dict, fastq_details)
@@ -528,13 +534,13 @@ def main():
 
             # passing all samples to workflow
             print(f'Calling {params["name"]} for all samples')
-            job_id = call_dx_run(args, executable, input_dict, output_dirs_dict)
+            job_id = call_dx_run(args, executable, input_dict, output_dict)
 
             pp.pprint(input_dict)
-            pp.pprint(output_dirs_dict)
+            pp.pprint(output_dict)
 
             # map workflow id to created dx job id
-            job_outputs_dict[executable] = job_id
+            job_outputs_dict[params['analysis']] = job_id
 
         else:
             # per_sample is not True or False, exit
@@ -544,7 +550,7 @@ def main():
             )
 
         input_dict.clear()
-        output_dirs_dict.clear()
+        output_dict.clear()
 
     print("Completed calling jobs")
 

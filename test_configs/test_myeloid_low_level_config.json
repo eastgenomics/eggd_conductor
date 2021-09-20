@@ -8,7 +8,7 @@
             "name": "uranus_main_workflow_GRCh38_v1.5.0_novaseq",
             "details": "Main Uranus workflow for alignment and variant calling",
             "url": "https://github.com/eastgenomics/eggd_uranus_main_workflow",
-            "analysis": "analysis_1",
+            "analysis": "analysis-1",
             "per_sample": true,
             "process_fastqs": true,
             "inputs": {
@@ -32,7 +32,7 @@
             "name": "multi_fastqc",
             "details": "Takes all fastqs of all samples, starts one job which runs fastqc in sub jobs for each fastq",
             "url": "https://github.com/eastgenomics/eggd_fastqc",
-            "analysis": "analysis_2",
+            "analysis": "analysis-2",
             "per_sample": false,
             "process_fastqs": true,
             "inputs": {
@@ -46,12 +46,24 @@
             "name": "uranus_annotation_workflow",
             "details": "Runs nirvana & nirvana2vcf to generate annotated VCF",
             "url": "https://github.com/eastgenomics/eggd_uranus_annotation_workflow",
-            "analysis": "analysis_3",
+            "analysis": "analysis-3",
             "per_sample": true,
             "process_fastqs": false,
             "inputs": {
-                "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": "INPUT-analysis_1.out",
-                "stage-G0QQ8q8433Gb8YFG4q7847Px.vcf_file": "INPUT-analysis_1.out"
+                "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
+                    "$dnanexus_link": {
+                        "analysis": "INPUT-analysis-1",
+                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
+                        "field": "out"
+                    }
+                },
+                "stage-G0QQ8q8433Gb8YFG4q7847Px.vcf_file": {
+                    "$dnanexus_link": {
+                        "analysis": "INPUT-analysis-1",
+                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
+                        "field": "out"
+                    }
+                }
             },
             "output_dirs": {
                 "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/output/OUT-FOLDER/APP-NAME",
