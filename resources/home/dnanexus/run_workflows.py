@@ -430,6 +430,21 @@ def call_per_run(
     return job_outputs_dict
 
 
+def load_test_data(args):
+    """
+    Temp function for reading test samples from file to test calling workflow
+    """
+    with open(args.test_samples) as f:
+        fastq_details = f.read().splitlines()
+
+    fastq_details = [(x.split()[0], x.split()[1]) for x in fastq_details]
+
+    print(fastq_details)
+    sys.exit()
+
+    return fastq_details
+
+
 
 def parse_args() -> argparse.ArgumentParser:
     """
@@ -461,6 +476,13 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--bcl2fastq_id',
         help='id of job from running bcl2fastq (if run)'
+    )
+    parser.add_argument(
+        '--test_samples',
+        help=(
+            'for test use only. Pass in file with 1 sample per line '
+            'specifing file-id of fastq and sample name'
+        )
     )
 
     args = parser.parse_args()
@@ -502,31 +524,14 @@ def main():
         ))
         fastq_details = [(x['id'], x['describe']['name']) for x in fastq_details]
     else:
-        # if we're here it means bcl2fastq wasn't run, so we have either a dir
-        # of fastqs being passed, this is for tso500 or something else weird
-        # this is going to need some thought and clever handling to know
-        # what is being passed
+        # bcl2fastq wasn't run => we have either a dir of fastqs being passed,
+        # this is for tso500 or something else weird this is going to need some
+        # thought and clever handling to know what is being passed
         fastq_details = []
 
         # test data - myeloid sample
-        fastq_details = [
-            ('file-G50BZJQ4BQBZz22v4jVkP5f0',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L001_R1_001.fastq.gz'),
-            ('file-G50BbYj4BQBV0pQF4ZBbxXJF',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L002_R1_001.fastq.gz'),
-            ('file-G50BZK04BQBbfB794bBZQ5qV',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L001_R2_001.fastq.gz'),
-            ('file-G50BbZ84BQBvqx1xB8KBgBYJ',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S35_L002_R2_001.fastq.gz'),
-            ('file-G50BZJQ4BQBZz22v4jVkP5f0',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L001_R1_001.fastq.gz'),
-            ('file-G50BbYj4BQBV0pQF4ZBbxXJF',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L002_R1_001.fastq.gz'),
-            ('file-G50BZK04BQBbfB794bBZQ5qV',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L001_R2_001.fastq.gz'),
-            ('file-G50BbZ84BQBvqx1xB8KBgBYJ',
-            '2107285-21232Z0085-PB-CLL-MYE-F-EGG2_S36_L002_R2_001.fastq.gz')
-        ]
+        if args.test_samples:
+            fastq_details = load_test_data(args)
 
     # check per_sample defined for all workflows / apps before starting
     for executable, params in config['executables'].items():
@@ -574,6 +579,7 @@ def main():
             )
 
     print("Completed calling jobs")
+
 
 if __name__ == "__main__":
     main()
