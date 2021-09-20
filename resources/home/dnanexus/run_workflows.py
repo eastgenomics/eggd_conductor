@@ -4,7 +4,6 @@ Script to call workflow(s) / apps from a given config
 Jethro Rainford 210902
 """
 import argparse
-from copy import deepcopy
 from datetime import datetime
 import json
 import pprint
@@ -13,6 +12,8 @@ import sys
 from typing import Generator
 
 import dxpy
+
+PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
 
 def time_stamp() -> str:
@@ -352,6 +353,84 @@ def populate_output_dir_config(executable, output_dict, out_folder) -> dict:
     return output_dict
 
 
+def call_per_sample(
+    args, executable, params, sample, config, out_folder,
+        job_outputs_dict, fastq_details) -> dict:
+    """
+    Populate input and output dicts for given workflow and sample, then call
+    to dx to start job. Job id is returned and stored in output dict that maps
+    the workflow to dx job id for given sample.
+    """
+    # select input and output dict from config for current workflow / app
+    input_dict = config['executables'][executable]['inputs']
+    output_dict = config['executables'][executable]['output_dirs']
+
+    # create output directory structure in config
+    populate_output_dir_config(executable, output_dict, out_folder)
+
+    # check if stage requires fastqs passing
+    if "process_fastqs" in params:
+        input_dict = add_fastqs(input_dict, fastq_details, sample)
+
+    # add sample name where required
+    input_dict = add_sample_name(input_dict, sample)
+
+    # check for any more inputs to add
+    input_dict = populate_input_dict(
+        job_outputs_dict, input_dict, sample=sample
+    )
+
+    # call dx run to start jobs
+    print(f"Calling {executable} on sample {sample}")
+    job_id = call_dx_run(args, executable, input_dict, output_dict)
+
+    PPRINT(input_dict)
+    PPRINT(output_dict)
+
+    if sample not in job_outputs_dict.keys():
+        # create new dict to store sample outputs
+        job_outputs_dict[sample] = {}
+
+    # map analysis id to dx job id for sample
+    job_outputs_dict[sample].update({params['analysis']: job_id})
+
+    return job_outputs_dict
+
+
+def call_per_run(
+    args, executable, params, config, out_folder,
+        job_outputs_dict, fastq_details) -> dict:
+    """
+    Populates input and output dicts from config for given workflow, returns
+    dx job id and stores in dict to map workflow -> dx job id.
+    """
+    # select input and output dict from config for current workflow / app
+    input_dict = config['executables'][executable]['inputs']
+    output_dict = config['executables'][executable]['output_dirs']
+
+    # create output directory structure in config
+    populate_output_dir_config(executable, output_dict, out_folder)
+
+    if "process_fastqs" in params:
+        input_dict = add_fastqs(input_dict, fastq_details)
+
+    # check for any more inputs to add
+    input_dict = populate_input_dict(job_outputs_dict, input_dict)
+
+    # passing all samples to workflow
+    print(f'Calling {params["name"]} for all samples')
+    job_id = call_dx_run(args, executable, input_dict, output_dict)
+
+    PPRINT(input_dict)
+    PPRINT(output_dict)
+
+    # map workflow id to created dx job id
+    job_outputs_dict[params['analysis']] = job_id
+
+    return job_outputs_dict
+
+
+
 def parse_args() -> argparse.ArgumentParser:
     """
     Parse command line arguments
@@ -400,8 +479,6 @@ def main():
 
     config = load_config(args.config_file)
     run_time = time_stamp()
-
-    pp = pprint.PrettyPrinter(indent=4)
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
@@ -477,71 +554,18 @@ def main():
 
             # loop over given sample and call workflow
             for sample in args.samples:
-                # copy config to add sample info to for calling workflow
-                # select input and output dict from config for current workflow / app
-                sample_config = deepcopy(config)
-
-                input_dict = sample_config['executables'][executable]['inputs']
-                output_dict = sample_config['executables'][executable]['output_dirs']
-
-                # create output directory structure in config
-                populate_output_dir_config(executable, output_dict, out_folder)
-
-                # check if stage requires fastqs passing
-                if "process_fastqs" in params:
-                    input_dict = add_fastqs(input_dict, fastq_details, sample)
-
-                # add sample name where required
-                input_dict = add_sample_name(input_dict, sample)
-
-                # check for any more inputs to add
-                input_dict = populate_input_dict(
-                    job_outputs_dict, input_dict, sample=sample
+                job_outputs_dict = call_per_sample(
+                    args, executable, params, sample, config, out_folder,
+                    job_outputs_dict, fastq_details
                 )
-
-                # call dx run to start jobs
-                print(f"Calling {executable} on sample {sample}")
-                job_id = call_dx_run(args, executable, input_dict, output_dict)
-
-                pp.pprint(input_dict)
-                pp.pprint(output_dict)
-
-                if sample not in job_outputs_dict.keys():
-                    # create new dict to store sample outputs
-                    job_outputs_dict[sample] = {}
-
-                # map analysis id to dx job id for sample
-                job_outputs_dict[sample].update({params['analysis']: job_id})
 
         elif params['per_sample'] is False:
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
-
-            # copy config to add sample info to for calling workflow
-            # select input and output dict from config for current workflow / app
-            sample_config = deepcopy(config)
-            input_dict = sample_config['executables'][executable]['inputs']
-            output_dict = sample_config['executables'][executable]['output_dirs']
-
-            # create output directory structure in config
-            populate_output_dir_config(executable, output_dict, out_folder)
-
-            if "process_fastqs" in params:
-                input_dict = add_fastqs(input_dict, fastq_details)
-
-            # check for any more inputs to add
-            input_dict = populate_input_dict(job_outputs_dict, input_dict)
-
-            # passing all samples to workflow
-            print(f'Calling {params["name"]} for all samples')
-            job_id = call_dx_run(args, executable, input_dict, output_dict)
-
-            pp.pprint(input_dict)
-            pp.pprint(output_dict)
-
-            # map workflow id to created dx job id
-            job_outputs_dict[params['analysis']] = job_id
-
+            job_outputs_dict = call_per_run(
+                args, executable, params, config, out_folder, job_outputs_dict,
+                fastq_details
+            )
         else:
             # per_sample is not True or False, exit
             raise ValueError(
@@ -549,11 +573,7 @@ def main():
                 f"False ({params['per_sample']}). Please check the config"
             )
 
-        input_dict.clear()
-        output_dict.clear()
-
     print("Completed calling jobs")
-
 
 if __name__ == "__main__":
     main()
