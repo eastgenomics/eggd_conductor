@@ -96,10 +96,43 @@ def create_dx_folder(args, out_folder) -> str:
     for i in range(1, 100):
         # sanity check, should only be 1 or 2 already existing at most
         out_folder = f'{out_folder}-{i}'
+        try:
+            dxpy.api.project_new_folder(
+                args.dx_project_id,
+                input_params={'folder': out_folder}
+            )
+            print(f'Created output folder: {out_folder}')
+            break
+        except dxpy.exceptions.ResourceNotFound:
+            # first try without parents True to force creating parent /output/,
+            # then the normal try will correctly increment the numbering
+            print("/output/ not yet created, trying again")
+            dxpy.api.project_new_folder(
+                args.dx_project_id,
+                input_params={'folder': out_folder, 'parents': True}
+            )
+            print(f'Created output folder: {out_folder}')
+            break
+        except dxpy.exceptions.InvalidState:
+            # catch exception where folder already exists, increment number
+            print(f'{out_folder} already exists, creating new folder')
+            continue
+
+    return out_folder
+
+
+def old_create_dx_folder(args, out_folder) -> str:
+    """
+    ### KEEPING UNTIL FIGURE OUT IF CHECKING EXISTS WORKS
+    Create output folder in DNAnexus project
+    """
+    for i in range(1, 100):
+        # sanity check, should only be 1 or 2 already existing at most
+        out_folder = f'{out_folder}-{i}'
 
         try:
             dx_folder = dxpy.bindings.search.find_one_data_object(
-                zero_ok=True, more_ok=False) 
+                zero_ok=True, more_ok=False)
         except DXSearchError:
             # more_ok=False => allows returning more than one folder => catch
             # error and continue making new one, zero_ok returns None
@@ -132,7 +165,7 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
             dxid=executable, project=args.dx_project_id
         ).run(
             workflow_input=input_dict, stage_folders=output_dict,
-            ignore_reuse_stages=['*'], depends_on=prev_jobs
+            rerun_stages=['*'], depends_on=prev_jobs
         )
     elif 'app-' in executable:
         job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
@@ -151,6 +184,8 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
         raise Exception
     print('called')
     job_details = job_handle.describe()
+
+    print(job_details)
     job_id = job_details.get('id')
 
     print(f'Started analysis in project {args.dx_project_id}, job: {job_id}')
