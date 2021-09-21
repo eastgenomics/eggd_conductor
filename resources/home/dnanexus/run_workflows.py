@@ -8,6 +8,7 @@ config file.
 Jethro Rainford 210902
 """
 import argparse
+from copy import deepcopy
 from datetime import datetime
 import json
 from pathlib import Path
@@ -158,8 +159,7 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
     Call workflow / app, returns id of submitted job
     """
     print('calling dx')
-    print('prev jobs: ', prev_jobs)
-    print('input dict: ', input_dict)
+
     if 'workflow-' in executable:
         job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
@@ -182,10 +182,9 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
     else:
         # doesn't appear to be valid workflow or app
         raise Exception
-    print('called')
+
     job_details = job_handle.describe()
 
-    print(job_details)
     job_id = job_details.get('id')
 
     print(f'Started analysis in project {args.dx_project_id}, job: {job_id}')
@@ -198,13 +197,26 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     If process_fastqs set to true, function is called to populate input dict
     with appropriate fastq file ids
     """
+    sample_fastqs = []
     if sample:
-        # sample specified => running per sample, if not using all fastqs
-        fastq_details = [x for x in fastq_details if sample in x[1]]
+        for fastq in fastq_details:
+            # sample specified => running per sample, if not using all fastqs
+            # find fastqs for given sample
+            sample_regex = rf'{sample}_L00[0-9]_R[1,2]_001.fastq(.gz)?'
+            match = re.search(sample_regex, fastq[1])
+
+            if match:
+                sample_fastqs.append(fastq)
+
+        # ensure some fastqs found
+        assert sample_fastqs, f'No fastqs found for {sample}'
+    else:
+        # use all fastqs
+        sample_fastqs = fastq_details
 
     # fastqs should always be named with R1/2_001
-    r1_fastqs = [x for x in fastq_details if 'R1_001.fastq' in x[1]]
-    r2_fastqs = [x for x in fastq_details if 'R2_001.fastq' in x[1]]
+    r1_fastqs = [x for x in sample_fastqs if 'R1_001.fastq' in x[1]]
+    r2_fastqs = [x for x in sample_fastqs if 'R2_001.fastq' in x[1]]
 
     print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
 
@@ -494,9 +506,11 @@ def call_per_sample(
     the workflow to dx job id for given sample.
     """
     # select input and output dict from config for current workflow / app
-    input_dict = config['executables'][executable]['inputs']
-    output_dict = config['executables'][executable]['output_dirs']
+    config_copy = deepcopy(config)
+    input_dict = config_copy['executables'][executable]['inputs']
+    output_dict = config_copy['executables'][executable]['output_dirs']
 
+    print('starting call', input_dict)
     # create output directory structure in config
     populate_output_dir_config(executable, output_dict, out_folder)
 
@@ -573,6 +587,9 @@ def call_per_run(
         dependent_jobs = get_dependent_jobs(params, job_outputs_dict)
     else:
         dependent_jobs = []
+
+    # check that all INPUT- have been parsed in config
+    check_all_inputs(input_dict)
 
     # passing all samples to workflow
     print(f'Calling {params["name"]} for all samples')
@@ -702,6 +719,7 @@ def main():
     # storing output folders used for each workflow/app, might be needed to
     # store data together / access specific dirs of data
     executable_out_dirs = {}
+
 
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
