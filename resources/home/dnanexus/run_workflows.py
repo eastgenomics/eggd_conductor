@@ -17,6 +17,7 @@ import sys
 from typing import Generator
 
 import dxpy
+from dxpy.exceptions import DXSearchError
 
 PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
@@ -95,30 +96,26 @@ def create_dx_folder(args, out_folder) -> str:
     for i in range(1, 100):
         # sanity check, should only be 1 or 2 already existing at most
         out_folder = f'{out_folder}-{i}'
+
         try:
-            dxpy.api.project_new_folder(
-                args.dx_project_id,
-                input_params={'folder': out_folder}
-            )
-            print(f'Created output folder: {out_folder}')
-            break
-        except dxpy.exceptions.ResourceNotFound:
-            # work around for bug in dxpy, if parents True is specified
-            # and folder already exists it will not correctly raise
-            # exception, therefore first try without to force creating
-            # parent /output/, then the normal try will correctly increment
-            # the numbering
-            print("/output/ not yet created, trying again")
-            dxpy.api.project_new_folder(
-                args.dx_project_id,
-                input_params={'folder': out_folder, 'parents': True}
-            )
-            print(f'Created output folder: {out_folder}')
-            break
-        except dxpy.exceptions.InvalidState:
-            # catch exception where folder already exists, increment number
-            print(f'{out_folder} already exists, creating new folder')
+            dx_folder = dxpy.bindings.search.find_one_data_object(
+                zero_ok=True, more_ok=False) 
+        except DXSearchError:
+            # more_ok=False => allows returning more than one folder => catch
+            # error and continue making new one, zero_ok returns None
             continue
+
+        if dx_folder:
+            # folder already exists => continue
+            print(f'{out_folder} already exists, incrementing suffix integer')
+            continue
+        else:
+            # returned None => create new folder
+            dxpy.api.project_new_folder(
+                args.dx_project_id, input_params={'folder': out_folder}
+            )
+            print(f'Created output folder: {out_folder}')
+            break
 
     return out_folder
 
@@ -127,27 +124,32 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
     """
     Call workflow / app, returns id of submitted job
     """
+    print('calling dx')
+    print('prev jobs: ', prev_jobs)
+    print('input dict: ', input_dict)
     if 'workflow-' in executable:
         job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
         ).run(
             workflow_input=input_dict, stage_folders=output_dict,
-            depends_on=prev_jobs
+            ignore_reuse_stages=['*'], depends_on=prev_jobs
         )
     elif 'app-' in executable:
         job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
             app_input=input_dict, project=args.dx_project_id,
-            folder=output_dict[executable], depends_on=prev_jobs
+            folder=output_dict[executable], ignore_reuse=True,
+            depends_on=prev_jobs
         )
     elif 'applet-' in executable:
         job_handle = dxpy.bindings.dxapplet.DXApplet(dxid=executable).run(
             applet_input=input_dict, project=args.dx_project_id,
-            folder=output_dict[executable], depends_on=prev_jobs
+            folder=output_dict[executable], ignore_reuse=True,
+            depends_on=prev_jobs
         )
     else:
         # doesn't appear to be valid workflow or app
         raise Exception
-
+    print('called')
     job_details = job_handle.describe()
     job_id = job_details.get('id')
 
@@ -669,7 +671,7 @@ def main():
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
-        print(f'\nConfiguring {executable} to start jobs\n')
+        print(f'\nConfiguring {executable} to start jobs')
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
