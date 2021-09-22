@@ -96,62 +96,25 @@ def create_dx_folder(args, out_folder) -> str:
     """
     for i in range(1, 100):
         # sanity check, should only be 1 or 2 already existing at most
-        out_folder = f'{out_folder}-{i}'
+        dx_folder = f'{out_folder}-{i}'
+
         try:
-            dxpy.api.project_new_folder(
+            dxpy.api.project_list_folder(
                 args.dx_project_id,
-                input_params={'folder': out_folder}
+                input_params={"folder": dx_folder, "only": "folders"},
             )
-            print(f'Created output folder: {out_folder}')
-            break
         except dxpy.exceptions.ResourceNotFound:
-            # first try without parents True to force creating parent /output/,
-            # then the normal try will correctly increment the numbering
-            print("/output/ not yet created, trying again")
             dxpy.api.project_new_folder(
-                args.dx_project_id,
-                input_params={'folder': out_folder, 'parents': True}
+                args.dx_project_id, input_params={'folder': dx_folder}
             )
-            print(f'Created output folder: {out_folder}')
+            print(f'Created output folder: {dx_folder}')
             break
-        except dxpy.exceptions.InvalidState:
-            # catch exception where folder already exists, increment number
-            print(f'{out_folder} already exists, creating new folder')
-            continue
-
-    return out_folder
-
-
-def old_create_dx_folder(args, out_folder) -> str:
-    """
-    ### KEEPING UNTIL FIGURE OUT IF CHECKING EXISTS WORKS
-    Create output folder in DNAnexus project
-    """
-    for i in range(1, 100):
-        # sanity check, should only be 1 or 2 already existing at most
-        out_folder = f'{out_folder}-{i}'
-
-        try:
-            dx_folder = dxpy.bindings.search.find_one_data_object(
-                zero_ok=True, more_ok=False)
-        except DXSearchError:
-            # more_ok=False => allows returning more than one folder => catch
-            # error and continue making new one, zero_ok returns None
-            continue
-
-        if dx_folder:
-            # folder already exists => continue
-            print(f'{out_folder} already exists, incrementing suffix integer')
-            continue
         else:
-            # returned None => create new folder
-            dxpy.api.project_new_folder(
-                args.dx_project_id, input_params={'folder': out_folder}
-            )
-            print(f'Created output folder: {out_folder}')
-            break
+            # folder already exists => continue
+            print(f'{dx_folder} already exists, incrementing suffix integer')
+            continue
 
-    return out_folder
+    return dx_folder
 
 
 def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
