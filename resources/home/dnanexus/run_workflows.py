@@ -95,7 +95,7 @@ def create_dx_project(args, config) -> argparse.ArgumentParser:
             )
 
     args.dx_project_id = project_id
-    sys.exit()
+
     return args
 
 
@@ -130,8 +130,6 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
     """
     Call workflow / app, returns id of submitted job
     """
-    print('calling dx')
-
     if 'workflow-' in executable:
         job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
             dxid=executable, project=args.dx_project_id
@@ -235,16 +233,15 @@ def add_other_inputs(input_dict, dx_project_id, executable_out_dirs) -> dict:
     if statements but oh well
     """
     # first checking if any INPUT- in dict to fill, if not return
-    inputs = find_job_inputs('INPUT-', input_dict, check_key=False)
-    _empty = object()
-
-    if next(inputs, _empty) == _empty:
-        # generator returned empty object => no inputs found to fill
+    other_inputs = list(find_job_inputs('INPUT-', input_dict, check_key=False))
+    
+    if not other_inputs:
+        # no other inputs found to replace
         return input_dict
 
     print('found other inputs to fill')
 
-    for job_input in find_job_inputs('INPUT-', input_dict, check_key=False):
+    for job_input in other_inputs:
         if job_input == 'INPUT-dx_project_id':
             # add project id
             replace_job_inputs(input_dict, job_input, dx_project_id)
@@ -301,22 +298,22 @@ def find_job_inputs(identifier, input_dict, check_key) -> Generator:
             yield value
 
 
-def replace_job_inputs(input_dict, job_input, job_id) -> Generator:
+def replace_job_inputs(input_dict, job_input, link_id) -> Generator:
     """
     Recursively traverse through nested dictionary and replace any matching
-    analysis_ correct analysis id to link job output to next job input.
+    job_input with given DNAnexus job/file/project id
     """
     for key, val in input_dict.items():
         if isinstance(val, dict):
             # found a dict, continue
-            replace_job_inputs(val, job_input, job_id)
+            replace_job_inputs(val, job_input, link_id)
         if isinstance(val, list):
             # found list of dicts, check each dict
             for list_val in val:
-                replace_job_inputs(list_val, job_input, job_id)
+                replace_job_inputs(list_val, job_input, link_id)
         if val == job_input:
             # replace analysis_ with correct job id
-            input_dict[key] = job_id
+            input_dict[key] = link_id
 
 
 def get_dependent_jobs(params, job_outputs_dict, sample=None):
@@ -372,7 +369,6 @@ def link_inputs_to_outputs(job_outputs_dict, input_dict, sample=None) -> dict:
         return input_dict
 
     for job_input in inputs:
-        print('found job inputs to replace')
         # for each input, use the analysis id to get the job id containing
         # the required output from the job outputs dict
         match = re.search(r'^analysis_[0-9]{1,2}$', job_input)
@@ -481,7 +477,6 @@ def call_per_sample(
     input_dict = config_copy['executables'][executable]['inputs']
     output_dict = config_copy['executables'][executable]['output_dirs']
 
-    print('starting call', input_dict)
     # create output directory structure in config
     populate_output_dir_config(executable, output_dict, out_folder)
 
@@ -513,11 +508,10 @@ def call_per_sample(
 
     # call dx run to start jobs
     print(f"Calling {executable} on sample {sample}")
+    print(f'Input dict: {PPRINT(input_dict)}')
+
     job_id = call_dx_run(
         args, executable, input_dict, output_dict, dependent_jobs)
-
-    PPRINT(input_dict)
-    PPRINT(output_dict)
 
     if sample not in job_outputs_dict.keys():
         # create new dict to store sample outputs
