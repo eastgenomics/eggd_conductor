@@ -326,8 +326,8 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None):
 
     if dependent_analysis:
         for id in dependent_analysis:
-            # find jobs for every analysis id
             for job in find_job_inputs(id, job_outputs_dict, check_key=True):
+                # find jobs for every analysis id
                 if job:
                     dependent_jobs.append(job)
 
@@ -341,14 +341,6 @@ def link_inputs_to_outputs(job_outputs_dict, input_dict, sample=None) -> dict:
     Check input dict for 'analysis_', these will be for linking outputs of
     previous jobs and stored in the job_outputs_dict to input of next job
     """
-    # first checking if any analysis_ in dict to fill, if not return
-    inputs = find_job_inputs('analysis_', input_dict, check_key=False)
-    _empty = object()
-
-    if next(inputs, _empty) == _empty:
-        # generator returned empty object => no inputs found to fill
-        return input_dict
-
     if sample:
         # ensure we only use outputs for given sample for per sample workflow
         try:
@@ -363,19 +355,24 @@ def link_inputs_to_outputs(job_outputs_dict, input_dict, sample=None) -> dict:
                 f'{input_dict}'
             ))
 
-    for job_input in find_job_inputs('analysis_', input_dict, check_key=False):
-        print('found job inputs to replace')
-        # find_job_inputs() returns generator, loop through for each input to
-        # replace in the input dict
+    # search input dict for job ids to add
+    inputs = list(find_job_inputs('analysis_', input_dict, check_key=True))
 
+    if not inputs:
+        # no inputs found to replace
+        return input_dict
+
+    for job_input in inputs:
+        print('found job inputs to replace')
         # for each input, use the analysis id to get the job id containing
         # the required output from the job outputs dict
         match = re.search(r'^analysis_[0-9]{1,2}$', job_input)
         if not match:
             # doesn't seem to be a valid app or worklfow, we cry
-            raise RuntimeError(
-                f'{job_input} does not seem to analysis id'
-            )
+            raise RuntimeError((
+                f'{job_input} does not seem to be a valid analysis id, check '
+                'config and try again'
+            ))
 
         analysis_id = match.group(0)
 
@@ -391,13 +388,15 @@ def link_inputs_to_outputs(job_outputs_dict, input_dict, sample=None) -> dict:
             )
 
         if not job_id:
+            # this shouldn't happen as it will be caught with the regex but
+            # double checking anyway
             raise ValueError((
                 f"No job id found for given analysis id: {job_input}, please "
                 "check that it has the same analysis as a previous job in the "
                 "config"
             ))
 
-        # get file id for given field from dict to replace in input_dict
+        # replace analysis id with given job id in input dict
         replace_job_inputs(input_dict, job_input, job_id[0])
 
     return input_dict
