@@ -18,7 +18,7 @@ import sys
 from typing import Generator
 
 import dxpy
-from dxpy.exceptions import DXSearchError
+
 
 PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
@@ -65,7 +65,7 @@ def find_dx_project(project_name) -> str:
     return dx_project
 
 
-def create_dx_project(args) -> argparse.ArgumentParser:
+def create_dx_project(args, config) -> argparse.ArgumentParser:
     """
     Create new project in DNAnexus
     """
@@ -85,8 +85,17 @@ def create_dx_project(args) -> argparse.ArgumentParser:
     else:
         print(f'Using existing found project: {output_project} ({project_id})')
 
-    args.dx_project_id = project_id
+    users = config.get('users')
 
+    if users:
+        # users specified in config to grant access to project
+        for user, access_level in users.items():
+            dxpy.bindings.dxproject.DXProject(dxid=project_id).invite(
+                user, access_level, send_email=False
+            )
+
+    args.dx_project_id = project_id
+    sys.exit()
     return args
 
 
@@ -638,7 +647,7 @@ def main():
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        args = create_dx_project(args)
+        args = create_dx_project(args, config)
 
     # set context to project for running jobs
     dxpy.set_workspace_id(args.dx_project_id)
@@ -681,7 +690,6 @@ def main():
     # storing output folders used for each workflow/app, might be needed to
     # store data together / access specific dirs of data
     executable_out_dirs = {}
-
 
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
