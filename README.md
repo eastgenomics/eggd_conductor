@@ -67,6 +67,7 @@ Example highest level of config:
 
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the executable to collect the output from 
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable)
+- `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying report)
 
 
 Example of per executable config:
