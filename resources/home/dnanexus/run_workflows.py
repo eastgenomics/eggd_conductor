@@ -211,20 +211,8 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     return input_dict
 
 
-def add_sample_name(input_dict, sample) -> dict:
-    """
-    Adds sample name to input dict
-    """
-    # check if config has field(s) expecting the sample name as input
-    keys = [k for k, v in input_dict.items() if v == 'INPUT-SAMPLE_NAME']
-    if keys:
-        for key in keys:
-            input_dict[key] = sample
-
-    return input_dict
-
-
-def add_other_inputs(input_dict, dx_project_id, executable_out_dirs) -> dict:
+def add_other_inputs(
+    input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
     """
     Generalised function for adding other INPUT-s, currently handles parsing:
     workflow output directories, project id and project name.
@@ -242,6 +230,10 @@ def add_other_inputs(input_dict, dx_project_id, executable_out_dirs) -> dict:
     print('found other inputs to fill')
 
     for job_input in other_inputs:
+        if job_input == 'INPUT-SAMPLE-NAME':
+            # add sample name
+            replace_job_inputs(input_dict, job_input, sample)
+
         if job_input == 'INPUT-dx_project_id':
             # add project id
             replace_job_inputs(input_dict, job_input, dx_project_id)
@@ -500,12 +492,9 @@ def call_per_sample(
     else:
         dependent_jobs = []
 
-    # add sample name where required
-    input_dict = add_sample_name(input_dict, sample)
-
     # handle other inputs defined in config to add to inputs
     input_dict = add_other_inputs(
-        input_dict, args.dx_project_id, executable_out_dirs)
+        input_dict, args.dx_project_id, executable_out_dirs, sample)
 
     # check any inputs dependent on previous job outputs to add
     input_dict = link_inputs_to_outputs(
