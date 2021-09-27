@@ -227,14 +227,14 @@ def add_sample_name(input_dict, sample) -> dict:
 def add_other_inputs(input_dict, dx_project_id, executable_out_dirs) -> dict:
     """
     Generalised function for adding other INPUT-s, currently handles parsing:
-    workflow output directories and project id.
+    workflow output directories, project id and project name.
 
     Extensible to add more in future, probably could be cleaner than a load of
     if statements but oh well
     """
     # first checking if any INPUT- in dict to fill, if not return
     other_inputs = list(find_job_inputs('INPUT-', input_dict, check_key=False))
-    
+
     if not other_inputs:
         # no other inputs found to replace
         return input_dict
@@ -246,6 +246,15 @@ def add_other_inputs(input_dict, dx_project_id, executable_out_dirs) -> dict:
             # add project id
             replace_job_inputs(input_dict, job_input, dx_project_id)
 
+        if job_input == 'INPUT-dx_project_name':
+            # call describe on job id and add project name
+            output = dxpy.api.project_describe(
+                dx_project_id, input_params={'fields': {'name': True}})
+            project_name = output.get('name')
+
+            replace_job_inputs(input_dict, job_input, project_name)
+
+        # match analysis_X (i.e. analysis_1, analysis_2...)
         out_folder_match = re.search(
             r'^INPUT-analysis_[0-9]{1,2}-out_dir$', job_input)
 
@@ -279,7 +288,7 @@ def find_job_inputs(identifier, input_dict, check_key) -> Generator:
     """
     for key, value in input_dict.items():
         # set field to check for identifier to either key or value
-        if check_key == True:
+        if check_key is True:
             check_field = key
         else:
             check_field = value
