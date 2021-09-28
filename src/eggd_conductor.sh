@@ -14,7 +14,7 @@ main() {
 
         # get json of details to parse required info from
         sentinel_details=$(dx describe --details --json "$upload_sentinel_record")
-        run_id=$(echo $sentintel_details | jq -r '.run_id')
+        run_id=$(echo $sentintel_details | jq -r '.properties.run_id')
         run_dir=$(echo $sentinel_details | jq -r '.folder')
         tar_file_ids=$(echo $sentinel_details | jq -r '.details.tar_file_ids')
         sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
