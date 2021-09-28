@@ -212,7 +212,7 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
 
 
 def add_other_inputs(
-    input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
+        input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
     """
     Generalised function for adding other INPUT-s, currently handles parsing:
     workflow output directories, project id and project name.
@@ -491,6 +491,18 @@ def call_per_sample(
             params, job_outputs_dict, sample=sample)
     else:
         dependent_jobs = []
+
+    if params.get("sample_name_delimeter"):
+        # if delimeter specified to split sample name on, use it
+        delim = params.get("sample_name_delimeter")
+
+        if delim in sample:
+            sample = sample.split(delim)[0]
+        else:
+            print((
+                f'Specified delimeter ({delim}) is not in sample name '
+                f'({sample}), ignoring and continuing.'
+            ))
 
     # handle other inputs defined in config to add to inputs
     input_dict = add_other_inputs(
