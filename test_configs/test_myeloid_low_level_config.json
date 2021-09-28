@@ -3,6 +3,9 @@
     "version": "v1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
     "demultiplex": true,
+    "users": {
+        "org-emee_1": "ADMIN"
+    },
     "executables": {
         "workflow-G4VpkG8433GZKf90KkXB4XZx": {
             "name": "uranus_main_workflow_GRCh38_v1.5.0_novaseq",
@@ -10,6 +13,7 @@
             "url": "https://github.com/eastgenomics/eggd_uranus_main_workflow",
             "analysis": "analysis_1",
             "per_sample": true,
+            "sample_name_delimeter": "_",
             "process_fastqs": true,
             "inputs": {
                 "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs": "INPUT-R1",
@@ -51,7 +55,7 @@
             "process_fastqs": false,
             "depends_on": ["analysis_1"],
             "inputs": {
-                "project_for_multiqc": "INPUT-dx_project_id",
+                "project_for_multiqc": "INPUT-dx_project_name",
                 "ss_for_multiqc": "INPUT-analysis_1-out_dir",
                 "custom_coverage": true,
                 "eggd_multiqc_config_file": {
@@ -69,6 +73,7 @@
             "analysis": "analysis_4",
             "per_sample": true,
             "process_fastqs": false,
+            "depends_on": ["analysis_1"],
             "inputs": {
                 "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
                     "$dnanexus_link": {
