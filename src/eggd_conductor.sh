@@ -167,7 +167,7 @@ main() {
 
         optional_args=''
         if [ $dx_project ]; then optional_args+="--dx-project $dx_project "
-        if [ $un_id ]; then optional_args+="--run_id $run_id "
+        if [ $run_id ]; then optional_args+="--run_id $run_id "
 
         python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"
     done
