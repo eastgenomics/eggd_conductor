@@ -15,7 +15,7 @@
     },
     {
       "name": "sentinel_file",
-      "label": "sentinel file from dx-streaming-upload to start analysis from",
+      "label": "Sentinel file",
       "class": "record",
       "optional": true,
       "suggestions": [
@@ -26,13 +26,13 @@
     },
     {
       "name": "samplesheet",
-      "label": "Samplesheet for given run, if not given will attempt to find in data tars. Must be given if using fastqs input.",
+      "label": "SampleSheet",
+      "help": "Samplesheet for given run, if not given will attempt to find in data tars. Must be given if using fastqs input.",
       "class": "file",
       "optional": true,
       "patterns": [
         "*"
-      ],
-      "help": ""
+      ]
     },
     {
       "name": "samples",
@@ -42,13 +42,13 @@
     },
     {
       "name": "fastqs",
-      "label": "fastqs to process",
+      "label": "Fastqs",
       "class": "array:file",
       "optional": true,
       "patterns": [
         "*"
       ],
-      "help": ""
+      "help": "Fastqs to use for starting analysis on"
     },
     {
       "name": "high_level_config",
@@ -72,13 +72,13 @@
     },
     {
       "name": "custom_config",
-      "label": "Use given low level config for running analyses",
+      "label": "Custom config",
       "class": "file",
       "optional": true,
       "patterns": [
         "*"
       ],
-      "help": ""
+      "help": "Use given low level config for running analyses"
     }
   ],
   "outputSpec": [],
