@@ -30,13 +30,30 @@ main() {
             sample_sheet='SampleSheet.csv'
         else
             # sample sheet missing from runs dir, most likely due to being named incorrectly
-            # grab the first tar, download, unpack and try to find it
+            # find the first tar, download, unpack and try to find it
             printf 'Could not find samplesheet from sentinel file.\n'
-            printf 'Downloading and checking first run tar file.'
+            printf 'Finding first run tar file to get sample sheet from.\n'
 
-            dx download $(echo $tar_file_ids | jq -r '.[0]')
-            first_tar=$(find ./ -name "run.*.tar.gz")
-            tar -xzf $first_tar -C first_tar_dir
+            # tar file ids sadly aren't in order, loop over them,
+            # call dx describe and find first
+            echo $tar_file_ids | jq -c '.[]' | while read i; do
+                file_id=$(echo $i | sed 's/"//g')  # remove quotes from file id
+                tar_name=$(dx describe --json $file_id | jq -r '.name')
+                if [[ "$tar_name" == *"_000.tar.gz" ]]
+                then
+                    # first tar always will be _000
+                    printf 'Found first tar: $tar_name'
+                    printf 'Downloading tar file'
+                    dx download $file_id -o first_tar.tar.gz
+                    break
+                else
+                    printf 'Not first tar file, continuing...\n'
+                fi
+            done
+
+            # unpack tar and find samplesheet
+            mkdir ./first_tar_dir
+            tar -xzf first_tar.tar.gz -C ./first_tar_dir
             sample_sheet=$(find ./first_tar_dir -regextype posix-extended  -iregex '.*sample[-_ ]?sheet.csv$')
 
             if [ -z $sample_sheet ];
@@ -47,7 +64,8 @@ main() {
             fi
         fi
     else
-        # applet run manually without sentinel file, should pass fastqs and sample sheet
+        # applet run manually without sentinel file
+        # should have array of fastqs and sample sheet or sample names
         if [ ! $samples ] & [ ! $sample_sheet ]
         # needs sample sheet or sample list passing
         then
@@ -55,7 +73,7 @@ main() {
             exit 1
         fi
 
-        if [ $samples ] & [ $sample_sheet ]
+        if [[ $samples ]] & [[ $sample_sheet ]]
         # samplesheet and sample list given, use list
         then
             printf 'both sample sheet and list of samples provided, using sample list'
@@ -65,7 +83,7 @@ main() {
             printf 'Samples specified for analysis: $sample_list'
         fi
 
-        if [ $sample_sheet ] & [ ! $samples ]
+        if [[ $sample_sheet ]] & [[ ! $samples ]]
         # just sheet given => download
         then
             dx download $sample_sheet
@@ -73,15 +91,15 @@ main() {
     fi
 
     
-    # if it has made it this far we have a sample sheet (or string of names), and either a sentinel record or
-    # list of fastq files
+    # if it has made it this far we have a sample sheet (or string of names), and
+    # either a sentinel record or list of fastq files
 
     # we now need to do some sample sheet validation first, then check what types of samples
     # are present to determine the workflow(s) to run
 
-    if [ $sample_sheet ] & [ ! $samples ]
+    if [[ $sample_sheet ]] & [[ ! $samples ]]
     then
-    printf 'validating sample sheet'
+        printf 'validating sample sheet'
         #### SAMPLE SHEET VALIDATION HERE ####
     fi
 
@@ -90,10 +108,10 @@ main() {
     
 
     # get config file
-    dx download $high_level_config
+    # dx download $high_level_config
 
     # get list of sample names from sample sheet if not using sample name list
-    if [ $sample_sheet ] & [ ! $samples ]
+    if [[ $sample_sheet ]] & [[ ! $samples ]]
     then
         sample_list=$(tail -n +20 "$sample_sheet" | cut -d',' -f 1)
     fi
@@ -127,7 +145,7 @@ main() {
         if [ -v sample_to_assay[$assay_type] ];
         then
             # assay key already exists => append to existing sample list
-            sample_to_assay["$assay_type"]="sample_to_assay[$assay_type], $name"
+            sample_to_assay["$assay_type"]="$sample_to_assay[$assay_type], $name"
         else
             # new assay key
             sample_to_assay["$assay_type"]="$name"
@@ -136,6 +154,7 @@ main() {
 
     echo "READY TO RUN BCL2FASTQ"
     echo "sample list: $sample_list"
+    echo "assay code given: $assay_type"
     echo "sample to assays:"
 
     for i in "${!sample_to_assay[@]}"

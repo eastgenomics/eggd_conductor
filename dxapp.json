@@ -36,7 +36,7 @@
     },
     {
       "name": "samples",
-      "label": "comma seperated list of sample names to analyse, can use instead of parsing from provided samplesheet",
+      "label": "Comma seperated list of sample names",
       "class": "string",
       "optional": true
     },
@@ -62,7 +62,7 @@
     },
     {
       "name": "assay_type",
-      "label": "Type of assay to over ride using config parsed from sample name",
+      "label": "EGG code to use for all samples",
       "class": "string",
       "optional": true,
       "patterns": [
@@ -73,7 +73,7 @@
     {
       "name": "custom_config",
       "label": "Use given low level config for running analyses",
-      "class": "string",
+      "class": "file",
       "optional": true,
       "patterns": [
         "*"
