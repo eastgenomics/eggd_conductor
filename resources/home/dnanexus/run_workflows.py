@@ -625,6 +625,10 @@ def parse_args() -> argparse.ArgumentParser:
         help='id of job from running bcl2fastq (if run)'
     )
     parser.add_argument(
+        '--fastqs',
+        help='comma separated string of fastq file ids for starting analysis on'
+    )
+    parser.add_argument(
         '--test_samples',
         help=(
             'for test use only. Pass in file with 1 sample per line '
@@ -634,8 +638,9 @@ def parse_args() -> argparse.ArgumentParser:
 
     args = parser.parse_args()
 
-    # turn comma separated sample str to python list
+    # turn comma separated str to python list
     args.samples = [x.replace(' ', '') for x in args.samples.split(',') if x]
+    args.fastqs = [x.replace(' ', '') for x in args.fastqs.split(',') if x]
 
     return args
 
@@ -670,8 +675,20 @@ def main():
             folder=bcl2fastq_folder, describe=True
         ))
         fastq_details = [(x['id'], x['describe']['name']) for x in fastq_details]
+    elif args.fastqs:
+        # call describe on files to get name and build list of tuples of
+        # (file id, name)
+        fastq_details = []
+
+        for fastq_id in args.fastqs:
+            fastq_name = dxpy.api.file_describe(
+                fastq_id, input_params={'fields': {'name': True}}
+            )
+            fastq_name = fastq_name['name']
+
+            fastq_details.append((fastq_id, fastq_name))
     else:
-        # bcl2fastq wasn't run => we have either a dir of fastqs being passed,
+        # bcl2fastq wasn't run => we have either a list of fastqs being passed,
         # this is for tso500 or something else weird this is going to need some
         # thought and clever handling to know what is being passed
         fastq_details = []

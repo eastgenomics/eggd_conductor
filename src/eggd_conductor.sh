@@ -19,7 +19,7 @@ main() {
         tar_file_ids=$(echo $sentinel_details | jq -r '.details.tar_file_ids')
         sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
 
-        if [ $sample_sheet_id ];
+        if [ $sample_sheet_id ]
         then
             # sample sheet named correctly, download
             printf 'Found sample sheet from given sentinel file, downloading'
@@ -63,6 +63,25 @@ main() {
     else
         # applet run manually without sentinel file
         # should have array of fastqs and sample sheet or sample names
+        if "${fastqs[@]}";
+        then
+            # build list of file ids for given fastqs to pass to workflow script
+            fastq_ids=""
+
+            for fq in "${fastqs[@]}"; do
+                if [[ $fq =~ file-[A-Za-z0-9]* ]]
+                then
+                    file_id="${BASH_REMATCH[0]}"
+                    fastq_ids+="$file_id, "
+                else
+                    printf "Given fastq does not seem to be a valid file id: $fq\n"
+                    printf "Exiting now."
+                    exit 1
+                fi
+            done
+            printf "\nFound fastq file ids: $fastq_ids\n"
+        fi
+
         if [ ! $samples ] & [ ! $sample_sheet ]
         # needs sample sheet or sample list passing
         then
@@ -76,7 +95,6 @@ main() {
             printf 'both sample sheet and list of samples provided, using sample list'
             # ensure sample names are string seperated by a space
             sample_list=$(echo $samples | tr -d '[:space:]' | sed 's/,/ /g')
-
             printf 'Samples specified for analysis: $sample_list'
         fi
 
@@ -109,7 +127,7 @@ main() {
         # dx download $high_level_config
 
         # hard coding test config for now
-        dx download 'file-G5FVZBQ469FQF1zF88Z0yyyF' -o high_level_config.tsv
+        dx download 'file-G5FYPp8469Fqvz8vP5VVVvQV' -o high_level_config.tsv
     fi
 
     # get list of sample names from sample sheet if not using sample name list
@@ -163,8 +181,6 @@ main() {
         echo "value: ${sample_to_assay[$i]}"
     done
 
-    exit 1
-
     # we now have an array of assay codes to comma separated sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000003_EGG1, X000004_EGG1...
@@ -173,13 +189,12 @@ main() {
     # access all array value with ${sample_to_assay[@]}
     # access specific key value with ${sample_to_assay[$key]}
 
-    # starting bcl2fastq and holding app until it completes
-    echo "Starting bcl2fastq app"
-    echo "Holding app until demultiplexing complete to trigger downstream workflow(s)"
-
     if [ $upload_sentinel_record ]
     then
-        # running using sentinel record => from dx-streaming-upload
+        # starting bcl2fastq and holding app until it completes
+        echo "Starting bcl2fastq app"
+        echo "Holding app until demultiplexing complete to trigger downstream workflow(s)"
+
         bcl2fastq_job_id=$(dx run --brief --wait --yes {bcl2fastq-applet-id} -iupload_sentinel_record $upload_sentinel_record)
         # dx describe --json $job_id | jq -r '.output.output'  # file ids of all outputs
     fi
@@ -191,8 +206,8 @@ main() {
 
         if [ ! $custom_config ]
         then
-            # no custom config => get file id for config file & download
-            config_file_id=$(grep $i $high_level_config | awk '{print $NF}')
+            # no custom config => get file id for low level assay config file & download
+            config_file_id=$(grep $i high_level_config.tsv | awk '{print $NF}')
             config_name=$(dx describe --json $config_file_id | jq -r '.name')
             dx download $config_file_id -o $config_name
         else
@@ -205,7 +220,7 @@ main() {
         if [ $bcl2fastq_job_id ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
         if [ $run_id ]; then optional_args+="--run_id $run_id "; fi
 
-        python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"
+        echo 'python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"'
     done
 
     echo "Workflows triggered for samples"
