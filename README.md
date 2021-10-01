@@ -67,7 +67,7 @@ Example highest level of config:
 
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the executable to collect the output from 
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable)
-- `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying report)
+- `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in report)
 
 
 Example of per executable config:
@@ -108,6 +108,7 @@ The inputs dict may be given several inputs that act as placeholders to be parse
 - `INPUT-R2`: indicates to pass 1 or more R2 fastq files as input
 - `INPUT-R1-R2`: indicates to pass all R1 AND R2 fastq files as input
 - `INPUT-dx_project_id`: pass the project id used for analysis
+- `INPUT-dx_project_name`: pass the project name used for analysis
 - `INPUT-analysis_X-out_dir`: pass the output directory of analysis `X` as input, where `X` is the number of the analysis defined as above
 
 Inputs dependent on the output of a previous job should be defined as shown below. This relies on using the `analysis_X` key, where `X` is the number of the executable to collect the output from.
