@@ -66,30 +66,6 @@
                 "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/output/OUT-FOLDER/APP-NAME"
             }
         },
-        "workflow-G0bj928433GxbZY9632xXP9J": {
-            "name": "uranus_annotation_workflow",
-            "details": "Runs nirvana & nirvana2vcf to generate annotated VCF",
-            "url": "https://github.com/eastgenomics/eggd_uranus_annotation_workflow",
-            "analysis": "analysis_4",
-            "per_sample": true,
-            "process_fastqs": false,
-            "depends_on": ["analysis_1"],
-            "inputs": {
-                "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
-                    "$dnanexus_link": {
-                        "analysis": "analysis_1",
-                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
-                        "field": "out"
-                    }
-                },
-                "stage-G0QQ8q8433Gb8YFG4q7847Px.vcf_file": {
-                    "$dnanexus_link": {
-                        "analysis": "analysis_1",
-                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
-                        "field": "out"
-                    }
-                }
-            },
             "output_dirs": {
                 "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/output/OUT-FOLDER/APP-NAME",
                 "stage-G0QQ8q8433Gb8YFG4q7847Px": "/output/OUT-FOLDER/APP-NAME"
