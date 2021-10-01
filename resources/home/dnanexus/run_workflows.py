@@ -635,7 +635,7 @@ def parse_args() -> argparse.ArgumentParser:
     args = parser.parse_args()
 
     # turn comma separated sample str to python list
-    args.samples = [x.replace(' ', '') for x in args.samples.split(',')]
+    args.samples = [x.replace(' ', '') for x in args.samples.split(',') if x]
 
     return args
 
