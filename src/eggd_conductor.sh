@@ -218,6 +218,7 @@ main() {
         optional_args=''
         if [ $dx_project ]; then optional_args+="--dx_project_id $dx_project "; fi
         if [ $bcl2fastq_job_id ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
+        if [ $fastq_ids ]; then optional_args+="--fastqs $fastq_ids"; fi
         if [ $run_id ]; then optional_args+="--run_id $run_id "; fi
 
         echo 'python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"'
