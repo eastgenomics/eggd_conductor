@@ -3,6 +3,7 @@
     "version": "v1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
     "demultiplex": true,
+    "sample_name_regex": "[0-9]{7}-[A-Z0-9]*-[A-Z]{2}-[A-Z]{3}-MYE-[MF]-EGG2",
     "users": {
         "org-emee_1": "ADMINISTER"
     },
