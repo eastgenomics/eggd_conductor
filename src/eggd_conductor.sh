@@ -215,7 +215,7 @@ main() {
             dx download $config_file -o $config_name
         fi
 
-        optional_args=''
+        optional_args=""
         if [ $dx_project ]; then optional_args+="--dx_project_id $dx_project "; fi
         if [ $bcl2fastq_job_id ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
         if [ $fastq_ids ]; then optional_args+="--fastqs $fastq_ids"; fi

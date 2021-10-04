@@ -2,8 +2,10 @@
 Using a config, calls all workflows / apps defined in config for given samples.
 Handles correctly interpreting and parsing inputs, defining output projects
 and directory structures, and linking up outputs of jobs to inputs of
-subsequent jobs. See readme for full documentation of how to structure the
-config file.
+subsequent jobs.
+
+See readme for full documentation of how to structure the config file and what
+inputs are valid.
 
 Jethro Rainford 210902
 """
