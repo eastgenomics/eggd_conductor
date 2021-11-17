@@ -9,6 +9,10 @@ set -exo pipefail
 
 main() {
 
+    # our own sample sheet validator is bundled with the app
+    # https://github.com/eastgenomics/validate_sample_sheet
+    tar xf validate_sample_sheet_v1.0.0.tar.gz
+
     if [[ "$sentinel_file" ]]; then
         # sentinel file passed when run automatically via dx-streaming-upload
 
@@ -17,16 +21,20 @@ main() {
         run_id=$(echo $sentintel_details | jq -r '.details.run_id')
         run_dir=$(echo $sentinel_details | jq -r '.folder')
         tar_file_ids=$(echo $sentinel_details | jq -r '.details.tar_file_ids')
-        sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
+        
+        if [ ! $sample_sheet_id ]; then
+            # check if sample sheet has been specified on running
+            sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
+        fi
 
         if [ $sample_sheet_id ]
         then
-            # sample sheet named correctly, download
+            # found sample sheet or passed -> download
             printf 'Found sample sheet from given sentinel file, downloading'
             dx download $sample_sheet_id
             sample_sheet='SampleSheet.csv'
         else
-            # sample sheet missing from runs dir, most likely due to being named incorrectly
+            # sample sheet missing from runs dir, most likely due to not being name SampleSheet.csv
             # find the first tar, download, unpack and try to find it
             printf 'Could not find samplesheet from sentinel file.\n'
             printf 'Finding first run tar file to get sample sheet from.\n'
@@ -102,41 +110,25 @@ main() {
         # just sheet given => download
         then
             dx download $sample_sheet
+            # get list of sample names from sample sheet if not using sample name list
+            sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
         fi
-    fi
-
-    # if it has made it this far we have a sample sheet (or string of names), and
-    # either a sentinel record or list of fastq files
-
-    # we now need to do some sample sheet validation first, then check what types of samples
-    # are present to determine the workflow(s) to run
-
-    if [[ $sample_sheet ]] & [[ ! $samples ]]
-    then
-        printf 'validating sample sheet'
-        #### SAMPLE SHEET VALIDATION HERE ####
     fi
 
     # now we need to know what samples we have, to trigger the appropriate workflows
     # use the config and sample sheet names to infer which to use if a specific assay not passed
     
-    # get high level config file if type not specified
+    # get high level config file if assay type not specified
     if [ -z $assay_type ]
     then
         printf 'assay type not specified, inferring from high level config and sample names'
         # dx download $high_level_config
 
-        # hard coding test config for now
+        # hard coding test config from dev project for now
         dx download 'file-G5FYPp8469Fqvz8vP5VVVvQV' -o high_level_config.tsv
     fi
 
-    # get list of sample names from sample sheet if not using sample name list
-    if [[ $sample_sheet ]] & [[ ! $samples ]]
-    then
-        sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
-    fi
-
-    # build associative array (i.e. key value pairs) of samples to assays
+    # build associative array (i.e. key value pairs) of samples to assay EGG codes
     declare -A sample_to_assay
 
     # for each sample, parse the eggd code, get associated assay from config if not specified
@@ -169,6 +161,54 @@ main() {
         # add sample name to associated assay code in array, comma separated to parse later
         sample_to_assay[$assay_type]+="$name,"
     done
+
+    # get low level config files for appropriate assays
+    mkdir low_level_configs
+
+    for i in "${sample_to_assay[@]}"
+    do
+        echo "Downloading low level config file(s)"
+        if [ ! $custom_config ]
+        then
+            # no custom config => get file id for low level assay config file & download
+            config_file_id=$(grep $i high_level_config.tsv | awk '{print $NF}')
+            config_name=$(dx describe --json $config_file_id | jq -r '.name')
+            dx download $config_file_id -o "low_level_configs/${config_name}"
+        else
+            config_name=$(dx describe --json $config_file | jq -r '.name')
+            dx download $config_file -o "low_level_configs/${config_name}"
+        fi
+    done
+
+    # perform samplesheet validation unless set to False
+    if [ $validate_samplesheet ]; then
+        # get all regex patterns from low level config files to check
+        # sample names against from config(s) if given
+        regex_patterns=""
+        for file in low_level_configs/*.json; do
+            if jq -r '.sample_regex' $file;
+                file_regexes=$(jq -r '.sample_regex[]')
+                regex_patterns+=" $file_regexes"
+            fi
+        done
+
+        # run samplesheet validator
+        if [[ $regex_patterns ]]; then
+            stdout=$(python validate_sample_sheet-1.0.0/validate/validate.py \
+            --samplesheet $samplesheet --name_patterns "$regex_patterns")
+        else
+            stdout=$(python validate_sample_sheet-1.0.0/validate/validate.py \
+            --samplesheet $samplesheet)
+        fi
+
+        printf "$stdout"
+
+        if [[ "$stdout" != "*SUCCESS*" ]]; then
+            # errors found in samplesheet => exit
+            printf 'Errors found in sample sheet, please check logs for details.\nExiting now.'
+            exit 1
+        fi
+    fi
 
     echo "READY TO RUN BCL2FASTQ"
     echo "sample list: $sample_list"
@@ -204,17 +244,7 @@ main() {
     do
         echo "Calling workflow for assay $i on samples ${sample_to_assay[$i]}"
 
-        if [ ! $custom_config ]
-        then
-            # no custom config => get file id for low level assay config file & download
-            config_file_id=$(grep $i high_level_config.tsv | awk '{print $NF}')
-            config_name=$(dx describe --json $config_file_id | jq -r '.name')
-            dx download $config_file_id -o $config_name
-        else
-            config_name=$(dx describe --json $config_file | jq -r '.name')
-            dx download $config_file -o $config_name
-        fi
-
+        # set optional arguments to workflow script by app args
         optional_args=""
         if [ $dx_project ]; then optional_args+="--dx_project_id $dx_project "; fi
         if [ $bcl2fastq_job_id ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi

@@ -79,6 +79,14 @@
         "*"
       ],
       "help": "Use given low level config for running analyses"
+    },
+    {
+      "name": "validate_samplesheet",
+      "label": "Validate samplesheet",
+      "class": "boolean",
+      "optional": true,
+      "default": true,
+      "help": "Perform samplesheet validation and exit on invalid sheet"
     }
   ],
   "outputSpec": [],
