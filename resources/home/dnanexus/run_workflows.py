@@ -1,5 +1,7 @@
 """
-Using a config, calls all workflows / apps defined in config for given samples.
+Using a JSON config, calls all workflows / apps defined in config for
+given samples.
+
 Handles correctly interpreting and parsing inputs, defining output projects
 and directory structures, and linking up outputs of jobs to inputs of
 subsequent jobs.
@@ -20,6 +22,7 @@ import sys
 from typing import Generator
 
 import dxpy
+
 
 
 PPRINT = pprint.PrettyPrinter(indent=4).pprint
@@ -103,7 +106,13 @@ def create_dx_project(args, config) -> argparse.ArgumentParser:
 
 def create_dx_folder(args, out_folder) -> str:
     """
-    Create output folder in DNAnexus project
+    Create output folder in DNAnexus project for storing analysis output
+
+    Args:
+        - args: cmd line arguments
+        - out_folder (str): name for analysis output folder
+    
+    Returns: dx_folder(str): name of create output directory
     """
     for i in range(1, 100):
         # sanity check, should only be 1 or 2 already existing at most
@@ -115,6 +124,7 @@ def create_dx_folder(args, out_folder) -> str:
                 input_params={"folder": dx_folder, "only": "folders"},
             )
         except dxpy.exceptions.ResourceNotFound:
+            # can't find folder => create one
             dxpy.api.project_new_folder(
                 args.dx_project_id, input_params={'folder': dx_folder}
             )
@@ -123,6 +133,17 @@ def create_dx_folder(args, out_folder) -> str:
         else:
             # folder already exists => continue
             print(f'{dx_folder} already exists, incrementing suffix integer')
+
+            if i == 100:
+                # got to end of loop, highly unlikely we would ever run this
+                # many in a project but catch it here to stop some ambiguous
+                # downstream error
+                print(
+                    'Found 100 output directories in project, exiting now as '
+                    'there is likely an issue in the project.'
+                )
+                sys.exit()
+
             continue
 
     return dx_folder
@@ -153,10 +174,11 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
         )
     else:
         # doesn't appear to be valid workflow or app
-        raise Exception
+        raise RuntimeError(
+            f'Specified executable id does not appear to be valid:{executable}'
+        )
 
     job_details = job_handle.describe()
-
     job_id = job_details.get('id')
 
     print(f'Started analysis in project {args.dx_project_id}, job: {job_id}')
@@ -664,7 +686,8 @@ def main():
     dxpy.set_workspace_id(args.dx_project_id)
 
     if args.bcl2fastq_id:
-        # get details of job that ran to perform demultiplexing
+        # get details of job that ran to perform demultiplexing to get
+        # fastq file ids
         bcl2fastq_job = dxpy.bindings.dxjob.DXJob(
             dxid=args.bcl2fastq_id).describe()
         bcl2fastq_project = bcl2fastq_job['project']
@@ -699,7 +722,7 @@ def main():
         if args.test_samples:
             fastq_details = load_test_data(args)
 
-    # check per_sample defined for all workflows / apps before starting
+    # sense check per_sample defined for all workflows / apps before starting
     for executable, params in config['executables'].items():
         assert 'per_sample' in params.keys(), (
             f"per_sample key missing from {executable} in config, check config"
