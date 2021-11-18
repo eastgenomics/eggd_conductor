@@ -35,7 +35,7 @@
       ]
     },
     {
-      "name": "samples",
+      "name": "sample_names",
       "label": "Comma seperated list of sample names",
       "class": "string",
       "optional": true
@@ -48,7 +48,7 @@
       "patterns": [
         "*"
       ],
-      "help": "Fastqs to use for starting analysis on"
+      "help": "Set of fastqs to use for starting analysis on if already demultiplexed"
     },
     {
       "name": "high_level_config",
@@ -65,9 +65,13 @@
       "label": "EGG code to use for all samples",
       "class": "string",
       "optional": true,
-      "patterns": [
-        "*"
-      ],
+      "help": ""
+    },
+    {
+      "name": "run_id",
+      "label": "ID of sequencing run, parsed from samplesheet if not given",
+      "class": "string",
+      "optional": true,
       "help": ""
     },
     {
@@ -76,7 +80,7 @@
       "class": "file",
       "optional": true,
       "patterns": [
-        "*"
+        "*.json"
       ],
       "help": "Use given low level config for running analyses"
     },
@@ -87,6 +91,13 @@
       "optional": true,
       "default": true,
       "help": "Perform samplesheet validation and exit on invalid sheet"
+    },
+    {
+      "name": "development",
+      "label": "name output project with 003 prefix",
+      "class": "boolean",
+      "optional": true,
+      "default": false
     }
   ],
   "outputSpec": [],
@@ -99,7 +110,7 @@
     "interpreter": "bash",
     "file": "src/eggd_conductor.sh",
     "distribution": "Ubuntu",
-    "release": "16.04",
+    "release": "18.04",
     "version": "1"
   },
   "access": {

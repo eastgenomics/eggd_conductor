@@ -90,23 +90,23 @@ main() {
             printf "\nFound fastq file ids: $fastq_ids\n"
         fi
 
-        if [ ! $samples ] & [ ! $sample_sheet ]
+        if [ ! $samples_names ] & [ ! $sample_sheet ]
         # needs sample sheet or sample list passing
         then
             printf 'No sample sheet or list of samples defined, one of these must be provided. Exiting now.'
             exit 1
         fi
 
-        if [[ $samples ]] & [[ $sample_sheet ]]
+        if [[ $samples_names ]] & [[ $sample_sheet ]]
         # samplesheet and sample list given, use list
         then
             printf 'both sample sheet and list of samples provided, using sample list'
             # ensure sample names are string seperated by a space
-            sample_list=$(echo $samples | tr -d '[:space:]' | sed 's/,/ /g')
+            sample_list=$(echo $samples_names | tr -d '[:space:]' | sed 's/,/ /g')
             printf 'Samples specified for analysis: $sample_list'
         fi
 
-        if [[ $sample_sheet ]] & [[ ! $samples ]]
+        if [[ $sample_sheet ]] & [[ ! $samples_names ]]
         # just sheet given => download
         then
             dx download $sample_sheet
@@ -242,7 +242,7 @@ main() {
     # trigger workflows using config for each set of samples for an assay
     for i in "${sample_to_assay[@]}"
     do
-        echo "Calling workflow for assay $i on samples ${sample_to_assay[$i]}"
+        echo "Calling workflow for assay $i on samples_names ${sample_to_assay[$i]}"
 
         # set optional arguments to workflow script by app args
         optional_args=""
@@ -250,6 +250,8 @@ main() {
         if [ $bcl2fastq_job_id ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
         if [ $fastq_ids ]; then optional_args+="--fastqs $fastq_ids"; fi
         if [ $run_id ]; then optional_args+="--run_id $run_id "; fi
+        if [ $development ]; then optional_args+="--development "; fi
+        
 
         echo 'python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"'
     done
