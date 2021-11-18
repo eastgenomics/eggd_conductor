@@ -47,7 +47,8 @@ def load_config(config_file) -> dict:
 
 def find_dx_project(project_name) -> str:
     """
-    Check if project already exists in DNAnexus
+    Check if project already exists in DNAnexus, else create one and return
+    project ID
     """
     dx_projects = list(dxpy.bindings.search.find_projects(
         name=project_name
@@ -72,9 +73,14 @@ def find_dx_project(project_name) -> str:
 
 def create_dx_project(args, config) -> argparse.ArgumentParser:
     """
-    Create new project in DNAnexus
+    Create new project in DNAnexus if one with given name doesn't already exist
     """
-    output_project = f'002_{args.run_id}_{args.assay_code}'
+    if args.development:
+        prefix = f'003_{datetime.now().strftime("%y%m%d")}'
+    else:
+        prefix = '002'
+
+    output_project = f'{prefix}_{args.run_id}_{args.assay_code}'
 
     project_id = find_dx_project(output_project)
 
@@ -111,7 +117,7 @@ def create_dx_folder(args, out_folder) -> str:
     Args:
         - args: cmd line arguments
         - out_folder (str): name for analysis output folder
-    
+
     Returns: dx_folder(str): name of create output directory
     """
     for i in range(1, 100):
@@ -122,11 +128,14 @@ def create_dx_folder(args, out_folder) -> str:
             dxpy.api.project_list_folder(
                 args.dx_project_id,
                 input_params={"folder": dx_folder, "only": "folders"},
+                always_retry=True
             )
         except dxpy.exceptions.ResourceNotFound:
             # can't find folder => create one
             dxpy.api.project_new_folder(
-                args.dx_project_id, input_params={'folder': dx_folder}
+                args.dx_project_id, input_params={
+                    'folder': dx_folder, "parents": True
+                }
             )
             print(f'Created output folder: {dx_folder}')
             break
@@ -192,11 +201,14 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     with appropriate fastq file ids
     """
     sample_fastqs = []
+
     if sample:
+        sample_regex = re.compile(
+            rf'{sample}_[A-za-z0-9]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
+        )
         for fastq in fastq_details:
             # sample specified => running per sample, if not using all fastqs
             # find fastqs for given sample
-            sample_regex = rf'{sample}_L00[0-9]_R[1,2]_001.fastq(.gz)?'
             match = re.search(sample_regex, fastq[1])
 
             if match:
@@ -367,22 +379,27 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None):
     return dependent_jobs
 
 
-def link_inputs_to_outputs(job_outputs_dict, input_dict, sample=None) -> dict:
+def link_inputs_to_outputs(
+        job_outputs_dict, input_dict, analysis, sample=None) -> dict:
     """
     Check input dict for 'analysis_', these will be for linking outputs of
     previous jobs and stored in the job_outputs_dict to input of next job
     """
+    if analysis == "analysis_1":
+        # first analysis => not previous outputs to link to inputs
+        return input_dict
+
     if sample:
         # ensure we only use outputs for given sample for per sample workflow
         try:
             job_outputs_dict = job_outputs_dict[sample]
         except KeyError:
             raise KeyError((
-                f'{sample} not found in output dict, this is most likely from '
+                f'{sample} not found in output dict. This is most likely from '
                 'this being the first executable called and having '
                 'a misconfigured input section in config (i.e. misspelt input)'
-                ' that should have been parsed earlier. Check config and try '
-                'again. Input dict given: '
+                ' that should have been parsed earlier. Check config and try'
+                ' again. Input dict given: '
                 f'{input_dict}'
             ))
 
@@ -534,7 +551,7 @@ def call_per_sample(
 
     # check any inputs dependent on previous job outputs to add
     input_dict = link_inputs_to_outputs(
-        job_outputs_dict, input_dict, sample=sample
+        job_outputs_dict, input_dict, params["analysis"], sample=sample
     )
 
     # check that all INPUT- have been parsed in config
@@ -542,7 +559,8 @@ def call_per_sample(
 
     # call dx run to start jobs
     print(f"Calling {executable} on sample {sample}")
-    print(f'Input dict: {PPRINT(input_dict)}')
+    if input_dict.keys:
+        print(f'Input dict: {PPRINT(input_dict)}')
 
     job_id = call_dx_run(
         args, executable, input_dict, output_dict, dependent_jobs)
@@ -579,7 +597,9 @@ def call_per_run(
         input_dict, args.dx_project_id, executable_out_dirs)
 
     # check any inputs dependent on previous job outputs to add
-    input_dict = link_inputs_to_outputs(job_outputs_dict, input_dict)
+    input_dict = link_inputs_to_outputs(
+        job_outputs_dict, input_dict, params["analysis"]
+    )
 
     # find all jobs for previous analyses if next job depends on them finishing
     if params.get("depends_on"):
@@ -634,7 +654,10 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--dx_project_id', required=False,
-        help='DNAnexus project to use to run analysis in'
+        help=(
+            'DNAnexus project ID to use to run analysis in, '
+            'if not specified will create one named 002_{run_id}_{assay_code}'
+        )
     )
     parser.add_argument(
         '--run_id',
@@ -643,6 +666,10 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--assay_code',
         help='assay code, used for naming outputs'
+    )
+    parser.add_argument(
+        '--development', '-d', action='store_true',
+        help='Created project will be prefixed with 003 instead of 002.'
     )
     parser.add_argument(
         '--bcl2fastq_id',
@@ -663,8 +690,12 @@ def parse_args() -> argparse.ArgumentParser:
     args = parser.parse_args()
 
     # turn comma separated str to python list
-    args.samples = [x.replace(' ', '') for x in args.samples.split(',') if x]
-    args.fastqs = [x.replace(' ', '') for x in args.fastqs.split(',') if x]
+    if args.samples:
+        args.samples = [
+            x.replace(' ', '') for x in args.samples.split(',') if x
+        ]
+    if args.fastqs:
+        args.fastqs = [x.replace(' ', '') for x in args.fastqs.split(',') if x]
 
     return args
 
@@ -693,13 +724,15 @@ def main():
         bcl2fastq_project = bcl2fastq_job['project']
         bcl2fastq_folder = bcl2fastq_job['folder']
 
-        # find all fastqs from bcl2fastq job and return list of dicts with full
-        # details, keep name and file ids as list of tuples
+        # find all fastqs from bcl2fastq job, return list of dicts with details
         fastq_details = list(dxpy.search.find_data_objects(
             name="*.fastq*", name_mode="glob", project=bcl2fastq_project,
             folder=bcl2fastq_folder, describe=True
         ))
-        fastq_details = [(x['id'], x['describe']['name']) for x in fastq_details]
+        # Build list of tuples with fastq name and file ids
+        fastq_details = [
+            (x['id'], x['describe']['name']) for x in fastq_details
+        ]
     elif args.fastqs:
         # call describe on files to get name and build list of tuples of
         # (file id, name)
