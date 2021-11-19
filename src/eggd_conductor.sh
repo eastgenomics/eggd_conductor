@@ -18,20 +18,20 @@ main() {
 
         # get json of details to parse required info from
         sentinel_details=$(dx describe --details --json "$sentinel_file")
-        run_id=$(echo $sentintel_details | jq -r '.details.run_id')
-        run_dir=$(echo $sentinel_details | jq -r '.folder')
-        tar_file_ids=$(echo $sentinel_details | jq -r '.details.tar_file_ids')
+        run_id=$(echo "$sentinel_details" | jq -r '.details.run_id')
+        run_dir=$(echo "$sentinel_details" | jq -r '.folder')
+        tar_file_ids=$(echo "$sentinel_details" | jq -r '.details.tar_file_ids')
         
-        if [ ! $sample_sheet_id ]; then
+        if [ ! "$sample_sheet_id" ]; then
             # check if sample sheet has been specified on running
             sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
         fi
 
-        if [ $sample_sheet_id ]
+        if [ "$sample_sheet_id" ]
         then
             # found sample sheet or passed -> download
-            printf 'Found sample sheet from given sentinel file, downloading'
-            dx download $sample_sheet_id
+            printf "Found samplesheet from given sentinel file (%s), downloading" "$sample_sheet_id"
+            dx download "$sample_sheet_id"
             sample_sheet='SampleSheet.csv'
         else
             # sample sheet missing from runs dir, most likely due to not being name SampleSheet.csv
@@ -41,15 +41,14 @@ main() {
 
             # tar file ids sadly aren't in order, loop over them,
             # call dx describe and find first
-            echo $tar_file_ids | jq -c '.[]' | while read i; do
-                file_id=$(echo $i | sed 's/"//g')  # remove quotes from file id
-                tar_name=$(dx describe --json $file_id | jq -r '.name')
+            echo "$tar_file_ids" | jq -rc '.[]' | while read -r i; do
+                tar_name=$(dx describe --json "$i" | jq -r '.name')
                 if [[ "$tar_name" == *"_000.tar.gz" ]]
                 then
                     # first tar always will be _000
-                    printf 'Found first tar: $tar_name'
+                    printf "Found first tar: %s" "$tar_name"
                     printf 'Downloading tar file'
-                    dx download $file_id -o first_tar.tar.gz
+                    dx download "$file_id" -o first_tar.tar.gz
                     break
                 else
                     printf 'Not first tar file, continuing...\n'
@@ -61,7 +60,7 @@ main() {
             tar -xzf first_tar.tar.gz -C ./first_tar_dir
             sample_sheet=$(find ./first_tar_dir -regextype posix-extended  -iregex '.*sample[-_ ]?sheet.csv$')
 
-            if [ -z $sample_sheet ];
+            if [ -z "$sample_sheet" ];
             then
                 # sample sheet missing from root and first tar
                 echo "Sample sheet missing from runs dir and first tar, exiting now."
@@ -82,34 +81,34 @@ main() {
                     file_id="${BASH_REMATCH[0]}"
                     fastq_ids+="$file_id, "
                 else
-                    printf "Given fastq does not seem to be a valid file id: $fq\n"
+                    printf "Given fastq does not seem to be a valid file id: %s \n" "$fq"
                     printf "Exiting now."
                     exit 1
                 fi
             done
-            printf "\nFound fastq file ids: $fastq_ids\n"
+            printf "\nFound fastq file ids: %s \n" "$fastq_ids"
         fi
 
-        if [ ! $samples_names ] & [ ! $sample_sheet ]
+        if [ ! "$samples_names" ] && [ ! "$sample_sheet" ]
         # needs sample sheet or sample list passing
         then
             printf 'No sample sheet or list of samples defined, one of these must be provided. Exiting now.'
             exit 1
         fi
 
-        if [[ $samples_names ]] & [[ $sample_sheet ]]
+        if [[ $samples_names ]] && [[ $sample_sheet ]]
         # samplesheet and sample list given, use list
         then
             printf 'both sample sheet and list of samples provided, using sample list'
             # ensure sample names are string seperated by a space
-            sample_list=$(echo $samples_names | tr -d '[:space:]' | sed 's/,/ /g')
-            printf 'Samples specified for analysis: $sample_list'
+            sample_list=$(echo "$samples_names" | tr -d '[:space:]' | sed 's/,/ /g')
+            printf "Samples specified for analysis: %s" "$sample_list"
         fi
 
-        if [[ $sample_sheet ]] & [[ ! $samples_names ]]
+        if [[ $sample_sheet ]] && [[ ! $samples_names ]]
         # just sheet given => download
         then
-            dx download $sample_sheet
+            dx download "$sample_sheet"
             # get list of sample names from sample sheet if not using sample name list
             sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
         fi
@@ -134,7 +133,7 @@ main() {
     # for each sample, parse the eggd code, get associated assay from config if not specified
     for name in $sample_list;
     do
-        if [ -z $assay_type ]; then
+        if [ -z "$assay_type" ]; then
             # assay type not specified, infer from eggd code and high level config
     
             # get eggd code from name using regex, if not found will exit
@@ -142,19 +141,19 @@ main() {
             then 
                 sample_eggd_code="${BASH_REMATCH[0]}"
             else
-                printf 'Could not parse EGG code from name: $name \n'
+                printf "Could not parse EGG code from name: %s \n" "$name"
                 printf 'Exiting now.'
                 exit 1
             fi
 
             # get associated assay from config
-            assay_type=$(grep $sample_eggd_code high_level_config.tsv | awk '{print $2}')
+            assay_type=$(grep "$sample_eggd_code" high_level_config.tsv | awk '{print $2}')
 
-            if [ -z $assay_type ]
+            if [ -z "$assay_type" ]
             then
                 # appropriate assay not found from sample egg code
-                echo 'Assay for sample $name not found in config using the following eggd code: $sample_eggd_code'
-                echo 'Exiting now.'
+                echo "Assay for sample $name not found in config using the following eggd code: $sample_eggd_code"
+                echo "Exiting now."
                 exit 1
             fi
         fi
@@ -165,28 +164,28 @@ main() {
     # get low level config files for appropriate assays
     mkdir low_level_configs
 
-    for i in "${sample_to_assay[@]}"
+    for k in "${sample_to_assay[@]}"
     do
         echo "Downloading low level config file(s)"
-        if [ ! $custom_config ]
+        if [ ! "$custom_config" ]
         then
             # no custom config => get file id for low level assay config file & download
-            config_file_id=$(grep $i high_level_config.tsv | awk '{print $NF}')
-            config_name=$(dx describe --json $config_file_id | jq -r '.name')
-            dx download $config_file_id -o "low_level_configs/${config_name}"
+            config_file_id=$(grep "$k" high_level_config.tsv | awk '{print $NF}')
+            config_name=$(dx describe --json "$config_file_id" | jq -r '.name')
+            dx download "$config_file_id" -o "low_level_configs/${config_name}"
         else
-            config_name=$(dx describe --json $config_file | jq -r '.name')
-            dx download $config_file -o "low_level_configs/${config_name}"
+            config_name=$(dx describe --json "$config_file_id" | jq -r '.name')
+            dx download "$config_file_id" -o "low_level_configs/${config_name}"
         fi
     done
 
     # perform samplesheet validation unless set to False
-    if [ $validate_samplesheet ]; then
+    if [ "$validate_samplesheet" ]; then
         # get all regex patterns from low level config files to check
         # sample names against from config(s) if given
         regex_patterns=""
         for file in low_level_configs/*.json; do
-            if jq -r '.sample_regex' $file;
+            if jq -r '.sample_regex' $file; then
                 file_regexes=$(jq -r '.sample_regex[]')
                 regex_patterns+=" $file_regexes"
             fi
@@ -195,13 +194,13 @@ main() {
         # run samplesheet validator
         if [[ $regex_patterns ]]; then
             stdout=$(python validate_sample_sheet-1.0.0/validate/validate.py \
-            --samplesheet $samplesheet --name_patterns "$regex_patterns")
+            --samplesheet "$sample_sheet" --name_patterns "$regex_patterns")
         else
             stdout=$(python validate_sample_sheet-1.0.0/validate/validate.py \
-            --samplesheet $samplesheet)
+            --samplesheet "$sample_sheet")
         fi
 
-        printf "$stdout"
+        printf '%s' "$stdout"
 
         if [[ "$stdout" != "*SUCCESS*" ]]; then
             # errors found in samplesheet => exit
@@ -221,6 +220,10 @@ main() {
         echo "value: ${sample_to_assay[$i]}"
     done
 
+    echo "bcl2fastq path: $bcl2fastq_out"
+    
+    exit 1
+
     # we now have an array of assay codes to comma separated sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000003_EGG1, X000004_EGG1...
@@ -229,31 +232,35 @@ main() {
     # access all array value with ${sample_to_assay[@]}
     # access specific key value with ${sample_to_assay[$key]}
 
-    if [ $upload_sentinel_record ]
+    if [ "$upload_sentinel_record" ]
     then
         # starting bcl2fastq and holding app until it completes
         echo "Starting bcl2fastq app"
         echo "Holding app until demultiplexing complete to trigger downstream workflow(s)"
 
-        bcl2fastq_job_id=$(dx run --brief --wait --yes {bcl2fastq-applet-id} -iupload_sentinel_record $upload_sentinel_record)
+        optional_args=""
+        if [ "$bcl2fastq_out" ]; then optional_args+="--path $bcl2fastq_out"; fi
+
+        bcl2fastq_job_id=$(dx run --brief --wait --yes "$optional_args" \
+        applet-G4F8kk0433GxjKp9J9g3Fzq9 -iupload_sentinel_record "$upload_sentinel_record")
         # dx describe --json $job_id | jq -r '.output.output'  # file ids of all outputs
     fi
 
     # trigger workflows using config for each set of samples for an assay
-    for i in "${sample_to_assay[@]}"
+    for k in "${!sample_to_assay[@]}"
     do
-        echo "Calling workflow for assay $i on samples_names ${sample_to_assay[$i]}"
+        echo "Calling workflow for assay $i on samples_names ${sample_to_assay[$k]}"
 
         # set optional arguments to workflow script by app args
         optional_args=""
-        if [ $dx_project ]; then optional_args+="--dx_project_id $dx_project "; fi
-        if [ $bcl2fastq_job_id ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
-        if [ $fastq_ids ]; then optional_args+="--fastqs $fastq_ids"; fi
-        if [ $run_id ]; then optional_args+="--run_id $run_id "; fi
-        if [ $development ]; then optional_args+="--development "; fi
-        
+        if [ "$dx_project" ]; then optional_args+="--dx_project_id $dx_project "; fi
+        if [ "$bcl2fastq_job_id" ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
+        if [ "$fastq_ids" ]; then optional_args+="--fastqs $fastq_ids"; fi
+        if [ "$run_id" ]; then optional_args+="--run_id $run_id "; fi
+        if [ "$development" ]; then optional_args+="--development "; fi
 
-        echo 'python3 run_workflows.py --config_file $config_name --samples "${sample_to_assay[$i]}" --assay_code "$i" "$optional_args"'
+        python3 run_workflows.py --config_file "$config_name" --samples "${sample_to_assay[$k]}" \
+        --assay_code "$k" "$optional_args"
     done
 
     echo "Workflows triggered for samples"
