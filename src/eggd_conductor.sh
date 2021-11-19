@@ -17,10 +17,10 @@ main() {
         # sentinel file passed when run automatically via dx-streaming-upload
 
         # get json of details to parse required info from
-        sentinel_details=$(dx describe --details --json "$sentinel_file")
-        run_id=$(echo "$sentinel_details" | jq -r '.details.run_id')
-        run_dir=$(echo "$sentinel_details" | jq -r '.folder')
-        tar_file_ids=$(echo "$sentinel_details" | jq -r '.details.tar_file_ids')
+        sentinel_details=$(dx describe --json "$sentinel_file")
+        run_id=$(jq -r '.details.run_id' <<< "$sentinel_details")
+        run_dir=$(jq -r '.folder' <<< "$sentinel_details")
+        sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
         
         if [ ! "$sample_sheet_id" ]; then
             # check if sample sheet has been specified on running
@@ -39,21 +39,9 @@ main() {
             printf 'Could not find samplesheet from sentinel file.\n'
             printf 'Finding first run tar file to get sample sheet from.\n'
 
-            # tar file ids sadly aren't in order, loop over them,
-            # call dx describe and find first
-            echo "$tar_file_ids" | jq -rc '.[]' | while read -r id; do
-                tar_name=$(dx describe --json "$id" | jq -r '.name')
-                if [[ "$tar_name" == *"_000.tar.gz" ]]
-                then
-                    # first tar always will be _000
-                    printf "Found first tar: %s" "$tar_name"
-                    printf 'Downloading tar file'
-                    dx download "$id" -o first_tar.tar.gz
-                    break
-                else
-                    printf 'Not first tar file, continuing...\n'
-                fi
-            done
+            # first tar always named _000.tar.gz, return id of it to download
+            first_tar_id=$(dx find data --path "$sentinel_path" --brief --name "*_000.tar.gz")
+            dx download "$first_tar_id" -o first_tar.tar.gz
 
             # unpack tar and find samplesheet
             mkdir ./first_tar_dir
@@ -127,7 +115,8 @@ main() {
         dx download 'file-G5FYPp8469Fqvz8vP5VVVvQV' -o high_level_config.tsv
     fi
 
-    # build associative array (i.e. key value pairs) of samples to assay EGG codes
+    # build associative array (i.e. key value pairs) of assay EGG codes to sample names
+    # this will allow us to run the workflows with the given config on appropriate sample sets
     declare -A sample_to_assay
 
     # for each sample, parse the eggd code, get associated assay from config if not specified
