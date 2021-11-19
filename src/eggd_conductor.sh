@@ -41,14 +41,14 @@ main() {
 
             # tar file ids sadly aren't in order, loop over them,
             # call dx describe and find first
-            echo "$tar_file_ids" | jq -rc '.[]' | while read -r i; do
-                tar_name=$(dx describe --json "$i" | jq -r '.name')
+            echo "$tar_file_ids" | jq -rc '.[]' | while read -r id; do
+                tar_name=$(dx describe --json "$id" | jq -r '.name')
                 if [[ "$tar_name" == *"_000.tar.gz" ]]
                 then
                     # first tar always will be _000
                     printf "Found first tar: %s" "$tar_name"
                     printf 'Downloading tar file'
-                    dx download "$file_id" -o first_tar.tar.gz
+                    dx download "$id" -o first_tar.tar.gz
                     break
                 else
                     printf 'Not first tar file, continuing...\n'
@@ -164,6 +164,9 @@ main() {
     # get low level config files for appropriate assays
     mkdir low_level_configs
 
+    # build associative array assay EGG codes to the downloaded config file
+    declare -A assay_to_config
+
     for k in "${sample_to_assay[@]}"
     do
         echo "Downloading low level config file(s)"
@@ -177,6 +180,7 @@ main() {
             config_name=$(dx describe --json "$config_file_id" | jq -r '.name')
             dx download "$config_file_id" -o "low_level_configs/${config_name}"
         fi
+        assay_to_config[$k]+="$config_name"
     done
 
     # perform samplesheet validation unless set to False
@@ -259,8 +263,8 @@ main() {
         if [ "$run_id" ]; then optional_args+="--run_id $run_id "; fi
         if [ "$development" ]; then optional_args+="--development "; fi
 
-        python3 run_workflows.py --config_file "$config_name" --samples "${sample_to_assay[$k]}" \
-        --assay_code "$k" "$optional_args"
+        python3 run_workflows.py --config_file "${assay_to_config[$k]}" \
+        --samples "${sample_to_assay[$k]}" --assay_code "$k" "$optional_args"
     done
 
     echo "Workflows triggered for samples"

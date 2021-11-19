@@ -65,7 +65,7 @@
     },
     {
       "name": "assay_type",
-      "label": "EGG code to use for all samples",
+      "label": "Assay type to use for all samples (e.g. TWE, WES, MYE...",
       "class": "string",
       "optional": true,
       "help": "Use low level config for all samples for given assay code"
