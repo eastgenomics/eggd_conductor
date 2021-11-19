@@ -11,7 +11,8 @@
       "name": "project",
       "label": "DNAnexus project id",
       "class": "string",
-      "optional": true
+      "optional": true,
+      "help": "Project in which to store analysis outputs. \n If not given a new one will be created from the run ID and assay code."
     },
     {
       "name": "sentinel_file",
@@ -22,7 +23,8 @@
         {
           "project": "project-FpVG0G84X7kzq58g19vF1YJQ" 
         }
-      ]
+      ],
+      "help": "Sentinel file for run uploaded by dx-streaming-upload"
     },
     {
       "name": "samplesheet",
@@ -38,7 +40,8 @@
       "name": "sample_names",
       "label": "Comma seperated list of sample names",
       "class": "string",
-      "optional": true
+      "optional": true,
+      "help": "List of sample names for given fastqs, only required if running without samplesheet"
     },
     {
       "name": "fastqs",
@@ -52,7 +55,7 @@
     },
     {
       "name": "high_level_config",
-      "label": "high level config file of sample naming -> assay types",
+      "label": "High level config file of sample naming -> assay types",
       "class": "file",
       "optional": true,
       "patterns": [
@@ -65,18 +68,18 @@
       "label": "EGG code to use for all samples",
       "class": "string",
       "optional": true,
-      "help": ""
+      "help": "Use low level config for all samples for given assay code"
     },
     {
       "name": "run_id",
-      "label": "ID of sequencing run, parsed from samplesheet if not given",
+      "label": "ID of sequencing run",
       "class": "string",
       "optional": true,
-      "help": ""
+      "help": "Parsed from samplesheet if not given"
     },
     {
       "name": "custom_config",
-      "label": "Custom config",
+      "label": "Custom low level config",
       "class": "file",
       "optional": true,
       "patterns": [
@@ -94,10 +97,18 @@
     },
     {
       "name": "development",
-      "label": "name output project with 003 prefix",
+      "label": "Development run",
       "class": "boolean",
       "optional": true,
-      "default": false
+      "default": false,
+      "help": "Name output project with 003 prefix and date instead of 002"
+    },
+    {
+      "name": "bcl2fastq_out",
+      "label": "bcl2fastq output path",
+      "class": "string",
+      "optional": true,
+      "help": "Path to store bcl2fastq output, if not given will default to run dir in 001_Staging_Area52. Should be in the format project:path"
     }
   ],
   "outputSpec": [],
@@ -110,8 +121,8 @@
     "interpreter": "bash",
     "file": "src/eggd_conductor.sh",
     "distribution": "Ubuntu",
-    "release": "18.04",
-    "version": "1"
+    "release": "20.04",
+    "version": "0"
   },
   "access": {
     "network": [
@@ -124,7 +135,7 @@
     "aws:eu-central-1": {
       "systemRequirements": {
         "*": {
-          "instanceType": "mem1_ssd1_v2_x4"
+          "instanceType": "mem1_ssd1_v2_x2"
         }
       }
     }
