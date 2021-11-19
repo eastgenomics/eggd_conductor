@@ -24,7 +24,6 @@ from typing import Generator
 import dxpy
 
 
-
 PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
 
@@ -370,7 +369,8 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None):
     if dependent_analysis:
         for id in dependent_analysis:
             for job in find_job_inputs(id, job_outputs_dict, check_key=True):
-                # find jobs for every analysis id
+                # find all jobs for every analysis id
+                # (i.e. all samples job ids for analysis_X)
                 if job:
                     dependent_jobs.append(job)
 
