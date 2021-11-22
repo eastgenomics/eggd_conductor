@@ -12,6 +12,9 @@ main() {
     # our own sample sheet validator is bundled with the app
     # https://github.com/eastgenomics/validate_sample_sheet
     tar xf validate_sample_sheet_v1.0.0.tar.gz
+    tar xf packages/python_packages.tar.gz
+
+    pip3 install -q --user six-* pytz-* python_dateutil-* numpy-* pandas-*
 
     if [[ "$sentinel_file" ]]; then
         # sentinel file passed when run automatically via dx-streaming-upload
@@ -21,6 +24,7 @@ main() {
         run_id=$(jq -r '.details.run_id' <<< "$sentinel_details")
         run_dir=$(jq -r '.folder' <<< "$sentinel_details")
         sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
+        sentinel_file_id=$(jq -r '.id' <<< "$sentinel_details")
         
         if [ ! "$sample_sheet_id" ]; then
             # check if sample sheet has been specified on running
@@ -54,6 +58,9 @@ main() {
                 echo "Sample sheet missing from runs dir and first tar, exiting now."
                 exit 1
             fi
+
+            # parse list of samples from samplesheet
+            sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
         fi
     else
         # applet run manually without sentinel file
@@ -105,14 +112,11 @@ main() {
     # now we need to know what samples we have, to trigger the appropriate workflows
     # use the config and sample sheet names to infer which to use if a specific assay not passed
     
-    # get high level config file if assay type not specified
-    if [ -z $assay_type ]
+    # get high level config file if not using custom config
+    if [ -z "$custom_config" ]
     then
-        printf 'assay type not specified, inferring from high level config and sample names'
-        # dx download $high_level_config
-
-        # hard coding test config from dev project for now
-        dx download 'file-G5FYPp8469Fqvz8vP5VVVvQV' -o high_level_config.tsv
+        printf "\nDownloading high level config file: %s" "$high_level_config"
+        dx download "$high_level_config" -o "high_level_config.tsv"
     fi
 
     # build associative array (i.e. key value pairs) of assay EGG codes to sample names
@@ -150,13 +154,21 @@ main() {
         sample_to_assay[$assay_type]+="$name,"
     done
 
+    printf "\nsample to assays:\n"
+
+    for i in "${!sample_to_assay[@]}"
+    do
+        echo "key  : $i"
+        echo "value: ${sample_to_assay[$i]}"
+    done
+
     # get low level config files for appropriate assays
     mkdir low_level_configs
 
     # build associative array assay EGG codes to the downloaded config file
     declare -A assay_to_config
 
-    for k in "${sample_to_assay[@]}"
+    for k in "${!sample_to_assay[@]}"
     do
         echo "Downloading low level config file(s)"
         if [ ! "$custom_config" ]
@@ -173,23 +185,30 @@ main() {
     done
 
     # perform samplesheet validation unless set to False
-    if [ "$validate_samplesheet" ]; then
+    if [ "$validate_samplesheet" = true ]; then
         # get all regex patterns from low level config files to check
         # sample names against from config(s) if given
         regex_patterns=""
         for file in low_level_configs/*.json; do
-            if jq -r '.sample_regex' $file; then
-                file_regexes=$(jq -r '.sample_regex[]')
-                regex_patterns+=" $file_regexes"
+            if jq -r '.sample_name_regex' "$file"; then
+                # the returned string here has new line characters and double quotes, when passed
+                # to the python script this needs formatting as space separated strings with
+                # single quotes. This is a pretty big mess to do it but it works so...
+                file_regexes=$(jq -c '.sample_name_regex[]' "$file" | tr '\n' ' ' | sed s"/\"/'/g" | sed -e 's/[[:space:]]*$//')
+                
+                # remove first and last quote as bash handily adds its own around the string, thus
+                # it ends up with a double at the beginning and end
+                # file_regexes="${file_regexes:1:${#file_regexes}-2}"
+                if [ "$file_regexes" != " " ]; then regex_patterns+="$file_regexes"; fi
             fi
         done
 
         # run samplesheet validator
         if [[ $regex_patterns ]]; then
-            stdout=$(python validate_sample_sheet-1.0.0/validate/validate.py \
+            stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
             --samplesheet "$sample_sheet" --name_patterns "$regex_patterns")
         else
-            stdout=$(python validate_sample_sheet-1.0.0/validate/validate.py \
+            stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
             --samplesheet "$sample_sheet")
         fi
 
@@ -213,10 +232,6 @@ main() {
         echo "value: ${sample_to_assay[$i]}"
     done
 
-    echo "bcl2fastq path: $bcl2fastq_out"
-    
-    exit 1
-
     # we now have an array of assay codes to comma separated sample names i.e.
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000003_EGG1, X000004_EGG1...
@@ -225,19 +240,29 @@ main() {
     # access all array value with ${sample_to_assay[@]}
     # access specific key value with ${sample_to_assay[$key]}
 
-    if [ "$upload_sentinel_record" ]
+    if [ "$sentinel_file" ]
     then
         # starting bcl2fastq and holding app until it completes
         echo "Starting bcl2fastq app"
-        echo "Holding app until demultiplexing complete to trigger downstream workflow(s)"
+        echo "Holding app until demultiplexing complete to trigger downstream workflow(s)..."
 
         optional_args=""
-        if [ "$bcl2fastq_out" ]; then optional_args+="--path $bcl2fastq_out"; fi
+        if [ -z "$bcl2fastq_out" ]; then 
+            # bcl2fastq output path not set, default to putting it in the parent run dir of the
+            # sentinel record
+            bcl2fastq_out=$(dx describe --json "$sentinel_file" | jq -r '.details.dnanexus_path')
+            bcl2fastq_out=${bcl2fastq_out%runs}
+        fi
 
-        bcl2fastq_job_id=$(dx run --brief --wait --yes "$optional_args" \
-        applet-G4F8kk0433GxjKp9J9g3Fzq9 -iupload_sentinel_record "$upload_sentinel_record")
-        # dx describe --json $job_id | jq -r '.output.output'  # file ids of all outputs
+        echo "bcl2fastq output path: $bcl2fastq_out"
+
+        optional_args+="--destination $bcl2fastq_out"
+
+        bcl2fastq_job_id=$(dx run --brief --wait -y "${optional_args}" \
+            applet-G4F8kk0433GxjKp9J9g3Fzq9 -iupload_sentinel_record="$sentinel_file_id")
     fi
+
+    exit 1
 
     # trigger workflows using config for each set of samples for an assay
     for k in "${!sample_to_assay[@]}"
