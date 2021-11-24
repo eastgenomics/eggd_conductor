@@ -8,11 +8,11 @@
   },
   "inputSpec": [
     {
-      "name": "project",
+      "name": "dx_project",
       "label": "DNAnexus project id",
       "class": "string",
       "optional": true,
-      "help": "Project in which to store analysis outputs. \n If not given a new one will be created from the run ID and assay code."
+      "help": "Project in which to run and store analysis outputs. \n If not given a new one will be created from the run ID and assay code."
     },
     {
       "name": "sentinel_file",
@@ -109,6 +109,13 @@
       "optional": true,
       "default": false,
       "help": "Name output project with 003 prefix and date instead of 002"
+    },
+    {
+      "name": "bcl2fastq_job_id",
+      "label": "Job ID of previous bcl2fastq job",
+      "class": "string",
+      "optional": true,
+      "help": "Optionally use fastqs from previous bcl2fastq job, will skip demultiplexing stage"
     },
     {
       "name": "bcl2fastq_out",
