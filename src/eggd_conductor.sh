@@ -241,10 +241,9 @@ main() {
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000003_EGG1, X000004_EGG1...
 
-    if [ "$sentinel_file" ]
+    if [ "$sentinel_file" ] && [ -z "$bcl2fastq_job_id" ]
     then
         # starting bcl2fastq and holding app until it completes
-        optional_args=""
         if [ -z "$bcl2fastq_out" ]; then 
             # bcl2fastq output path not set, default to putting it in the parent run dir of the
             # sentinel record
@@ -254,7 +253,7 @@ main() {
 
         # check no fastqs are already present in the output directory for bcl2fastq, exit if any
         # present to prevent making a mess with bcl2fastq output
-        fastqs=$(dx find data --json --name "*.fastq*" --path $bcl2fastq_out)
+        fastqs=$(dx find data --json --brief --name "*.fastq*" --path $bcl2fastq_out)
         if [ ! "$fastqs" == "[]" ]; then
             printf "Selected output directory already contains fastq files: %s" "$bcl2fastq_out"
             printf "This is likely because demultiplexing has already been run and output to this directory."
@@ -262,6 +261,7 @@ main() {
             exit 1
         fi
 
+        optional_args=""
         optional_args+="--destination $bcl2fastq_out"
 
         echo "Starting bcl2fastq app with output at: $bcl2fastq_out"
@@ -271,8 +271,6 @@ main() {
             "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$sentinel_file_id")
     fi
 
-    exit 1
-
     # trigger workflows using config for each set of samples for an assay
     for k in "${!sample_to_assay[@]}"
     do
@@ -281,13 +279,13 @@ main() {
         # set optional arguments to workflow script by app args
         optional_args=""
         if [ "$dx_project" ]; then optional_args+="--dx_project_id $dx_project "; fi
-        if [ "$bcl2fastq_job_id" ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id"; fi
+        if [ "$bcl2fastq_job_id" ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id "; fi
         if [ "$fastq_ids" ]; then optional_args+="--fastqs $fastq_ids"; fi
         if [ "$run_id" ]; then optional_args+="--run_id $run_id "; fi
         if [ "$development" ]; then optional_args+="--development "; fi
 
-        python3 run_workflows.py --config_file "${assay_to_config[$k]}" \
-        --samples "${sample_to_assay[$k]}" --assay_code "$k" "$optional_args"
+        python3 run_workflows.py --config_file "low_level_configs/${assay_to_config[$k]}" \
+        --samples "${sample_to_assay[$k]}" --assay_code "$k" $optional_args
     done
 
     echo "Workflows triggered for samples"
