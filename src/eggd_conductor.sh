@@ -16,6 +16,9 @@ main() {
 
     pip3 install -q --user six-* pytz-* python_dateutil-* numpy-* pandas-*
 
+    # set env variables from config file
+    source <(dx cat "$eggd_conductor_config")
+
     if [[ "$sentinel_file" ]]; then
         # sentinel file passed when run automatically via dx-streaming-upload
 
@@ -194,7 +197,9 @@ main() {
                 # the returned string here has new line characters and double quotes, when passed
                 # to the python script this needs formatting as space separated strings with
                 # single quotes. This is a pretty big mess to do it but it works so...
-                file_regexes=$(jq -c '.sample_name_regex[]' "$file" | tr '\n' ' ' | sed s"/\"/'/g" | sed -e 's/[[:space:]]*$//')
+                file_regexes=$(jq -c '.sample_name_regex[]' "$file" | tr '\n' ' ')
+
+                #| sed s"/\"/'/g" | sed -e 's/[[:space:]]*$//'
                 
                 # remove first and last quote as bash handily adds its own around the string, thus
                 # it ends up with a double at the beginning and end
@@ -206,7 +211,7 @@ main() {
         # run samplesheet validator
         if [[ $regex_patterns ]]; then
             stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
-            --samplesheet "$sample_sheet" --name_patterns "$regex_patterns")
+            --samplesheet "$sample_sheet" --name_patterns $regex_patterns)
         else
             stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
             --samplesheet "$sample_sheet")
@@ -236,16 +241,9 @@ main() {
     # FH: X000001_EGG3, X000002_EGG3...
     # TSOE: X000003_EGG1, X000004_EGG1...
 
-    # access all array keys with ${!sample_to_assay[@]}
-    # access all array value with ${sample_to_assay[@]}
-    # access specific key value with ${sample_to_assay[$key]}
-
     if [ "$sentinel_file" ]
     then
         # starting bcl2fastq and holding app until it completes
-        echo "Starting bcl2fastq app"
-        echo "Holding app until demultiplexing complete to trigger downstream workflow(s)..."
-
         optional_args=""
         if [ -z "$bcl2fastq_out" ]; then 
             # bcl2fastq output path not set, default to putting it in the parent run dir of the
@@ -254,12 +252,23 @@ main() {
             bcl2fastq_out=${bcl2fastq_out%runs}
         fi
 
-        echo "bcl2fastq output path: $bcl2fastq_out"
+        # check no fastqs are already present in the output directory for bcl2fastq, exit if any
+        # present to prevent making a mess with bcl2fastq output
+        fastqs=$(dx find data --json --name "*.fastq*" --path $bcl2fastq_out)
+        if [ ! "$fastqs" == "[]" ]; then
+            printf "Selected output directory already contains fastq files: %s" "$bcl2fastq_out"
+            printf "This is likely because demultiplexing has already been run and output to this directory."
+            printf "Exiting now to prevent poluting output directory with bcl2fastq output."
+            exit 1
+        fi
 
         optional_args+="--destination $bcl2fastq_out"
 
-        bcl2fastq_job_id=$(dx run --brief --wait -y "${optional_args}" \
-            applet-G4F8kk0433GxjKp9J9g3Fzq9 -iupload_sentinel_record="$sentinel_file_id")
+        echo "Starting bcl2fastq app with output at: $bcl2fastq_out"
+        echo "Holding app until demultiplexing complete to trigger downstream workflow(s)..."
+
+        bcl2fastq_job_id=$(dx run --brief --wait -y ${optional_args} \
+            "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$sentinel_file_id")
     fi
 
     exit 1
