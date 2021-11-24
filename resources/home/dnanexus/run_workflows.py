@@ -46,15 +46,15 @@ def load_config(config_file) -> dict:
 
 def find_dx_project(project_name) -> str:
     """
-    Check if project already exists in DNAnexus, else create one and return
-    project ID
+    Check if project already exists in DNAnexus, returns None if not found.
     """
     dx_projects = list(dxpy.bindings.search.find_projects(
         name=project_name
     ))
 
     if len(dx_projects) == 0:
-        # found no project => create new one
+        # found no project, return None and create one in
+        # get_or_create_dx_project()
         return None
 
     if len(dx_projects) > 1:
@@ -70,7 +70,7 @@ def find_dx_project(project_name) -> str:
     return dx_project
 
 
-def create_dx_project(args, config) -> argparse.ArgumentParser:
+def get_or_create_dx_project(args, config) -> argparse.ArgumentParser:
     """
     Create new project in DNAnexus if one with given name doesn't already exist
     """
@@ -140,7 +140,8 @@ def create_dx_folder(args, out_folder) -> str:
             print(f'Created output folder: {dx_folder}')
             break
         else:
-            # folder already exists => continue
+            # folder already exists, increase _i suffix on folder name
+            # and check again
             print(f'{dx_folder} already exists, incrementing suffix integer')
 
             if i == 100:
@@ -563,7 +564,7 @@ def call_per_sample(
 
     # call dx run to start jobs
     print(f"Calling {params['executable_name']} ({executable}) on sample {sample}")
-    if input_dict.keys:
+    if input_dict and input_dict.keys:
         print(f'Input dict: {PPRINT(input_dict)}')
 
     job_id = call_dx_run(
@@ -717,7 +718,7 @@ def main():
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        args = create_dx_project(args, config)
+        args = get_or_create_dx_project(args, config)
 
     # set context to project for running jobs
     dxpy.set_workspace_id(args.dx_project_id)

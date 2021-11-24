@@ -30,7 +30,7 @@ main() {
         run_dir=$(jq -r '.folder' <<< "$sentinel_details")
         sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
         sentinel_file_id=$(jq -r '.id' <<< "$sentinel_details")
-        
+
         if [ ! "$sample_sheet_id" ]; then
             # check if sample sheet has been specified on running
             sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
@@ -116,7 +116,7 @@ main() {
 
     # now we need to know what samples we have, to trigger the appropriate workflows
     # use the config and sample sheet names to infer which to use if a specific assay not passed
-    
+
     # get high level config file if not using custom config
     if [ -z "$custom_config" ]
     then
@@ -133,7 +133,7 @@ main() {
     do
         if [ -z "$assay_type" ]; then
             # assay type not specified, infer from eggd code and high level config
-    
+
             # get eggd code from name using regex, if not found will exit
             if [[ $name =~ EGG[0-9]{1,2} ]]
             then 
