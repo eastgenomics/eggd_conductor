@@ -8,6 +8,8 @@
 set -exo pipefail
 
 main() {
+    unset DX_WORKSPACE_ID
+    dx cd $DX_PROJECT_CONTEXT_ID:
 
     # our own sample sheet validator is bundled with the app
     # https://github.com/eastgenomics/validate_sample_sheet
@@ -262,12 +264,12 @@ main() {
         fi
 
         optional_args=""
-        optional_args+="--destination $bcl2fastq_out"
+        optional_args+="--folder $bcl2fastq_out"
 
         echo "Starting bcl2fastq app with output at: $bcl2fastq_out"
         echo "Holding app until demultiplexing complete to trigger downstream workflow(s)..."
 
-        bcl2fastq_job_id=$(dx run --brief --wait -y ${optional_args} \
+        bcl2fastq_job_id=$(dx run --brief --detach --wait -y ${optional_args} \
             "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$sentinel_file_id")
     fi
 
