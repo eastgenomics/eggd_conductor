@@ -64,6 +64,23 @@
       "help": ""
     },
     {
+      "name": "custom_config",
+      "label": "Custom low level config",
+      "class": "file",
+      "optional": true,
+      "patterns": [
+        "*.json"
+      ],
+      "help": "Use given low level config for running analyses"
+    },
+    {
+      "name": "eggd_conductor_config",
+      "label": "eggd conductor config file",
+      "class": "file",
+      "optional": true,
+      "help": "config file for global app variables, contains things such as bcl2fastq app id"
+    },
+    {
       "name": "assay_type",
       "label": "Assay type to use for all samples (e.g. TWE, WES, MYE...",
       "class": "string",
@@ -76,16 +93,6 @@
       "class": "string",
       "optional": true,
       "help": "Parsed from samplesheet if not given"
-    },
-    {
-      "name": "custom_config",
-      "label": "Custom low level config",
-      "class": "file",
-      "optional": true,
-      "patterns": [
-        "*.json"
-      ],
-      "help": "Use given low level config for running analyses"
     },
     {
       "name": "validate_samplesheet",
@@ -128,9 +135,10 @@
     "network": [
       "*"
     ],
-    "allProjects":"VIEW",
+    "allProjects":"CONTRIBUTE",
     "project": "CONTRIBUTE"
   },
+  "priority": "high",
   "regionalOptions": {
     "aws:eu-central-1": {
       "systemRequirements": {
