@@ -87,7 +87,8 @@ def create_dx_project(args, config) -> argparse.ArgumentParser:
         # create new project and capture returned project id and store
         project_id = dxpy.bindings.dxproject.DXProject().new(
             name=output_project,
-            summary=f'Analysis of run {args.run_id} with {args.assay_code}'
+            summary=f'Analysis of run {args.run_id} with {args.assay_code}',
+            description="This project was automatically created by eggd_conductor"
         )
         print(
             f'Created new project for output: {output_project} ({project_id})'
@@ -157,7 +158,7 @@ def create_dx_folder(args, out_folder) -> str:
     return dx_folder
 
 
-def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
+def call_dx_run(args, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
     """
     Call workflow / app, returns id of submitted job
     """
@@ -166,19 +167,19 @@ def call_dx_run(args, executable, input_dict, output_dict, prev_jobs) -> str:
             dxid=executable, project=args.dx_project_id
         ).run(
             workflow_input=input_dict, stage_folders=output_dict,
-            rerun_stages=['*'], depends_on=prev_jobs
+            rerun_stages=['*'], depends_on=prev_jobs, name=job_name
         )
     elif 'app-' in executable:
         job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
             app_input=input_dict, project=args.dx_project_id,
             folder=output_dict[executable], ignore_reuse=True,
-            depends_on=prev_jobs
+            depends_on=prev_jobs, name=job_name
         )
     elif 'applet-' in executable:
         job_handle = dxpy.bindings.dxapplet.DXApplet(dxid=executable).run(
             applet_input=input_dict, project=args.dx_project_id,
             folder=output_dict[executable], ignore_reuse=True,
-            depends_on=prev_jobs
+            depends_on=prev_jobs, name=job_name
         )
     else:
         # doesn't appear to be valid workflow or app
@@ -557,13 +558,16 @@ def call_per_sample(
     # check that all INPUT- have been parsed in config
     check_all_inputs(input_dict)
 
+    # set job name as executable name and sample name
+    job_name = f"{params['executable_name']}-{sample}"
+
     # call dx run to start jobs
-    print(f"Calling {executable} on sample {sample}")
+    print(f"Calling {params['executable_name']} ({executable}) on sample {sample}")
     if input_dict.keys:
         print(f'Input dict: {PPRINT(input_dict)}')
 
     job_id = call_dx_run(
-        args, executable, input_dict, output_dict, dependent_jobs)
+        args, executable, job_name, input_dict, output_dict, dependent_jobs)
 
     if sample not in job_outputs_dict.keys():
         # create new dict to store sample outputs
@@ -613,7 +617,9 @@ def call_per_run(
     # passing all samples to workflow
     print(f'Calling {params["name"]} for all samples')
     job_id = call_dx_run(
-        args, executable, input_dict, output_dict, dependent_jobs)
+        args, executable, params['executable_name'], input_dict,
+        output_dict, dependent_jobs
+    )
 
     PPRINT(input_dict)
     PPRINT(output_dict)
@@ -779,6 +785,9 @@ def main():
         out_folder = f'/output/{params["name"]}-{run_time}'
         out_folder = create_dx_folder(args, out_folder)
         executable_out_dirs[params['analysis']] = out_folder
+
+        params['executable_name'] = dxpy.api.app_describe(
+            executable).get('name')
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
