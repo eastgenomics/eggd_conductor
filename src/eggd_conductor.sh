@@ -8,8 +8,20 @@
 set -exo pipefail
 
 main() {
+
+    dx download "$eggd_conductor_config" -o conductor.cfg
+
+    # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
     dx cd $DX_PROJECT_CONTEXT_ID:
+    source /home/dnanexus/.dnanexus_config/unsetenv
+    dx clearenv
+
+    # set env variables from config file, contains auth token for login
+    source conductor.cfg
+
+    # API_KEY="EDC0VOyANSzA8NHoOQVgLib5c0EUW2xv"
+    dx login --noprojects --token "$AUTH_TOKEN"
 
     # our own sample sheet validator is bundled with the app
     # https://github.com/eastgenomics/validate_sample_sheet
@@ -18,11 +30,9 @@ main() {
 
     pip3 install -q --user six-* pytz-* python_dateutil-* numpy-* pandas-*
 
-    # set env variables from config file
-    source <(dx cat "$eggd_conductor_config")
-
     if [[ "$sentinel_file" ]]; then
         # sentinel file passed when run automatically via dx-streaming-upload
+        mark-section "Parsing sentinel file"
 
         # get json of details to parse required info from
         sentinel_details=$(dx describe --json "$sentinel_file")
@@ -33,7 +43,7 @@ main() {
 
         if [ ! "$sample_sheet_id" ]; then
             # check if sample sheet has been specified on running
-            sample_sheet_id=$(dx find data --path "$run_dir" --name 'SampleSheet.csv' --brief)
+            sample_sheet_id=$(dx find data --path "$sentinel_path" --name 'SampleSheet.csv' --brief)
         fi
 
         if [ "$sample_sheet_id" ]
@@ -70,6 +80,7 @@ main() {
     else
         # applet run manually without sentinel file
         # should have array of fastqs and sample sheet or sample names
+        mark-section "Running manually from provided FastQ files"
         if "${fastqs[@]}";
         then
             # build list of file ids for given fastqs to pass to workflow script
@@ -118,6 +129,8 @@ main() {
     # use the config and sample sheet names to infer which to use if a specific assay not passed
 
     # get high level config file if not using custom config
+    mark-section "Building assay-sample array"
+
     if [ -z "$custom_config" ]
     then
         printf "\nDownloading high level config file: %s" "$high_level_config"
@@ -159,6 +172,10 @@ main() {
         sample_to_assay[$assay_type]+="$name,"
     done
 
+    # we now have an array of assay codes to comma separated sample names i.e.
+    # FH: X000001_EGG3,X000002_EGG3...
+    # TSOE: X000003_EGG1,X000004_EGG1...
+
     printf "\nsample to assays:\n"
 
     for i in "${!sample_to_assay[@]}"
@@ -191,6 +208,7 @@ main() {
 
     # perform samplesheet validation unless set to False
     if [ "$validate_samplesheet" = true ]; then
+        mark-section "Performing samplesheet validation"
         # get all regex patterns from low level config files to check
         # sample names against from config(s) if given
         regex_patterns=""
@@ -228,24 +246,13 @@ main() {
         fi
     fi
 
-    echo "READY TO RUN BCL2FASTQ"
-    echo "sample list: $sample_list"
-    echo "assay code given: $assay_type"
-    echo "sample to assays:"
 
-    for i in "${!sample_to_assay[@]}"
-    do
-        echo "key  : $i"
-        echo "value: ${sample_to_assay[$i]}"
-    done
-
-    # we now have an array of assay codes to comma separated sample names i.e.
-    # FH: X000001_EGG3, X000002_EGG3...
-    # TSOE: X000003_EGG1, X000004_EGG1...
+    exit 1
 
     if [ "$sentinel_file" ] && [ -z "$bcl2fastq_job_id" ]
     then
         # starting bcl2fastq and holding app until it completes
+        mark-section "Demultiplexing with bcl2fastq"
         if [ -z "$bcl2fastq_out" ]; then 
             # bcl2fastq output path not set, default to putting it in the parent run dir of the
             # sentinel record
@@ -264,19 +271,20 @@ main() {
         fi
 
         optional_args=""
-        optional_args+="--folder $bcl2fastq_out"
+        optional_args+="--destination ${bcl2fastq_out}"
 
         echo "Starting bcl2fastq app with output at: $bcl2fastq_out"
         echo "Holding app until demultiplexing complete to trigger downstream workflow(s)..."
 
-        bcl2fastq_job_id=$(dx run --brief --detach --wait -y ${optional_args} \
+        bcl2fastq_job_id=$(dx run --brief --detach --wait -y ${optional_args} --auth-token $API_KEY \
             "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$sentinel_file_id")
     fi
 
     # trigger workflows using config for each set of samples for an assay
     for k in "${!sample_to_assay[@]}"
     do
-        echo "Calling workflow for assay $i on samples_names ${sample_to_assay[$k]}"
+        mark-section "Triggering workflows"
+        printf "Calling workflow for assay $i on samples:\n ${sample_to_assay[$k]}"
 
         # set optional arguments to workflow script by app args
         optional_args=""
@@ -291,4 +299,5 @@ main() {
     done
 
     echo "Workflows triggered for samples"
+    mark-success
 }
