@@ -19,11 +19,14 @@ main() {
     dx clearenv
 
     # set env variables from config file, contains auth token for login
-    source conductor.cfg
-    dx login --noprojects --token "$AUTH_TOKEN"
+    # use of &> /dev/null  and removing set -x suppresses printing auth token to logs
+    printf "Sourcing config file and calling dx login"
+    set +x
+    source conductor.cfg &> /dev/null
+    dx login --noprojects --token $AUTH_TOKEN
+    set -x
 
-    # our own sample sheet validator is bundled with the app
-    # https://github.com/eastgenomics/validate_sample_sheet
+    # our own sample sheet validaecho-* pytz-* python_dateutil-* numpy-* pandas-*
     tar xf validate_sample_sheet_v1.0.0.tar.gz
     tar xf packages/python_packages.tar.gz
 
@@ -70,6 +73,7 @@ main() {
             then
                 # sample sheet missing from root and first tar
                 echo "Sample sheet missing from runs dir and first tar, exiting now."
+                dx-jobutil-report-error "Sample sheet missing from both runs dir and first tar file"
                 exit 1
             fi
 
@@ -80,6 +84,7 @@ main() {
         # applet run manually without sentinel file
         # should have array of fastqs and sample sheet or sample names
         mark-section "Running manually from provided FastQ files"
+
         if "${fastqs[@]}";
         then
             # build list of file ids for given fastqs to pass to workflow script
@@ -103,6 +108,7 @@ main() {
         # needs sample sheet or sample list passing
         then
             printf 'No sample sheet or list of samples defined, one of these must be provided. Exiting now.'
+            dx-jobutil-report-error 'No sample sheet or list of samples defined, one of these must be provided.'
             exit 1
         fi
 
@@ -153,6 +159,7 @@ main() {
             else
                 printf "Could not parse EGG code from name: %s \n" "$name"
                 printf 'Exiting now.'
+                dx-jobutil-report-error "Could not parse EGG code from sample: $name"
                 exit 1
             fi
 
@@ -164,6 +171,7 @@ main() {
                 # appropriate assay not found from sample egg code
                 echo "Assay for sample $name not found in config using the following eggd code: $sample_eggd_code"
                 echo "Exiting now."
+                dx-jobutil-report-error "Assay for sample $name not found in config using the following eggd code: $sample_eggd_code"
                 exit 1
             fi
         fi
@@ -179,8 +187,8 @@ main() {
 
     for i in "${!sample_to_assay[@]}"
     do
-        echo "key  : $i"
-        echo "value: ${sample_to_assay[$i]}"
+        printf "key  : $i"
+        printf "value: ${sample_to_assay[$i]}"
     done
 
     # get low level config files for appropriate assays
@@ -213,16 +221,8 @@ main() {
         regex_patterns=""
         for file in low_level_configs/*.json; do
             if jq -r '.sample_name_regex' "$file"; then
-                # the returned string here has new line characters and double quotes, when passed
-                # to the python script this needs formatting as space separated strings with
-                # single quotes. This is a pretty big mess to do it but it works so...
-                file_regexes=$(jq -c '.sample_name_regex[]' "$file" | tr '\n' ' ')
-
-                #| sed s"/\"/'/g" | sed -e 's/[[:space:]]*$//'
-                
-                # remove first and last quote as bash handily adds its own around the string, thus
-                # it ends up with a double at the beginning and end
-                # file_regexes="${file_regexes:1:${#file_regexes}-2}"
+                # parse regex patterns into one string and add to string of total patterns
+                file_regexes=$(jq -rc '.sample_name_regex[]' "$file" | tr '\n' ' ')
                 if [ "$file_regexes" != " " ]; then regex_patterns+="$file_regexes"; fi
             fi
         done
@@ -230,17 +230,19 @@ main() {
         # run samplesheet validator
         if [[ $regex_patterns ]]; then
             stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
-            --samplesheet "$sample_sheet" --name_patterns $regex_patterns)
+            --samplesheet "$sample_sheet" --name_patterns $regex_patterns) &> /dev/null
         else
             stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
-            --samplesheet "$sample_sheet")
+            --samplesheet "$sample_sheet") &> /dev/null
         fi
 
-        printf '%s' "$stdout"
 
-        if [[ "$stdout" != "*SUCCESS*" ]]; then
-            # errors found in samplesheet => exit
-            printf 'Errors found in sample sheet, please check logs for details.\nExiting now.'
+        if [[ "$stdout" =~ "SUCCESS" ]]; then
+            # check for errors found in samplesheet => exit
+            printf 'Errors found in sample sheet, please check logs for details.'
+            printf 'Exiting now.'
+            printf '$stdout'
+            dx-jobutil-report-error "Errors found in sample sheet"
             exit 1
         fi
     fi
@@ -266,6 +268,8 @@ main() {
             printf "Selected output directory already contains fastq files: %s" "$bcl2fastq_out"
             printf "This is likely because demultiplexing has already been run and output to this directory."
             printf "Exiting now to prevent poluting output directory with bcl2fastq output."
+
+            dx-jobutil-report-error "Selected bcl2fastq output directory already contains fastq files"
             exit 1
         fi
 
