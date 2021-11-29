@@ -236,19 +236,17 @@ main() {
             --samplesheet "$sample_sheet") &> /dev/null
         fi
 
+        stdout=$(echo "$stdout" | tr '\n' ' ') &> /dev/null  # remove messy line breaks
 
-        if [[ "$stdout" =~ "SUCCESS" ]]; then
+        if [[ ! "$stdout" =~ "SUCCESS" ]]; then
             # check for errors found in samplesheet => exit
             printf 'Errors found in sample sheet, please check logs for details.'
             printf 'Exiting now.'
-            printf '$stdout'
+            printf "$stdout"
             dx-jobutil-report-error "Errors found in sample sheet"
             exit 1
         fi
     fi
-
-
-    exit 1
 
     if [ "$sentinel_file" ] && [ -z "$bcl2fastq_job_id" ]
     then
