@@ -4,7 +4,7 @@
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
     "demultiplex": true,
     "users": {
-        "org-emee_1": "ADMIN"
+        "org-emee_1": "CONTRIBUTE"
     },
     "executables": {
         "workflow-G4VpkG8433GZKf90KkXB4XZx": {
