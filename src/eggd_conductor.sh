@@ -14,13 +14,12 @@ main() {
     # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
     dx cd $DX_PROJECT_CONTEXT_ID:
+
     source /home/dnanexus/.dnanexus_config/unsetenv
     dx clearenv
 
     # set env variables from config file, contains auth token for login
     source conductor.cfg
-
-    # API_KEY="EDC0VOyANSzA8NHoOQVgLib5c0EUW2xv"
     dx login --noprojects --token "$AUTH_TOKEN"
 
     # our own sample sheet validator is bundled with the app
