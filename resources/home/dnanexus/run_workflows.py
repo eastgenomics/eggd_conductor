@@ -795,7 +795,11 @@ def main():
             print(f'\nCalling {params["name"]} per sample')
 
             # loop over given sample and call workflow
-            for sample in args.samples:
+            for idx, sample in enumerate(args.samples):
+                print(
+                    f'\nStarting analysis for {sample} - '
+                    f'({idx}/{len(args.samples)})'
+                )
                 job_outputs_dict = call_per_sample(
                     args, executable, params, sample, config, out_folder,
                     job_outputs_dict, executable_out_dirs, fastq_details
