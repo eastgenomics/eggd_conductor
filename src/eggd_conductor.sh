@@ -1,5 +1,7 @@
 #!/bin/bash
 # eggd_conductor
+# Jethro Rainford
+# 20210831
 
 # This can either be run automatically by dx-streaming-upload on completing
 # upload of a sequencing run, or manually by providing a set of fastqs
@@ -9,7 +11,8 @@ set -exo pipefail
 
 _set_environment () {
     # Set appropriate environment variables for being able to start jobs in other projects
-    # Sets tokens to env variables from eggd_conductor config for later use
+    # Sets tokens to env variables from eggd_conductor config for later use, parses out slack API
+    # token to slack_token.py
 
     dx download "$eggd_conductor_config" -o conductor.cfg
     mkdir packages hermes
@@ -149,10 +152,11 @@ _parse_fastqs () {
         # get list of sample names from sample sheet if not using sample name list
         sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
     fi
+}
 
 _match_samples_to_assays () {
-    # build associative array (i.e. key value pairs) of assay EGG codes to sample names
-    # this will allow us to run the workflows with the given config on appropriate sample sets
+    # Build associative array (i.e. key value pairs) of assay EGG codes to sample names
+    # This will allow us to run the workflows with the given config on appropriate sample sets
     declare -A sample_to_assay
 
     # for each sample, parse the eggd code, get associated assay from config if not specified
@@ -242,6 +246,7 @@ _get_low_level_configs () {
     # build associative array assay EGG codes to the downloaded config file
     declare -A assay_to_config
     local config_file_id
+    local config_name
 
     for k in "${!sample_to_assay[@]}"
     do
@@ -317,13 +322,20 @@ _trigger_workflow () {
         --samples "${sample_to_assay[$k]}" --assay_code "$k" $optional_args
     } || {
         # failed in starting up all workflows, send message to alerts
-        local message_str="Automation failed calling workflows, please check the logs for details"
+        local message_str="Automation failed calling workflows, please check the logs for details."
+
+        # previous jobs launched, add to message and terminate all previous jobs
+        if [ -s job_id.log ]; then
+            message_str+="\nCancelling previous analysis job(s): $(cat job_id.log)"
+            dx terminate $(cat job_id.log)
+        fi
+
         _slack_notify "$message_str" egg-alerts
         _exit "$message_str"
     }
 }
 
-main() {
+main () {
 
     mark-section "setting up"
     _set_environment
@@ -401,3 +413,5 @@ main() {
     echo "Workflows triggered for samples successfully"
     mark-success
 }
+
+main
