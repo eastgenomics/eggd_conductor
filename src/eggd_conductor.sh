@@ -14,9 +14,11 @@ _set_environment () {
     dx download "$eggd_conductor_config" -o conductor.cfg
     mkdir packages hermes
 
-    # clear all set env variables to allow logging in and access to other projects
+    # save original env variables to use later
     PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
     PROJECT_ID=$DX_PROJECT_CONTEXT_ID
+
+    # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
     dx cd $DX_PROJECT_CONTEXT_ID:
 
@@ -24,7 +26,8 @@ _set_environment () {
     dx clearenv
 
     # set env variables from config file, contains auth token for login
-    # use of &> /dev/null  and removing set -x suppresses printing auth token to logs which would not be ideal
+    # use of &> /dev/null  and removing set -x suppresses printing auth token
+    # to logs which would not be ideal
     printf "sourcing config file and calling dx login"
     set +x
     source conductor.cfg &> /dev/null
@@ -48,16 +51,19 @@ _slack_notify () {
     # Args:
     #    - $1: message to send
     #    - $2: channel to send to
-    python3 hermes/hermes.py -v msg "$1" "$2"
+    local message=$1
+    local channel=$2
+
+    python3 hermes/hermes.py -v msg "$message" "$channel"
 }
 
 _parse_sentinel_file () {
     # Parses given sentinel file to find samplesheet to extract sample ids from
 
     # get json of details to parse required info from
-    sentinel_details=$(dx describe --json "$sentinel_file")
+    local sentinel_details=$(dx describe --json "$sentinel_file")
+    local sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     run_id=$(jq -r '.details.run_id' <<< "$sentinel_details")
-    sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_file_id=$(jq -r '.id' <<< "$sentinel_details")
 
     if [ ! "$sample_sheet_id" ]; then
@@ -78,7 +84,7 @@ _parse_sentinel_file () {
         printf 'Finding first run tar file to get sample sheet from.\n'
 
         # first tar always named _000.tar.gz, return id of it to download
-        first_tar_id=$(dx find data --path "$sentinel_path" --brief --name "*_000.tar.gz")
+        local first_tar_id=$(dx find data --path "$sentinel_path" --brief --name "*_000.tar.gz")
         dx download "$first_tar_id" -o first_tar.tar.gz
 
         # unpack tar and find samplesheet
@@ -118,10 +124,10 @@ _parse_fastqs () {
     for fq in "${fastqs[@]}"; do
         if [[ $fq =~ file-[A-Za-z0-9]* ]]
         then
-            file_id="${BASH_REMATCH[0]}"
+            local file_id="${BASH_REMATCH[0]}"
             fastq_ids+="$file_id, "
         else
-            message_str="Given fastq does not seem to be a valid file id: $fq\n"
+            local message_str="Given fastq does not seem to be a valid file id: $fq\n"
             _exit "$message_str"
         fi
     done
@@ -143,7 +149,6 @@ _parse_fastqs () {
         # get list of sample names from sample sheet if not using sample name list
         sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
     fi
-}
 
 _match_samples_to_assays () {
     # build associative array (i.e. key value pairs) of assay EGG codes to sample names
@@ -153,24 +158,25 @@ _match_samples_to_assays () {
     # for each sample, parse the eggd code, get associated assay from config if not specified
     for name in $sample_list;
     do
+        local sample_assay_type
         if [ -z "$assay_type" ]; then
             # assay type not specified, infer from eggd code and high level config
 
             # get eggd code from name using regex, if not found will exit
             if [[ $name =~ EGG[0-9]{1,2} ]]
             then
-                sample_eggd_code="${BASH_REMATCH[0]}"
+                local sample_eggd_code="${BASH_REMATCH[0]}"
             else
-                message_str="Sample name invalid: could not parse EGG code from $name"
+                local message_str="Sample name invalid: could not parse EGG code from $name"
                 dx-jobutil-report-error "$message_str"
                 _slack_notify "$message_str" egg-alerts
                 _exit "$message_str"
             fi
 
             # get associated assay from config
-            assay_type=$(grep "$sample_eggd_code" high_level_config.tsv | awk '{print $2}')
+            sample_assay_type=$(grep "$sample_eggd_code" high_level_config.tsv | awk '{print $2}')
 
-            if [ -z "$assay_type" ]
+            if [ -z "$sample_assay_type" ]
             then
                 # appropriate assay not found from sample egg code
                 echo "Assay for sample $name not found in config using the following eggd code: $sample_eggd_code"
@@ -178,9 +184,11 @@ _match_samples_to_assays () {
                 dx-jobutil-report-error "Assay for sample $name not found in config using the following eggd code: $sample_eggd_code"
                 exit 1
             fi
+        else
+            sample_assay_type="$assay_type"
         fi
         # add sample name to associated assay code in array, comma separated to parse later
-        sample_to_assay[$assay_type]+="$name,"
+        sample_to_assay[$sample_assay_type]+="$name,"
     done
 }
 
@@ -196,11 +204,12 @@ _run_bcl2fastq () {
 
     # check no fastqs are already present in the output directory for bcl2fastq, exit if any
     # present to prevent making a mess with bcl2fastq output
-    fastqs=$(dx find data --json --brief --name "*.fastq*" --path $bcl2fastq_out)
+    local fastqs=$(dx find data --json --brief --name "*.fastq*" --path $bcl2fastq_out)
+
     if [ ! "$fastqs" == "[]" ]; then
         dx-jobutil-report-error "Selected bcl2fastq output directory already contains fastq files"
 
-        message_str="Selected output directory already contains fastq files: $bcl2fastq_out.\n
+        local message_str="Selected output directory already contains fastq files: $bcl2fastq_out.\n
         This is likely because demultiplexing has already been run and output to this directory.\n
         Exiting now to prevent poluting output directory with bcl2fastq output.
         "
@@ -209,7 +218,7 @@ _run_bcl2fastq () {
         _exit "$message_str"
     fi
 
-    optional_args=""
+    local optional_args
     optional_args+="--destination ${bcl2fastq_out}"
 
     echo "Starting bcl2fastq app with output at: $bcl2fastq_out"
@@ -220,7 +229,7 @@ _run_bcl2fastq () {
             "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$sentinel_file_id")
     } || {
         # demultiplexing failed, send alert and exit
-        message_str="bcl2fastq job failed in project ${bcl2fastq_out%%:*}"
+        local message_str="bcl2fastq job failed in project ${bcl2fastq_out%%:*}"
         _slack_notify "$message_str" egg-logs
         _exit "$message_str"
     }
@@ -232,6 +241,7 @@ _get_low_level_configs () {
 
     # build associative array assay EGG codes to the downloaded config file
     declare -A assay_to_config
+    local config_file_id
 
     for k in "${!sample_to_assay[@]}"
     do
@@ -263,12 +273,13 @@ _validate_samplesheet () {
     for file in low_level_configs/*.json; do
         if jq -r '.sample_name_regex' "$file"; then
             # parse regex patterns into one string and add to string of total patterns
-            file_regexes=$(jq -rc '.sample_name_regex[]' "$file" | tr '\n' ' ')
+            local file_regexes=$(jq -rc '.sample_name_regex[]' "$file" | tr '\n' ' ')
             if [ "$file_regexes" != " " ]; then regex_patterns+="$file_regexes"; fi
         fi
     done
 
     # run samplesheet validator
+    local stdout
     if [[ $regex_patterns ]]; then
         stdout=$(python3 validate_sample_sheet-1.0.0/validate/validate.py \
         --samplesheet "$sample_sheet" --name_patterns $regex_patterns) &> /dev/null
@@ -282,7 +293,7 @@ _validate_samplesheet () {
     if [[ ! "$stdout" =~ "SUCCESS" ]]; then
         # check for errors found in samplesheet => exit
         dx-jobutil-report-error "Errors found in sample sheet"
-        message_str="Errors found in sample sheet, please check logs for details."
+        local message_str="Errors found in sample sheet, please check logs for details."
         _slack_notify "$message_str" egg-alerts
         _exit "$message_str"
     fi
@@ -294,7 +305,7 @@ _trigger_workflow () {
     printf "Calling workflow for assay $i on samples:\n ${sample_to_assay[$k]}"
 
     # set optional arguments to workflow script by app args
-    optional_args=""
+    local optional_args
     if [ "$dx_project" ]; then optional_args+="--dx_project_id $dx_project "; fi
     if [ "$bcl2fastq_job_id" ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id "; fi
     if [ "$fastq_ids" ]; then optional_args+="--fastqs $fastq_ids"; fi
@@ -306,7 +317,7 @@ _trigger_workflow () {
         --samples "${sample_to_assay[$k]}" --assay_code "$k" $optional_args
     } || {
         # failed in starting up all workflows, send message to alerts
-        message_str="Automation failed calling workflows, please check the logs for details"
+        local message_str="Automation failed calling workflows, please check the logs for details"
         _slack_notify "$message_str" egg-alerts
         _exit "$message_str"
     }
@@ -360,14 +371,8 @@ main() {
     # we now have an array of assay codes to comma separated sample names i.e.
     # FH: X000001_EGG3,X000002_EGG3...
     # TSOE: X000003_EGG1,X000004_EGG1...
-
-    printf "\nsample to assays:\n"
-
-    for i in "${!sample_to_assay[@]}"
-    do
-        printf "key  : $i"
-        printf "value: ${sample_to_assay[$i]}"
-    done
+    printf "\nSample to assays:\n"
+    for i in "${!sample_to_assay[@]}"; do printf "assay: $i - samples: ${sample_to_assay[$i]}"; done
 
     # get low level config files for appropriate assays
     _get_low_level_configs
