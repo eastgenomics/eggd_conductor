@@ -58,6 +58,7 @@ _slack_notify () {
     local channel=$2
 
     python3 hermes/hermes.py -v msg "$message" "$channel"
+    printf "Message sent to $channel: $message"
 }
 
 _parse_sentinel_file () {
@@ -412,11 +413,8 @@ main () {
 
         local analysis_project=$(cat run_workflows_output_project.log)
         local message="Workflows triggered for samples successfully in ${analysis_project}"
-
-        echo "${message}"
         _slack_notify "${message}" egg-alerts
     done
-
 
     mark-success
 }
