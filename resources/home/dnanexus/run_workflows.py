@@ -107,6 +107,10 @@ def get_or_create_dx_project(args, config) -> argparse.ArgumentParser:
 
     args.dx_project_id = project_id
 
+    with open('run_workflows_output_project.log', 'w') as fh:
+        # record project used to send slack notification
+        fh.write(f'{output_project} ({project_id})')
+
     return args
 
 
@@ -721,7 +725,7 @@ def main():
 
     # log file of all jobs run, used in case of failing to launch all
     # downstream analysis to be able to terminate all analyses
-    open('job_id.log', 'a').close()
+    open('job_id.log', 'w').close()
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id

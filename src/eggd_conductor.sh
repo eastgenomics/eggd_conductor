@@ -324,10 +324,11 @@ _trigger_workflow () {
         # failed in starting up all workflows, send message to alerts
         local message_str="Automation failed calling workflows, please check the logs for details."
 
-        # previous jobs launched, add to message and terminate all previous jobs
+        # non-empty file => previous jobs launched, add to message and terminate all previous jobs
         if [ -s job_id.log ]; then
-            message_str+="\nCancelling previous analysis job(s): $(cat job_id.log)"
-            dx terminate $(cat job_id.log)
+            local launched_job_ids=$(cat job_id.log)
+            message_str+="\nCancelling previous analysis job(s): ${launched_job_ids}"
+            dx terminate "${launched_job_ids}"
         fi
 
         _slack_notify "$message_str" egg-alerts
@@ -408,9 +409,15 @@ main () {
     for k in "${!sample_to_assay[@]}"
     do
         _trigger_workflow
+
+        local analysis_project=$(cat run_workflows_output_project.log)
+        local message="Workflows triggered for samples successfully in ${analysis_project}"
+
+        echo "${message}"
+        _slack_notify "${message}" egg-alerts
     done
 
-    echo "Workflows triggered for samples successfully"
+
     mark-success
 }
 
