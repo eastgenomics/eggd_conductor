@@ -193,6 +193,9 @@ def call_dx_run(args, executable, job_name, input_dict, output_dict, prev_jobs) 
 
     print(f'Started analysis in project {args.dx_project_id}, job: {job_id}')
 
+    with open('job_id.log', 'a') as fh:
+        fh.write(f'{job_id} ')
+
     return job_id
 
 
@@ -715,6 +718,10 @@ def main():
 
     config = load_config(args.config_file)
     run_time = time_stamp()
+
+    # log file of all jobs run, used in case of failing to launch all
+    # downstream analysis to be able to terminate all analyses
+    open('job_id.log', 'a').close()
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
