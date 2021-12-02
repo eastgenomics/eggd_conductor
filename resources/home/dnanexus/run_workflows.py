@@ -142,25 +142,19 @@ def create_dx_folder(args, out_folder) -> str:
                 }
             )
             print(f'Created output folder: {dx_folder}')
-            break
+            return dx_folder
         else:
             # folder already exists, increase _i suffix on folder name
             # and check again
             print(f'{dx_folder} already exists, incrementing suffix integer')
-
-            if i == 100:
-                # got to end of loop, highly unlikely we would ever run this
-                # many in a project but catch it here to stop some ambiguous
-                # downstream error
-                print(
-                    'Found 100 output directories in project, exiting now as '
-                    'there is likely an issue in the project.'
-                )
-                sys.exit()
-
             continue
 
-    return dx_folder
+    # got to end of loop, highly unlikely we would ever run this many in a
+    # project but catch it here to stop some ambiguous downstream error
+    raise RuntimeError (
+        "Found 100 output directories in project, exiting now as "
+        "there is likely an issue in the project."
+    )
 
 
 def call_dx_run(args, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
