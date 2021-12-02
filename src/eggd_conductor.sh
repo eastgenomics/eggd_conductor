@@ -20,6 +20,7 @@ _set_environment () {
     # save original env variables to use later
     PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
     PROJECT_ID=$DX_PROJECT_CONTEXT_ID
+    PARENT_JOB_ID=$DX_JOB_ID
 
     # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
@@ -354,6 +355,7 @@ main () {
 
     python3 -m pip install --no-index --no-deps  packages/*
 
+
     # send an alert to logs so we know something is starting
     python3 hermes/hermes.py -v msg "Automated analysis beginning in ${PROJECT_NAME} ($PROJECT_ID)" egg-logs
 
@@ -406,6 +408,8 @@ main () {
     fi
 
     # trigger workflows using config for each set of samples for an assay
+    # if calling all apps/workflows fails _trigger_workflow will make a call to _slack_notify then
+    # _exit to stop
     mark-section "triggering workflows"
     for k in "${!sample_to_assay[@]}"
     do
@@ -414,6 +418,13 @@ main () {
         local analysis_project=$(cat run_workflows_output_project.log)
         local message="Workflows triggered for samples successfully in ${analysis_project}"
         _slack_notify "${message}" egg-alerts
+
+        # run_workflows.py writes the analysis project name and id used to log file
+        # add tag with URL to parent conductor job to link it to the downstream analysis
+        local split_job_id=$(awk -F[\(\)] '{print $2}' <<< "$analysis_project" | sed 's/project-//')
+        local URL="platform.dnanexus.com/projects/${split_job_id}/monitor/"
+        dx tag "$PARENT_JOB_ID" "$URL"
+
     done
 
     mark-success
