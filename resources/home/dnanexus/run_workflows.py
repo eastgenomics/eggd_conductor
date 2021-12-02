@@ -226,9 +226,11 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     r1_fastqs = [x for x in sample_fastqs if 'R1_001.fastq' in x[1]]
     r2_fastqs = [x for x in sample_fastqs if 'R2_001.fastq' in x[1]]
 
-    assert len(r1_fastqs) == len(r2_fastqs), f"Mismatched number of FastQs"
-
     print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
+
+    assert len(r1_fastqs) == len(r2_fastqs), (
+        f"Mismatched number of FastQs found.\n R1: {r1_fastqs} \nR2: {r2_fastqs}"
+    )
 
     for stage, inputs in input_dict.items():
         # check each stage in input config for fastqs, format
