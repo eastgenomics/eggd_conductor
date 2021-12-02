@@ -33,7 +33,11 @@ Automating analysis for given samples from a config file definition. This can ei
 
 ## Config file design
 
-The app is built to rely on 2 config files, a high level one that maps sample naming to assay config, and an assay specific config file that specifies all aspects of calling the required workflows and applets.
+The app is built to rely on 3 config files:
+
+- a high level one that maps sample naming to assay config
+- an assay specific config file that specifies all aspects of calling the required workflows and applets
+- a config file to store auth tokens
 
 The assay config file for the conductor app is designed to be written as a JSON file, with each workflow or apps defined as an executable. For each workflow/app, there are several required and optional keys to add, with a required structure. An example empty template and populated config file may be found [here](example/config_template.json) and [here](example/example_populated_config.json) respectively.
 
