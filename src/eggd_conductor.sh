@@ -55,7 +55,7 @@ _slack_notify () {
     # Args:
     #    - $1: message to send
     #    - $2: channel to send to
-    local message=$1
+    local message="eggd_conductor - ${1}"
     local channel=$2
 
     python3 hermes/hermes.py -v msg "$message" "$channel"
@@ -355,9 +355,8 @@ main () {
 
     python3 -m pip install --no-index --no-deps  packages/*
 
-
     # send an alert to logs so we know something is starting
-    python3 hermes/hermes.py -v msg "Automated analysis beginning in ${PROJECT_NAME} ($PROJECT_ID)" egg-logs
+    _slack_notify "Automated analysis beginning in ${PROJECT_NAME} ($PROJECT_ID)" egg-logs
 
     if [[ "$sentinel_file" ]]; then
         # sentinel file passed when run automatically via dx-streaming-upload
