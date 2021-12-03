@@ -75,8 +75,8 @@ _select_highest_version () {
 
         if awk "BEGIN {exit !($next_version > $current_version)}" && [ ${capa+x} ]
         then
-            # version is higher => update locals
-            current_version=next_version
+            # version is higher and has CAPA associated => update locals
+            current_version="$next_version"
             current_file_id="$config"
         fi
     done
@@ -289,6 +289,14 @@ _run_bcl2fastq () {
     {
         dx run --brief --detach --wait -y ${optional_args} --auth-token "$API_KEY" \
             "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$SENTINEL_FILE_ID"
+
+        if [[ ! "$bcl2fastq_out" =~ "$PROJECT_ID" ]]
+        then
+            # demultiplexing run in a different project => tag parent job with link to project analysis
+            local project_id=$(awk -F[\(\)] '{print $2}' <<< "$bcl2fastq_out" | sed 's/project-//')
+            local url="platform.dnanexus.com/projects/${project_id}/monitor/"
+            dx tag "$PARENT_JOB_ID" "$url"
+        fi
     } || {
         # demultiplexing failed, send alert and exit
         local message_str="bcl2fastq job failed in project ${bcl2fastq_out%%:*}"
@@ -468,8 +476,8 @@ main () {
 
         # run_workflows.py writes the analysis project name and id used to log file
         # add tag with URL to parent conductor job to link it to the downstream analysis
-        local split_job_id=$(awk -F[\(\)] '{print $2}' <<< "$analysis_project" | sed 's/project-//')
-        local URL="platform.dnanexus.com/projects/${split_job_id}/monitor/"
+        local analysis_project_id=$(awk -F[\(\)] '{print $2}' <<< "$analysis_project" | sed 's/project-//')
+        local URL="platform.dnanexus.com/projects/${analysis_project_id}/monitor/"
         dx tag "$PARENT_JOB_ID" "$URL"
 
     done
