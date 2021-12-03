@@ -8,26 +8,26 @@
   },
   "inputSpec": [
     {
-      "name": "dx_project",
+      "name": "DX_PROJECT",
       "label": "DNAnexus project id",
       "class": "string",
       "optional": true,
       "help": "Project in which to run and store analysis outputs. \n If not given a new one will be created from the run ID and assay code."
     },
     {
-      "name": "sentinel_file",
+      "name": "SENTINEL_FILE",
       "label": "Sentinel file",
       "class": "record",
       "optional": true,
       "suggestions": [
         {
-          "project": "project-FpVG0G84X7kzq58g19vF1YJQ" 
+          "project": "project-FpVG0G84X7kzq58g19vF1YJQ"
         }
       ],
       "help": "Sentinel file for run to analyse, uploaded by dx-streaming-upload"
     },
     {
-      "name": "samplesheet",
+      "name": "SAMPLE_SHEET_ID",
       "label": "SampleSheet",
       "help": "Samplesheet for given run, if not given will attempt to find in data tars. Must be given if using fastqs input.",
       "class": "file",
@@ -37,14 +37,14 @@
       ]
     },
     {
-      "name": "sample_names",
+      "name": "SAMPLE_NAMES",
       "label": "Comma seperated list of sample names",
       "class": "string",
       "optional": true,
       "help": "List of sample names for given fastqs, only required if running without samplesheet"
     },
     {
-      "name": "fastqs",
+      "name": "FASTQS",
       "label": "Fastqs",
       "class": "array:file",
       "optional": true,
@@ -54,17 +54,17 @@
       "help": "Set of fastqs to use for starting analysis on if already demultiplexed"
     },
     {
-      "name": "high_level_config",
+      "name": "HIGH_LEVEL_CONFIG",
       "label": "High level config file of sample naming -> assay types",
       "class": "file",
       "optional": true,
       "patterns": [
-        "*"
+        "*.tsv"
       ],
-      "help": ""
+      "help": "Use specified high level config file. Default is to retrieve from $HIGH_LEVEL_CONFIG_PATH"
     },
     {
-      "name": "custom_config",
+      "name": "CUSTOM_CONFIG",
       "label": "Custom low level config",
       "class": "file",
       "optional": true,
@@ -74,28 +74,31 @@
       "help": "Use given low level config for running analyses"
     },
     {
-      "name": "eggd_conductor_config",
+      "name": "EGGD_CONDUCTOR_CONFIG",
       "label": "eggd conductor config file",
       "class": "file",
       "optional": true,
-      "help": "config file for global app variables, contains things such as bcl2fastq app id"
+      "patterns": [
+        "*.cfg"
+      ],
+      "help": "Use specified config file for global app variables (i.e. tokens). Default is to retrieve from $EGGD_CONDUCTOR_CFG_PATH"
     },
     {
-      "name": "assay_type",
+      "name": "ASSAY_TYPE",
       "label": "Assay type to use for all samples (e.g. TWE, WES, MYE...",
       "class": "string",
       "optional": true,
       "help": "Use low level config for all samples for given assay code"
     },
     {
-      "name": "run_id",
+      "name": "RUN_ID",
       "label": "ID of sequencing run",
       "class": "string",
       "optional": true,
       "help": "Parsed from samplesheet if not given"
     },
     {
-      "name": "validate_samplesheet",
+      "name": "VALIDATE_SAMPLESHEET",
       "label": "Validate samplesheet",
       "class": "boolean",
       "optional": true,
@@ -103,7 +106,7 @@
       "help": "Perform samplesheet validation and exit on invalid sheet"
     },
     {
-      "name": "development",
+      "name": "DEVELOPMENT",
       "label": "Development run",
       "class": "boolean",
       "optional": true,
@@ -111,18 +114,34 @@
       "help": "Name output project with 003 prefix and date instead of 002"
     },
     {
-      "name": "bcl2fastq_job_id",
+      "name": "BCL2FASTQ_JOB_ID",
       "label": "Job ID of previous bcl2fastq job",
       "class": "string",
       "optional": true,
       "help": "Optionally use fastqs from previous bcl2fastq job, will skip demultiplexing stage"
     },
     {
-      "name": "bcl2fastq_out",
+      "name": "BCL2FASTQ_OUT",
       "label": "bcl2fastq output path",
       "class": "string",
       "optional": true,
       "help": "Path to store bcl2fastq output, if not given will default to run dir in 001_Staging_Area52. Should be in the format project:path"
+    },
+    {
+      "name": "EGGD_CONDUCTOR_CFG_PATH",
+      "label": "Path to eggd_conductor config files",
+      "class": "string",
+      "optional": true,
+      "default": "project-G6F2k284Fgb5388bBq7fGZX7:/eggd_conductor_configs/eggd_conductor_cfg/",
+      "help": "Override default path of where to search for latest eggd_conductor cfg file"
+    },
+    {
+      "name": "HIGH_LEVEL_CONFIG_PATH",
+      "label": "Path to high level config files",
+      "class": "string",
+      "optional": true,
+      "default": "project-G6F2k284Fgb5388bBq7fGZX7:/eggd_conductor_configs/high_level_config_files/",
+      "help": "Override default path of where to search for latest high level config file"
     }
   ],
   "outputSpec": [],

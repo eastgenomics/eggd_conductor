@@ -14,6 +14,19 @@ _set_environment () {
     # Sets tokens to env variables from eggd_conductor config for later use, parses out slack API
     # token to slack_token.py
 
+    # if not given, get highest tagged version of config files from given directories
+    if [ -z "$EGGD_CONDUCTOR_CONFIG" ]
+    then
+        EGGD_CONDUCTOR_CONFIG=$(_select_highest_version "$EGGD_CONDUCTOR_CFG_PATH")
+    fi
+
+    if [ -z "$CUSTOM_CONFIG" ]
+    then
+        local high_level_config
+        high_level_config=$(_select_highest_version "$HIGH_LEVEL_CONFIG_PATH")
+        dx download "$high_level_config" -o high_level_config.tsv
+    fi
+
     dx download "$eggd_conductor_config" -o conductor.cfg
     mkdir packages hermes
 
@@ -38,6 +51,39 @@ _set_environment () {
     dx login --noprojects --token $AUTH_TOKEN
     echo "hermes_token=\"${SLACK_TOKEN}\"" > hermes/slack_token.py
     set -x
+}
+
+_select_highest_version () {
+    # Given a directory of configs with version properties, returns the file id of the highest version
+    # Args: $1 - project:/path/to/configs
+    local path=$1
+
+    # dx find data with --verbose doesn't return properties (annoyingly) => get all file ids and
+    # call dx describe on each
+    # get the version and store the file id if it is higher than the previous config
+    local current_version=0
+    local current_file_id
+
+    for config in $(dx find data --brief --path "$path"); do
+        next_version=$(dx describe --json "$config" | jq -r '.properties.version')
+
+        if awk "BEGIN {exit !($next_version > $current_version)}"
+        then
+            # version is higher => update locals
+            current_version=next_version
+            current_file_id="$config"
+        fi
+    done
+
+    if [ -z "$current_file_id" ]
+    then
+        local message="No version tagged config files found in ${path}. Exiting now."
+        _slack_notify "$message" egg-alerts
+        _exit "$message"
+    else
+        # file id set, echo to capture from stdout by function call
+        echo "$current_file_id"
+    fi
 }
 
 _exit () {
@@ -66,21 +112,21 @@ _parse_sentinel_file () {
     # Parses given sentinel file to find samplesheet to extract sample ids from
 
     # get json of details to parse required info from
-    local sentinel_details=$(dx describe --json "$sentinel_file")
+    local sentinel_details=$(dx describe --json "$SENTINEL_FILE")
     local sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
-    run_id=$(jq -r '.details.run_id' <<< "$sentinel_details")
-    sentinel_file_id=$(jq -r '.id' <<< "$sentinel_details")
+    [ -z "$RUN_ID" ] && RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
+    SENTINEL_FILE_ID=$(jq -r '.id' <<< "$sentinel_details")
 
-    if [ ! "$sample_sheet_id" ]; then
-        # check if sample sheet has been specified on running, try get from sentinel details
-        sample_sheet_id=$(dx find data --path "$sentinel_path" --name 'SampleSheet.csv' --brief)
+    if [ ! "$SAMPLE_SHEET_ID" ]; then
+        # sample sheet has not been specified on running, try get from sentinel details
+        SAMPLE_SHEET_ID=$(dx find data --path "$sentinel_path" --name 'SampleSheet.csv' --brief)
     fi
 
-    if [ "$sample_sheet_id" ]
+    if [ "$SAMPLE_SHEET_ID" ]
     then
         # found sample sheet or passed -> download
         printf "Found samplesheet from given sentinel file (%s), downloading" "$sample_sheet_id"
-        dx download "$sample_sheet_id"
+        dx download "$SAMPLE_SHEET_ID" -o SampleSheet.csv
         sample_sheet='SampleSheet.csv'
     else
         # sample sheet missing from runs dir, most likely due to not being name SampleSheet.csv
@@ -115,7 +161,7 @@ _parse_fastqs () {
     # files as input, checks if all provided files are valid file ids and builds a string
     # to pass to python script
 
-    if [ ! "$samples_names" ] && [ ! "$sample_sheet" ]
+    if [ ! "$SAMPLE_NAMES" ] && [ ! "$sample_sheet" ]
     # needs sample sheet or sample list passing
     then
         printf 'No sample sheet or list of samples defined, one of these must be provided. Exiting now.'
@@ -124,30 +170,30 @@ _parse_fastqs () {
     fi
 
     # build list of file ids for given fastqs to pass to workflow script
-    fastq_ids=""
+    FASTQ_IDS=""
 
-    for fq in "${fastqs[@]}"; do
+    for fq in "${FASTQS[@]}"; do
         if [[ $fq =~ file-[A-Za-z0-9]* ]]
         then
             local file_id="${BASH_REMATCH[0]}"
-            fastq_ids+="$file_id, "
+            FASTQ_IDS+="$file_id, "
         else
             local message_str="Given fastq does not seem to be a valid file id: $fq\n"
             _exit "$message_str"
         fi
     done
-    printf "\nFound fastq file ids: %s \n" "$fastq_ids"
+    printf "\nFound fastq file ids: %s \n" "$FASTQS"
 
-    if [[ $samples_names ]] && [[ $sample_sheet ]]
+    if [[ $SAMPLE_NAMES ]] && [[ $sample_sheet ]]
     # samplesheet and sample list given, use list
     then
         printf 'both sample sheet and list of samples provided, using sample list'
         # ensure sample names are string seperated by a space
-        sample_list=$(echo "$samples_names" | tr -d '[:space:]' | sed 's/,/ /g')
+        sample_list=$(echo "$SAMPLE_NAMES" | tr -d '[:space:]' | sed 's/,/ /g')
         printf "Samples specified for analysis: %s" "$sample_list"
     fi
 
-    if [[ $sample_sheet ]] && [[ ! $samples_names ]]
+    if [[ $sample_sheet ]] && [[ ! $SAMPLE_NAMES ]]
     # just sheet given => download
     then
         dx download "$sample_sheet"
@@ -165,7 +211,7 @@ _match_samples_to_assays () {
     for name in $sample_list;
     do
         local sample_assay_type
-        if [ -z "$assay_type" ]; then
+        if [ -z "$ASSAY_TYPE" ]; then
             # assay type not specified, infer from eggd code and high level config
 
             # get eggd code from name using regex, if not found will exit
@@ -191,7 +237,7 @@ _match_samples_to_assays () {
                 exit 1
             fi
         else
-            sample_assay_type="$assay_type"
+            sample_assay_type="$ASSAY_TYPE"
         fi
         # add sample name to associated assay code in array, comma separated to parse later
         sample_to_assay[$sample_assay_type]+="$name,"
@@ -201,11 +247,15 @@ _match_samples_to_assays () {
 _run_bcl2fastq () {
     # Call bcl2fastq app to perform demultiplexing on given sentinel file run
 
-    if [ -z "$bcl2fastq_out" ]; then
+    local bcl2fastq_out  # output directory for bcl2fastq app
+
+    if [ -z "$BCL2FASTQ_OUT" ]; then
         # bcl2fastq output path not set, default to putting it in the parent run dir of the
         # sentinel record
-        bcl2fastq_out=$(dx describe --json "$sentinel_file" | jq -r '.details.dnanexus_path')
+        bcl2fastq_out=$(dx describe --json "$SENTINEL_FILE" | jq -r '.details.dnanexus_path')
         bcl2fastq_out=${bcl2fastq_out%runs}
+    else
+        bcl2fastq_out="$BCL2FASTQ_OUT"
     fi
 
     # check no fastqs are already present in the output directory for bcl2fastq, exit if any
@@ -231,8 +281,8 @@ _run_bcl2fastq () {
     echo "Holding app until demultiplexing complete to trigger downstream workflow(s)..."
 
     {
-        bcl2fastq_job_id=$(dx run --brief --detach --wait -y ${optional_args} --auth-token $API_KEY \
-            "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$sentinel_file_id")
+        dx run --brief --detach --wait -y ${optional_args} --auth-token "$API_KEY" \
+            "$BCL2FASTQ_APP_ID" -iupload_sentinel_record="$SENTINEL_FILE_ID"
     } || {
         # demultiplexing failed, send alert and exit
         local message_str="bcl2fastq job failed in project ${bcl2fastq_out%%:*}"
@@ -252,12 +302,12 @@ _get_low_level_configs () {
 
     for k in "${!sample_to_assay[@]}"
     do
-        if [ ! "$custom_config" ]
+        if [ ! "$CUSTOM_CONFIG" ]
         then
             # no custom config => get file id for low level assay config file & download
             config_file_id=$(grep "$k" high_level_config.tsv | awk '{print $NF}')
         else
-            config_file_id="$custom_config"
+            config_file_id="$CUSTOM_CONFIG"
         fi
 
         config_name=$(dx describe --json "$config_file_id" | jq -r '.name')
@@ -313,11 +363,11 @@ _trigger_workflow () {
 
     # set optional arguments to workflow script by app args
     local optional_args
-    if [ "$dx_project" ]; then optional_args+="--dx_project_id $dx_project "; fi
-    if [ "$bcl2fastq_job_id" ]; then optional_args+="--bcl2fastq_id $bcl2fastq_job_id "; fi
-    if [ "$fastq_ids" ]; then optional_args+="--fastqs $fastq_ids"; fi
-    if [ "$run_id" ]; then optional_args+="--run_id $run_id "; fi
-    if [ "$development" ]; then optional_args+="--development "; fi
+    if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
+    if [ "$BCL2FASTQ_JOB_ID" ]; then optional_args+="--bcl2fastq_id $BCL2FASTQ_JOB_ID "; fi
+    if [ "$FASTQ_IDS" ]; then optional_args+="--fastqs $FASTQ_IDS"; fi
+    if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
+    if [ "$DEVELOPMENT" ]; then optional_args+="--development "; fi
 
     {
         python3 run_workflows.py --config_file "low_level_configs/${assay_to_config[$k]}" \
@@ -343,7 +393,7 @@ main () {
     mark-section "setting up"
     _set_environment
 
-    if [ -z "${sentinel_file+x}" ] && [ -z "${fastqs+x}" ]; then
+    if [ -z "${SENTINEL_FILE+x}" ] && [ -z "${FASTQS+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
     fi
@@ -358,7 +408,7 @@ main () {
     # send an alert to logs so we know something is starting
     _slack_notify "Automated analysis beginning in ${PROJECT_NAME} ($PROJECT_ID)" egg-logs
 
-    if [[ "$sentinel_file" ]]; then
+    if [[ "$SENTINEL_FILE" ]]; then
         # sentinel file passed when run automatically via dx-streaming-upload
         mark-section "parsing sentinel file"
         _parse_sentinel_file
@@ -373,19 +423,11 @@ main () {
     # use the config and sample sheet names to infer which to use if a specific assay not specified
     mark-section "building assay-sample array"
 
-    if [ -z "$custom_config" ]
-    then
-        # get high level config file if not using custom config
-        printf "\nDownloading high level config file: %s" "$high_level_config"
-        dx download "$high_level_config" -o "high_level_config.tsv"
-    fi
-
-    # build an array of assay codes -> comma separated sample names to pass to running workflows
-    _match_samples_to_assays
-
-    # we now have an array of assay codes to comma separated sample names i.e.
+    # build an array of assay codes -> comma separated sample names to pass to running workflows, i.e.
     # FH: X000001_EGG3,X000002_EGG3...
     # TSOE: X000003_EGG1,X000004_EGG1...
+    _match_samples_to_assays
+
     printf "\nSample to assays:\n"
     for i in "${!sample_to_assay[@]}"; do printf "assay: $i - samples: ${sample_to_assay[$i]}"; done
 
@@ -393,17 +435,17 @@ main () {
     _get_low_level_configs
 
     # perform samplesheet validation unless set to False
-    if [ "$validate_samplesheet" = true ]; then
+    if [ "$VALIDATE_SAMPLESHEET" = true ]; then
         mark-section "performing samplesheet validation"
         _validate_samplesheet
     fi
 
-    if [ "$sentinel_file" ] && [ -z "$bcl2fastq_job_id" ]
+    if [ "$SENTINEL_FILE" ] && [ -z "$BCL2FASTQ_JOB_ID" ]
     then
-        # no prev. bcl2fastq job given to use
+        # no previous bcl2fastq job given to use the output from
         # starting bcl2fastq and holding app until it completes
         mark-section "demultiplexing with bcl2fastq"
-        _run_bcl2fastq
+        BCL2FASTQ_JOB_ID=$(_run_bcl2fastq)
     fi
 
     # trigger workflows using config for each set of samples for an assay
