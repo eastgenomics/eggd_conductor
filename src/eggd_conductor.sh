@@ -60,14 +60,20 @@ _select_highest_version () {
 
     # dx find data with --verbose doesn't return properties (annoyingly) => get all file ids and
     # call dx describe on each
-    # get the version and store the file id if it is higher than the previous config
+    # get the version and store the file id if it is higher than the previous config AND it has an
+    # associated CAPA property => signed off for use
+    local properties
+    local capa
+    local next_version
     local current_version=0
     local current_file_id
 
     for config in $(dx find data --brief --path "$path"); do
-        next_version=$(dx describe --json "$config" | jq -r '.properties.version')
+        properties=$(dx describe --json "$config" | jq -r '.properties')
+        capa=$(jq -r '.CAPA' <<< "$properties")
+        next_version=$(jq -r '.version' <<< "$properties")
 
-        if awk "BEGIN {exit !($next_version > $current_version)}"
+        if awk "BEGIN {exit !($next_version > $current_version)}" && [ ${capa+x} ]
         then
             # version is higher => update locals
             current_version=next_version
