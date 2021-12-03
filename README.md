@@ -49,7 +49,7 @@ This currently must contain the following:
 
 ### High level config design
 
-Tab separated file that maps egg codes used in sample names to the respective assay and associated low level JSON config file. There should be one line per assay in the format `egg-code assay file-id`.
+Tab separated file that maps egg codes used in sample names to the respective assay and associated low level JSON config file. There should be one line per assay in the format `egg-code assay file-id`. Example may be found [here](example/eggd_conductor.cfg).
 
 Example lines in config file:
 ```
