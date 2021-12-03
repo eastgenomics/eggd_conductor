@@ -1,6 +1,6 @@
 # conductor (DNAnexus Platform App)
 
-DNAnexus app for automating end to end analysis of samples through workflows. 
+DNAnexus app for automating end to end analysis of samples through workflows.
 
 ## What does this app do?
 
@@ -63,13 +63,13 @@ The assay config file for the conductor app is designed to be written as a JSON 
 
 As the config file is a JSON, several fields may be added to enhance readability that will not be parsed when running, such as the name, details and GitHub URL for each executable.
 
-<b>Required keys in the top level of the config include</b>:
+**Required keys in the top level of the config include**:
 
 - `demultiplex` (boolean): if true, run bcl2fastq to generate fastqs
 - `users` (dict): DNAnexus users to add to output project and access level to be granted
 - `executables` (dict): each key should be the workflow or app id, with it's value being a dictionary (see below for example)
 
-<b>Optional keys in top level of config include</b>:
+**Optional keys in top level of config include**:
 
 - `sample_name_regex` (list): list of regex patterns to use for performing samplesheet validation on sample names with
 
@@ -88,7 +88,7 @@ Example top level of config:
     ]
 ```
 
-<b>Required keys per executable dictionary</b>:
+**Required keys per executable dictionary**:
 
 - `name`: will be used to name output directory if using output variable naming (see below)
 - `analysis`: the value should be written as `analysis_1`, where the number is the executable stage in the config (i.e for the first workflow app this would be `analysis_1`, for the second `analysis_2`...). This is used to link the outputs of one workflow / app to subsequent workflows / apps.
@@ -97,7 +97,7 @@ Example top level of config:
 - `inputs` (dict): this forms the input dictionary passed to the call to dx api to trigger the running of the executable, more details may be found [here](dx-run-url). See below for structure and available inputs.
 - `output_dirs` (dict): maps the app / workflow stages to directories in which to store output data. See below for structure and available inputs.
 
-<b>Optional keys per executable dictionary</b>:
+**Optional keys per executable dictionary**:
 
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the dependent executable to collect the output from
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable)
@@ -205,6 +205,42 @@ This defines the output directory structure for the executables outputs. For wor
     ```
 
 
+## Requirements
+
+The app has various design patterns that have certain requirements. These include:
+
+- The path specified to download the `eggd_conductor.cfg` and `high_level_config.tsv` assumes that these files will have a `version` and a `CAPA` property atrribute set. The `version` property should follow semantic versioning and the config file with the highest version will be used. The `CAPA` property indicates a config file has been signed off for use, only config files with this property will be used for analysis. The `properties` atrribute parsed from a `dx describe` call on one of these config files will look as such:
+    ```
+    $ dx describe --json project-G6F2k284Fgb5388bBq7fGZX7:file-G6ZxGQj4Fgb2k4Fk3j1VjKpk | jq -r '.properties'
+    {
+    "version": "1.0.0",
+    "CAPA": "GEN.BI.123"
+    }
+    ```
+- The matching of samples to assay config files relies on the use of an "`EGG`" code in the sample name. This naming convention used at East GLH for samples links a sample to an asaay (i.e samples with `EGG2` in the name indicates they are to be processed with the Uranus workflow). The use of these codes is currently not configurable.
+- If a dx-streaming-upload sentinel file is being used and analysis is not starting from fastqs, then it is assumed that demultiplexing will be performed with the [bcl2fastq app](bcl2fastq-url) developed by East GLH. On instrument demultplexed data uploaded via dx-streaming-upload is not currently supported.
+
+
+## App Inputs - Defaults & Behaviour
+
+The following describe default app input behaviour:
+
+- `DNAnexus project id`: Project in which to run and store output, if not specified will create a new project named as `002_<RUNID>_<ASSAY_CODE>` or `003_YYMMDD_<RUNID>_<ASSAY_CODE>` if `development=true`
+- `Sentinel file`: sentinel file created by dx-streaming-upload to use for specifying run data for analysis
+- `SampleSheet`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file run directory, or the first upload tar file.
+- `sample names`: comma separated list of sample names, to use if not providing a samplesheet
+- `fastqs`: array of fastq files, to use if not providing a sentinel file
+- `high level config`: high level config file, overrides getting default from `high level path`
+- `low level config`: use given low level config file for all sample analysis instead of inferring config to use from sample names
+- `eggd conductor config`: config file to use for bcl2fastq app ID and API tokens, if given will override `eggd_conductor path`
+- `assay type`: specify assay type to use a given assay, overrides parsing of EGG codes
+- `validate samplesheet`: if to perform samplesheet validation. If validation fails but is an acceptable error the job may be re-run with `validate samplesheet = false`
+- `development`: if set to `true` will name output project prefixed with `003` instead of `002`
+- `bcl2fastq job id`: use output fastqs of a previous bcl2fastq job instead of performing demultiplexing
+- `bcl2fastq output path`: where to store the output of bcl2fastq, defaults to the parent directory of the sentinel file
+- `eggd_conductor path`: path to where `eggd_conductor.cfg` files are stored, if given will override the default
+- `high level path`: path to where `high_level_config.tsv` files are stored, if given will override the default
+
 
 ## Dependencies
 
@@ -218,3 +254,4 @@ The following release `.tar.gz` are required to be included in `/resources/home/
 [dx-run-url]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
 [hermes-url]: https://github.com/eastgenomics/hermes
 [samplesheet-validator-url]: https://github.com/eastgenomics/validate_sample_sheet
+[bcl2fastq-url]: https://github.com/eastgenomics/eggd_bcl2fastq
