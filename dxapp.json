@@ -38,14 +38,14 @@
     },
     {
       "name": "SAMPLE_NAMES",
-      "label": "Comma seperated list of sample names",
+      "label": "sample names",
       "class": "string",
       "optional": true,
-      "help": "List of sample names for given fastqs, only required if running without samplesheet"
+      "help": "Comma separated list of sample names for given fastqs, only required if running without samplesheet"
     },
     {
       "name": "FASTQS",
-      "label": "Fastqs",
+      "label": "fastqs",
       "class": "array:file",
       "optional": true,
       "patterns": [
@@ -55,27 +55,27 @@
     },
     {
       "name": "HIGH_LEVEL_CONFIG",
-      "label": "High level config file of sample naming -> assay types",
+      "label": "high level config",
       "class": "file",
       "optional": true,
       "patterns": [
         "*.tsv"
       ],
-      "help": "Use specified high level config file. Default is to retrieve from $HIGH_LEVEL_CONFIG_PATH"
+      "help": "High level config file of sample naming -> assay types. Use specified high level config file. Default is to retrieve from $HIGH_LEVEL_CONFIG_PATH"
     },
     {
       "name": "CUSTOM_CONFIG",
-      "label": "Custom low level config",
+      "label": "low level config",
       "class": "file",
       "optional": true,
       "patterns": [
         "*.json"
       ],
-      "help": "Use given low level config for running analyses"
+      "help": "Use given low level config for running analyses instead of inferring from name"
     },
     {
       "name": "EGGD_CONDUCTOR_CONFIG",
-      "label": "eggd conductor config file",
+      "label": "eggd conductor config",
       "class": "file",
       "optional": true,
       "patterns": [
@@ -85,10 +85,10 @@
     },
     {
       "name": "ASSAY_TYPE",
-      "label": "Assay type to use for all samples (e.g. TWE, WES, MYE...",
+      "label": "assay type",
       "class": "string",
       "optional": true,
-      "help": "Use low level config for all samples for given assay code"
+      "help": "Use low level config for all samples for given assay code (e.g. TWE, WES, MYE...)"
     },
     {
       "name": "RUN_ID",
@@ -99,7 +99,7 @@
     },
     {
       "name": "VALIDATE_SAMPLESHEET",
-      "label": "Validate samplesheet",
+      "label": "validate samplesheet",
       "class": "boolean",
       "optional": true,
       "default": true,
@@ -107,7 +107,7 @@
     },
     {
       "name": "DEVELOPMENT",
-      "label": "Development run",
+      "label": "development",
       "class": "boolean",
       "optional": true,
       "default": false,
@@ -115,7 +115,7 @@
     },
     {
       "name": "BCL2FASTQ_JOB_ID",
-      "label": "Job ID of previous bcl2fastq job",
+      "label": "bcl2fastq job id",
       "class": "string",
       "optional": true,
       "help": "Optionally use fastqs from previous bcl2fastq job, will skip demultiplexing stage"
@@ -129,7 +129,7 @@
     },
     {
       "name": "EGGD_CONDUCTOR_CFG_PATH",
-      "label": "Path to eggd_conductor config files",
+      "label": "eggd_conductor path",
       "class": "string",
       "optional": true,
       "default": "project-G6F2k284Fgb5388bBq7fGZX7:/eggd_conductor_configs/eggd_conductor_cfg/",
@@ -137,7 +137,7 @@
     },
     {
       "name": "HIGH_LEVEL_CONFIG_PATH",
-      "label": "Path to high level config files",
+      "label": "high level path",
       "class": "string",
       "optional": true,
       "default": "project-G6F2k284Fgb5388bBq7fGZX7:/eggd_conductor_configs/high_level_config_files/",

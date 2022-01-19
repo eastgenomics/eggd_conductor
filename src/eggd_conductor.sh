@@ -58,8 +58,6 @@ _select_highest_version () {
     # Args: $1 - project:/path/to/configs
     local path=$1
 
-    # dx find data with --verbose doesn't return properties (annoyingly) => get all file ids and
-    # call dx describe on each
     # get the version and store the file id if it is higher than the previous config AND it has an
     # associated CAPA property => signed off for use
     local properties
@@ -83,7 +81,7 @@ _select_highest_version () {
 
     if [ -z "$current_file_id" ]
     then
-        local message="No version tagged config files found in ${path}. Exiting now."
+        local message="No version and CAPA tagged config files found in ${path}. Exiting now."
         _slack_notify "$message" egg-alerts
         _exit "$message"
     else
@@ -115,7 +113,8 @@ _slack_notify () {
 }
 
 _parse_sentinel_file () {
-    # Parses given sentinel file to find samplesheet to extract sample ids from
+    # Parses given sentinel file from dx-streaming-upload to find samplesheet
+    # to extract sample ids from
 
     # get json of details to parse required info from
     local sentinel_details=$(dx describe --json "$SENTINEL_FILE")
@@ -163,7 +162,7 @@ _parse_sentinel_file () {
 }
 
 _parse_fastqs () {
-    # Called if not starting from a sentinel file and using an arrya of fastq
+    # Called if not starting from a sentinel file and using an array of fastq
     # files as input, checks if all provided files are valid file ids and builds a string
     # to pass to python script
 
@@ -415,7 +414,7 @@ main () {
     # our own sample sheet validator and slack bot
     tar xf validate_sample_sheet_v*.tar.gz
     tar xf hermes_v*.tar.gz -C hermes --strip-components 1
-    tar xf python_packages.tar.gz -C packages
+    tar xf python_packages.tar.gz -C packages  # required python packages for run_workflows.py
 
     python3 -m pip install --no-index --no-deps  packages/*
 
@@ -433,7 +432,7 @@ main () {
         _parse_fastqs
     fi
 
-    # now we need to know what samples we have, to trigger the appropriate workflows
+    # now we need to know what samples we have to trigger the appropriate workflows
     # use the config and sample sheet names to infer which to use if a specific assay not specified
     mark-section "building assay-sample array"
 
@@ -442,6 +441,7 @@ main () {
     # TSOE: X000003_EGG1,X000004_EGG1...
     _match_samples_to_assays
 
+    # nice message for the logs to sanity check things
     printf "\nSample to assays:\n"
     for i in "${!sample_to_assay[@]}"; do printf "assay: $i - samples: ${sample_to_assay[$i]}"; done
 
