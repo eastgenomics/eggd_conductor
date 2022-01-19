@@ -19,7 +19,7 @@ from pathlib import Path
 import pprint
 import re
 import sys
-from typing import Generator
+from typing import Generator, Union
 
 import dxpy
 
@@ -29,24 +29,45 @@ PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
 def time_stamp() -> str:
     """
-    Returns string of date & time
+    Returns string of date & time formatted as YYMMDD_HHMM
+
+    Returns
+    -------
+    str
+        String of current date and time as YYMMDD_HHMM
     """
     return datetime.now().strftime("%Y%m%d_%H%M")
 
 
-def load_config(config_file) -> dict:
+def load_config() -> dict:
     """
-    Read in given config json to dict
+    Read in given config json to dict from args.NameSpace
+
+    Returns
+    -------
+    config : dict
+        dictionary of loaded json file
     """
-    with open(config_file) as file:
+    with open(args.config_file) as file:
         config = json.load(file)
 
     return config
 
 
-def find_dx_project(project_name) -> str:
+def find_dx_project(project_name) -> Union[None, str]:
     """
-    Check if project already exists in DNAnexus, returns None if not found.
+    Check if project already exists in DNAnexus with given name,
+    returns project ID if present and None if not found.
+
+    Parameters
+    ----------
+    project_name : str
+        name of project to search DNAnexus for
+
+    Returns
+    -------
+    dx_project : str
+        dx ID of given project if found, else returns `None`
     """
     dx_projects = list(dxpy.bindings.search.find_projects(
         name=project_name
@@ -70,9 +91,14 @@ def find_dx_project(project_name) -> str:
     return dx_project
 
 
-def get_or_create_dx_project(args, config) -> argparse.ArgumentParser:
+def get_or_create_dx_project(config):
     """
     Create new project in DNAnexus if one with given name doesn't already exist
+
+    Parameters
+    ----------
+    config : dict
+        low level assay config read from json file
     """
     if args.development:
         prefix = f'003_{datetime.now().strftime("%y%m%d")}'
@@ -111,18 +137,26 @@ def get_or_create_dx_project(args, config) -> argparse.ArgumentParser:
         # record project used to send slack notification
         fh.write(f'{output_project} ({project_id})')
 
-    return args
 
-
-def create_dx_folder(args, out_folder) -> str:
+def create_dx_folder(out_folder) -> str:
     """
     Create output folder in DNAnexus project for storing analysis output
 
-    Args:
-        - args: cmd line arguments
-        - out_folder (str): name for analysis output folder
+    Parameters
+    ----------
+    out_folder : str
+        name for analysis output folder
 
-    Returns: dx_folder(str): name of create output directory
+    Returns
+    -------
+    dx_folder : str
+        name of created output directory in given project
+
+    Raises
+    ------
+    RuntimeError
+        If >100 output directories found with given name, very unlikely
+        for this to happen and is used stop any downstream errors
     """
     for i in range(1, 100):
         # sanity check, should only be 1 or 2 already existing at most
@@ -157,9 +191,35 @@ def create_dx_folder(args, out_folder) -> str:
     )
 
 
-def call_dx_run(args, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
+def call_dx_run(executable, job_name, input_dict, output_dict, prev_jobs) -> str:
     """
-    Call workflow / app, returns id of submitted job
+    Call workflow / app with populated input and output dicts
+
+    Returns id of submitted job
+
+    Parameters
+    ----------
+    executable : str
+        human readable name of executable (i.e. workflow / app / applet)
+    job_name : str
+        name to assign to job, will be combination of human readable name of
+        exectuable and sample ID
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    output_dict : dict
+        dict of output directorie paths for each app
+    prev_jobs : list
+        list of job ids to wait for completion before starting
+
+    Returns
+    -------
+    job_id : str
+        DNAnexus job id of newly started analysis
+
+    Raises
+    ------
+    RuntimeError
+        Raised when workflow-, app- or applet- not present in executable name
     """
     if 'workflow-' in executable:
         job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
@@ -200,7 +260,30 @@ def call_dx_run(args, executable, job_name, input_dict, output_dict, prev_jobs) 
 def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     """
     If process_fastqs set to true, function is called to populate input dict
-    with appropriate fastq file ids
+    with appropriate fastq file ids.
+
+    If running per_sample, sample will be specified and the fastqs filtered
+    for just those corresponding to the given sample. If not, all fastqs in
+    `fastq_details` will be used (i.e. in a multi app / workflow)
+
+    Parameters
+    ----------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    fastq_details : list of tuples
+        list with tuple per fastq containing (DNAnexus file id, filename)
+    sample : str, default None
+        optional, sample name used to filter list of fastqs
+
+    Returns
+    -------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+
+    Raises
+    ------
+    AssertionError
+        Raised when unequal number of R1 and R2 fastqs found
     """
     sample_fastqs = []
 
@@ -260,7 +343,30 @@ def add_other_inputs(
     workflow output directories, project id and project name.
 
     Extensible to add more in future, probably could be cleaner than a load of
-    if statements but oh well
+    if statements but oh well ¯\_ (ツ)_/¯
+
+    Parameters
+    ----------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    dx_project_id : str
+        DNAnexus ID of project to run analysis
+    executable_out_dirs : dict
+        dict of analsysis stage to its output dir path, used to pass output of
+        an analysis to input of another (i.e. analysis_1 : /path/to/output)
+    sample : str, default None
+        optional, sample name used to filter list of fastqs
+
+    Returns
+    -------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+
+    Raises
+    ------
+    KeyError
+        Raised when no output dir has been given where a downsteam analysis
+        requires it as an input
     """
     # first checking if any INPUT- in dict to fill, if not return
     other_inputs = list(find_job_inputs('INPUT-', input_dict, check_key=False))
@@ -296,7 +402,7 @@ def add_other_inputs(
             # passing an out folder for given analysis
             # will be specified in format INPUT-analysis_1-out_dir, where
             # job input should be replaced with respective out dir
-            analysis = job_input.strip('INPUT-').strip('-out_dir')
+            analysis = job_input.replace('INPUT-', '').replace('-out_dir', '')
             analysis_out_dir = executable_out_dirs.get(analysis)
 
             if analysis_out_dir:
@@ -316,9 +422,24 @@ def add_other_inputs(
 
 def find_job_inputs(identifier, input_dict, check_key) -> Generator:
     """
-    Recursive function to find all values with identifying prefix, these
-    require replacing with appropriate job output file ids. Returns a generator
-    with input fields to replace.
+    Recursive function to find all values in arbitrarialy structured dict
+    with identifying prefix, these require replacing with appropriate
+    job output file ids. This funtion is used when needing to link inputs
+    to outputs and for adding dependent jobs to new analyses.
+
+    Parameters
+    ----------
+    identifier : str
+        field to check for existence for in dict
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    check_key : bool
+        sets if to check for identifier in keys or values of dict
+
+    Yields
+    ------
+    value : str
+        match of identifier in given dict
     """
     for key, value in input_dict.items():
         # set field to check for identifier to either key or value
@@ -341,32 +462,58 @@ def find_job_inputs(identifier, input_dict, check_key) -> Generator:
             yield value
 
 
-def replace_job_inputs(input_dict, job_input, link_id) -> Generator:
+def replace_job_inputs(input_dict, job_input, dx_id):
     """
     Recursively traverse through nested dictionary and replace any matching
     job_input with given DNAnexus job/file/project id
+
+    Parameters
+    ----------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    job_input : str
+        input key in `input_dict` to replace (i.e. INPUT-s left to replace)
+    dx_id : str
+        id of DNAnexus object to link input to
     """
     for key, val in input_dict.items():
         if isinstance(val, dict):
             # found a dict, continue
-            replace_job_inputs(val, job_input, link_id)
+            replace_job_inputs(val, job_input, dx_id)
         if isinstance(val, list):
             # found list of dicts, check each dict
             for list_val in val:
-                replace_job_inputs(list_val, job_input, link_id)
+                replace_job_inputs(list_val, job_input, dx_id)
         if val == job_input:
             # replace analysis_ with correct job id
-            input_dict[key] = link_id
+            input_dict[key] = dx_id
 
 
 def get_dependent_jobs(params, job_outputs_dict, sample=None):
     """
     If app / workflow depends on previous job(s) completing these will be
-    passed with depends_on = [analysis_1, analysis_2...]. Get all job ids for
-    given analysis to pass to dx run.
+    passed with depends_on = [analysis_1, analysis_2...].
+
+    Get all job ids for given analysis to pass to dx run (i.e. if analysis_2 depends
+    on analysis_1 finishing, get the dx id of the job to pass to current analysis).
+
+    Parameters
+    ----------
+    params : dict
+        dictionary of parameters specified in config for running analysis
+    job_outputs_dict : dict
+        dictionary of previous job outputs to search
+    sample : str, default None
+        optional, sample name used to limit searching for previous analyes
+
+    Returns
+    -------
+    dependent_jobs : list
+        list of dependent jobs found
     """
     if sample:
         # running per sample, assume we only wait on the samples previous job
+        # and not all instances of the job for all samples
         job_outputs_dict = job_outputs_dict[sample]
 
     # check if job depends on previous jobs to hold till complete
@@ -390,10 +537,37 @@ def link_inputs_to_outputs(
         job_outputs_dict, input_dict, analysis, sample=None) -> dict:
     """
     Check input dict for 'analysis_', these will be for linking outputs of
-    previous jobs and stored in the job_outputs_dict to input of next job
+    previous jobs and stored in the job_outputs_dict to input of next job.
+
+    Parameters
+    ----------
+    job_outputs_dict : dict
+        dictionary of previous job outputs to search
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    analysis : str
+        given analysis to check input dict of
+    sample : str, default None
+        optional, sample name used to limit searching for previous analyes
+
+    Returns
+    -------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+
+    Raises
+    ------
+    KeyError
+        Sample missing from `job_outputs_dict`
+    RuntimeError
+        Raised if an input does not appear to be a analysis id (i.e analysis_2)
+    RuntimeError
+        Raised if more than one job for a sample for a given analysis found
+    ValueError
+        No job id found for given analysis stage from `job_outputs_dict`
     """
     if analysis == "analysis_1":
-        # first analysis => not previous outputs to link to inputs
+        # first analysis => no previous outputs to link to inputs
         return input_dict
 
     if sample:
@@ -460,9 +634,23 @@ def populate_output_dir_config(executable, output_dict, out_folder) -> dict:
     """
     Loops over stages in dict for output directory naming and adds worlflow /
     app name.
-    # pass in app/workflow name to each apps output directory path
-    # i.e. will be named /output/{out_folder}/{stage_name}/, where stage
-    # name is the human readable name of each stage defined in the config
+
+    i.e. will be named /output/{out_folder}/{stage_name}/, where stage
+    name is the human readable name of each stage defined in the config
+
+    Parameters
+    ----------
+    executable : str
+        human readable name of executable (workflow-, app-, applet-)
+    output_dict : dict
+        dictionary of output paths for each executable
+    out_folder : str
+        name of parent dir path
+
+    Returns
+    -------
+    output_dict : dict
+        populated dict of output directory paths
     """
     for stage, dir in output_dict.items():
         if "OUT-FOLDER" in dir:
@@ -502,6 +690,16 @@ def check_all_inputs(input_dict) -> None:
     """
     Check for any remaining INPUT-, should be none, if there is most likely
     either a typo in config or invalid input given => raise AssertionError
+
+    Parameters
+    ----------
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+
+    Raises
+    ------
+    AssertionError
+        Raised if any 'INPUT-' are found in the input dict
     """
     # checking if any INPUT- in dict still present
     inputs = find_job_inputs('INPUT-', input_dict, check_key=False)
@@ -514,12 +712,37 @@ def check_all_inputs(input_dict) -> None:
 
 
 def call_per_sample(
-    args, executable, params, sample, config, out_folder,
+    executable, params, sample, config, out_folder,
         job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
     """
     Populate input and output dicts for given workflow and sample, then call
     to dx to start job. Job id is returned and stored in output dict that maps
     the workflow to dx job id for given sample.
+
+    Parameters
+    ----------
+    executable : str
+        human readable name of dx executable (workflow-, app- or applet-)
+    params : dict
+        dictionary of parameters specified in config for running analysis
+    sample : str, default None
+        optional, sample name used to limit searching for previous analyes
+    config : dict
+        low level assay config read from json file
+    out_folder : str
+        name of parent dir path
+    job_outputs_dict : dict
+        dictionary of previous job outputs
+    executable_out_dirs : dict
+        dict of analsysis stage to its output dir path, used to pass output of
+        an analysis to input of another (i.e. analysis_1 : /path/to/output)
+    fastq_details : list of tuples
+        list with tuple per fastq containing (DNAnexus file id, filename)
+
+    Returns
+    -------
+    job_outputs_dict : dict
+        dictionary of analysis stages to dx job ids created
     """
     # select input and output dict from config for current workflow / app
     config_copy = deepcopy(config)
@@ -586,11 +809,34 @@ def call_per_sample(
 
 
 def call_per_run(
-    args, executable, params, config, out_folder,
+    executable, params, config, out_folder,
         job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
     """
     Populates input and output dicts from config for given workflow, returns
     dx job id and stores in dict to map workflow -> dx job id.
+
+    Parameters
+    ----------
+    executable : str
+        human readable name of dx executable (workflow-, app- or applet-)
+    params : dict
+        dictionary of parameters specified in config for running analysis
+    config : dict
+        low level assay config read from json file
+    out_folder : str
+        name of parent dir path
+    job_outputs_dict : dict
+        dictionary of previous job outputs
+    executable_out_dirs : dict
+        dict of analsysis stage to its output dir path, used to pass output of
+        an analysis to input of another (i.e. analysis_1 : /path/to/output)
+    fastq_details : list of tuples
+        list with tuple per fastq containing (DNAnexus file id, filename)
+
+    Returns
+    -------
+    job_outputs_dict : dict
+        dictionary of analysis stages to dx job ids created
     """
     # select input and output dict from config for current workflow / app
     input_dict = config['executables'][executable]['inputs']
@@ -636,10 +882,16 @@ def call_per_run(
     return job_outputs_dict
 
 
-def load_test_data(args) -> list:
+def load_test_data() -> list:
     """
     Read in file ids of fastqs and sample names from test_samples file to test
     calling workflows
+
+    Returns
+    -------
+    fastq_details : list of tuples
+        list with tuple per fastq containing (DNAnexus file id, filename)
+
     """
     with open(args.test_samples) as f:
         fastq_details = f.read().splitlines()
@@ -649,9 +901,14 @@ def load_test_data(args) -> list:
     return fastq_details
 
 
-def parse_args() -> argparse.ArgumentParser:
+def parse_args() -> argparse.Namespace:
     """
     Parse command line arguments
+
+    Returns
+    -------
+    args : Namespace
+        Namespace of passed command line argument inputs
     """
     parser = argparse.ArgumentParser(
         description="Trigger workflows from given config file"
@@ -714,11 +971,12 @@ def parse_args() -> argparse.ArgumentParser:
 
 def main():
     """
-    Main function to run workflows
+    Main function to run apps and workflows
     """
+    global args
     args = parse_args()
 
-    config = load_config(args.config_file)
+    config = load_config()
     run_time = time_stamp()
 
     # log file of all jobs run, used in case of failing to launch all
@@ -727,10 +985,10 @@ def main():
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        args = get_or_create_dx_project(args, config)
+        get_or_create_dx_project(config)
 
     # set context to project for running jobs
-    dxpy.set_workspace_id(args.dx_project_id)
+    dxpy.set_workspace_id()
 
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing to get
@@ -769,13 +1027,15 @@ def main():
 
         # test data - myeloid sample
         if args.test_samples:
-            fastq_details = load_test_data(args)
+            fastq_details = load_test_data()
 
     # sense check per_sample defined for all workflows / apps before starting
+    # we want this explicitly defined for everything to ensure it is
+    # launched correctly
     for executable, params in config['executables'].items():
         assert 'per_sample' in params.keys(), (
             f"per_sample key missing from {executable} in config, check config"
-            "and re run"
+            "and re-run"
         )
 
     # dict to add all stage output names and file ids for every sample to,
@@ -793,7 +1053,7 @@ def main():
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
-        out_folder = create_dx_folder(args, out_folder)
+        out_folder = create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
         params['executable_name'] = dxpy.api.app_describe(
@@ -810,7 +1070,7 @@ def main():
                     f'({idx}/{len(args.samples)})'
                 )
                 job_outputs_dict = call_per_sample(
-                    args, executable, params, sample, config, out_folder,
+                    executable, params, sample, config, out_folder,
                     job_outputs_dict, executable_out_dirs, fastq_details
                 )
 
@@ -819,7 +1079,7 @@ def main():
             # need to explicitly check if False vs not given, must always be
             # defined to ensure running correctly
             job_outputs_dict = call_per_run(
-                args, executable, params, config, out_folder, job_outputs_dict,
+                executable, params, config, out_folder, job_outputs_dict,
                 executable_out_dirs, fastq_details
             )
         else:
