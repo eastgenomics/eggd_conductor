@@ -92,7 +92,7 @@ Example top level of config:
 
 - `name`: will be used to name output directory if using output variable naming (see below)
 - `analysis`: the value should be written as `analysis_1`, where the number is the executable stage in the config (i.e for the first workflow app this would be `analysis_1`, for the second `analysis_2`...). This is used to link the outputs of one workflow / app to subsequent workflows / apps.
-- `per_sample` (boolean): if to run the executable on each sample individually, or as one job
+- `per_sample` (boolean): if to run the executable on each sample individually, or as one multi-sample job
 - `process_fastqs` (boolean): if the executable requires fastqs passing
 - `inputs` (dict): this forms the input dictionary passed to the call to dx api to trigger the running of the executable, more details may be found [here](dx-run-url). See below for structure and available inputs.
 - `output_dirs` (dict): maps the app / workflow stages to directories in which to store output data. See below for structure and available inputs.
@@ -100,8 +100,8 @@ Example top level of config:
 **Optional keys per executable dictionary**:
 
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the dependent executable to collect the output from
-    - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable)
-- `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in report)
+    - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
+- `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
 - `details` (str): not parsed by the app but useful for adding verbosity to the config when reading by humans
 - `url` (str): same as above for `details`, just acts as a reference to GitHub provenance of what is being used for analysis
 
@@ -134,6 +134,8 @@ Example of per executable config:
                 "stage-G02ZG6Q433GV76v29b6Gggjp": "/output/OUT-FOLDER/APP-NAME"
             }
         },
+        "workflow-Jh6253Gg172u6253Kk82hFx": {
+            ...
 ```
 
 
@@ -141,14 +143,14 @@ Example of per executable config:
 
 The inputs dict may be given several inputs that act as placeholders to be parsed by the script at runtime. Each key value pair should be given as the app/stage input as the key, and the placeholder as the value. The key MUST match the input given in the specified workflow /apps available inputs (i.e. in `dxapp.json` for apps, `stage-id.input` for workflows). These are all prefixed with `INPUT-` to be identifiable.
 
-Currently, these include the following:
+Currently, the available placeholder inputs include the following:
 
 - `INPUT-R1`: indicates to pass 1 or more R1 fastq files as input
 - `INPUT-R2`: indicates to pass 1 or more R2 fastq files as input
 - `INPUT-R1-R2`: indicates to pass all R1 AND R2 fastq files as input
 - `INPUT-dx_project_id`: pass the project id used for analysis
 - `INPUT-dx_project_name`: pass the project name used for analysis
-- `INPUT-analysis_X-out_dir`: pass the output directory of analysis `X` as input, where `X` is the number of the analysis defined as above
+- `INPUT-analysis_X-out_dir`: pass the output directory of analysis `X` as input, where `X` is the number of the analysis defined as above (used when an app takes a path to a directory as input)
 
 Inputs dependent on the output of a previous job should be defined as shown below. This relies on using the `analysis_X` key, where `X` is the number of the executable to collect the output from.
 
@@ -181,10 +183,10 @@ n.b. where any inputs are linked to previous job outputs, the `depends_on` key s
 
 ### Structuring the output_dirs dictionary
 
-This defines the output directory structure for the executables outputs. For workflows, each stage should have the `stage-id: /path_to_output/` defined. These may either be hardcoded strings, or optionally use either or both of the following 2 placefolders to subsitute:
+This defines the output directory structure for the executables outputs. For workflows, each stage should have the `stage-id: /path_to_output/` defined, otherwise the output will all go to the root of the project. These may either be hardcoded strings, or optionally use either or both of the following 2 placefolders to subsitute:
 
-- `OUT-FOLDER`: will be named with `/output/` and the `"name"` field for the executable
-- 'APP-NAME': will use the name for the given stage / app id from a `dx describe` call
+- `OUT-FOLDER`: will be named with the `"name"` field for the executable
+- `APP-NAME`: will use the name for the given stage / app id from a `dx describe` call
 
 - For workflows:
 
@@ -234,7 +236,7 @@ The following describe default app input behaviour:
 - `low level config`: use given low level config file for all sample analysis instead of inferring config to use from sample names
 - `eggd conductor config`: config file to use for bcl2fastq app ID and API tokens, if given will override `eggd_conductor path`
 - `assay type`: specify assay type to use a given assay, overrides parsing of EGG codes
-- `validate samplesheet`: if to perform samplesheet validation. If validation fails but is an acceptable error the job may be re-run with `validate samplesheet = false`
+- `validate samplesheet`: if to perform samplesheet validation. If validation fails but is an acceptable error the job may be re-run with `validate_samplesheet=false`
 - `development`: if set to `true` will name output project prefixed with `003` instead of `002`
 - `bcl2fastq job id`: use output fastqs of a previous bcl2fastq job instead of performing demultiplexing
 - `bcl2fastq output path`: where to store the output of bcl2fastq, defaults to the parent directory of the sentinel file
