@@ -156,7 +156,8 @@ def create_dx_folder(out_folder) -> str:
     ------
     RuntimeError
         If >100 output directories found with given name, very unlikely
-        for this to happen and is used stop any downstream errors
+        for this to happen and is used as a sanity check to stop any
+        ambiguous downstream errors
     """
     for i in range(1, 100):
         # sanity check, should only be 1 or 2 already existing at most

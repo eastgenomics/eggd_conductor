@@ -66,7 +66,7 @@ As the config file is a JSON, several fields may be added to enhance readability
 **Required keys in the top level of the config include**:
 
 - `demultiplex` (boolean): if true, run bcl2fastq to generate fastqs
-- `users` (dict): DNAnexus users to add to output project and access level to be granted
+- `users` (dict): DNAnexus users to add to output project and access level to be granted, valid permission levels may be found [here]( project-permissions).
 - `executables` (dict): each key should be the workflow or app id, with it's value being a dictionary (see below for example)
 
 **Optional keys in top level of config include**:
@@ -257,3 +257,5 @@ The following release `.tar.gz` are required to be included in `/resources/home/
 [hermes-url]: https://github.com/eastgenomics/hermes
 [samplesheet-validator-url]: https://github.com/eastgenomics/validate_sample_sheet
 [bcl2fastq-url]: https://github.com/eastgenomics/eggd_bcl2fastq
+
+[project-permissions]: https://documentation.dnanexus.com/developer/api/data-containers/project-permissions-and-sharing
