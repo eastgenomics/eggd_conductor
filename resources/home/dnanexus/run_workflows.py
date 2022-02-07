@@ -70,7 +70,7 @@ def find_dx_project(project_name) -> Union[None, str]:
         dx ID of given project if found, else returns `None`
     """
     dx_projects = list(dxpy.bindings.search.find_projects(
-        name=project_name
+        name=project_name, limit=1
     ))
 
     if len(dx_projects) == 0:
@@ -78,17 +78,7 @@ def find_dx_project(project_name) -> Union[None, str]:
         # get_or_create_dx_project()
         return None
 
-    if len(dx_projects) > 1:
-        # this shouldn't happen as projects shouldn't be named the same,
-        # print warning and select first
-        names = ', '.join([x['describe']['name'] for x in dx_projects])
-        print('WARNING')
-        print(f'More than one project found for name: {project_name}: {names}')
-        print(f'Using project: {dx_projects[0]["describe"]["name"]}')
-
-    dx_project = dx_projects[0]['id']
-
-    return dx_project
+    return dx_projects[0]['id']
 
 
 def get_or_create_dx_project(config):
