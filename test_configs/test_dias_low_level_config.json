@@ -3,6 +3,10 @@
     "version": "v1.0.0",
     "details": "Includes: dias single, dias multi, MultiQC and dias reports.",
     "demultiplex": true,
+    "sample_regex": [
+        "this",
+        "that"
+    ],
     "users": {
         "org-emee_1": "ADMIN"
     },
@@ -19,7 +23,8 @@
                 "stage-Fy6fpk040vZZPPbq96Jb2KfK.sample": "INPUT-SAMPLE-NAME",
                 "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads2_fastqgzs": "INPUT-R2",
                 "stage-Fy6fpk040vZZPPbq96Jb2KfK.reads_fastqgzs": "INPUT-R1",
-                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": "INPUT-R1-R2",
+                "stage-Fy6fpV840vZZ0v6J8qBQYqZF.fastqs": "INPUT-R1-R2"
+            },
             "output_dirs": {
                 "stage-Fy6fpV840vZZ0v6J8qBQYqZF": "/output/OUT-FOLDER/APP-NAME",
                 "stage-Fy6fpk040vZZPPbq96Jb2KfK": "/output/OUT-FOLDER/APP-NAME",
