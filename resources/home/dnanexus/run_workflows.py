@@ -31,7 +31,7 @@ class manageDict():
     Methods to handle parsing and populating input and output dictionaries
     """
 
-    def find_job_inputs(identifier, input_dict, check_key) -> Generator:
+    def find_job_inputs(self, identifier, input_dict, check_key) -> Generator:
         """
         Recursive function to find all values in arbitrarialy structured dict
         with identifying prefix, these require replacing with appropriate
@@ -60,11 +60,11 @@ class manageDict():
                 check_field = value
 
             if isinstance(value, dict):
-                yield from find_job_inputs(identifier, value, check_key)
+                yield from self.find_job_inputs(identifier, value, check_key)
             if isinstance(value, list):
                 # found list of dicts -> loop over them
                 for list_val in value:
-                    yield from find_job_inputs(identifier, list_val, check_key)
+                    yield from self.find_job_inputs(identifier, list_val, check_key)
             if isinstance(value, bool):
                 # stop it breaking on booleans
                 continue
@@ -73,7 +73,7 @@ class manageDict():
                 yield value
 
 
-    def replace_job_inputs(input_dict, job_input, dx_id):
+    def replace_job_inputs(self, input_dict, job_input, dx_id):
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
@@ -90,17 +90,17 @@ class manageDict():
         for key, val in input_dict.items():
             if isinstance(val, dict):
                 # found a dict, continue
-                replace_job_inputs(val, job_input, dx_id)
+                self.replace_job_inputs(val, job_input, dx_id)
             if isinstance(val, list):
                 # found list of dicts, check each dict
                 for list_val in val:
-                    replace_job_inputs(list_val, job_input, dx_id)
+                    self.replace_job_inputs(list_val, job_input, dx_id)
             if val == job_input:
                 # replace analysis_ with correct job id
                 input_dict[key] = dx_id
 
 
-    def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
+    def add_fastqs(self, input_dict, fastq_details, sample=None) -> dict:
         """
         If process_fastqs set to true, function is called to populate input dict
         with appropriate fastq file ids.
@@ -180,7 +180,7 @@ class manageDict():
 
 
     def add_other_inputs(
-            input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
+            self, input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles parsing:
         workflow output directories, project id and project name.
@@ -212,7 +212,7 @@ class manageDict():
             requires it as an input
         """
         # first checking if any INPUT- in dict to fill, if not return
-        other_inputs = list(find_job_inputs('INPUT-', input_dict, check_key=False))
+        other_inputs = list(self.find_job_inputs('INPUT-', input_dict, check_key=False))
 
         if not other_inputs:
             # no other inputs found to replace
@@ -223,11 +223,11 @@ class manageDict():
         for job_input in other_inputs:
             if job_input == 'INPUT-SAMPLE-NAME':
                 # add sample name
-                replace_job_inputs(input_dict, job_input, sample)
+                self.replace_job_inputs(input_dict, job_input, sample)
 
             if job_input == 'INPUT-dx_project_id':
                 # add project id
-                replace_job_inputs(input_dict, job_input, dx_project_id)
+                self.replace_job_inputs(input_dict, job_input, dx_project_id)
 
             if job_input == 'INPUT-dx_project_name':
                 # call describe on job id and add project name
@@ -235,7 +235,7 @@ class manageDict():
                     dx_project_id, input_params={'fields': {'name': True}})
                 project_name = output.get('name')
 
-                replace_job_inputs(input_dict, job_input, project_name)
+                self.replace_job_inputs(input_dict, job_input, project_name)
 
             # match analysis_X (i.e. analysis_1, analysis_2...)
             out_folder_match = re.search(
@@ -251,7 +251,7 @@ class manageDict():
                 if analysis_out_dir:
                     # removing /output/ for now to fit to MultiQC
                     analysis_out_dir = Path(analysis_out_dir).name
-                    replace_job_inputs(input_dict, job_input, analysis_out_dir)
+                    self.replace_job_inputs(input_dict, job_input, analysis_out_dir)
                 else:
                     raise KeyError((
                         'Error trying to parse output directory to input dict.\n'
@@ -263,7 +263,7 @@ class manageDict():
         return input_dict
 
 
-    def get_dependent_jobs(params, job_outputs_dict, sample=None):
+    def get_dependent_jobs(self, params, job_outputs_dict, sample=None):
         """
         If app / workflow depends on previous job(s) completing these will be
         passed with depends_on = [analysis_1, analysis_2...].
@@ -296,7 +296,7 @@ class manageDict():
 
         if dependent_analysis:
             for id in dependent_analysis:
-                for job in find_job_inputs(id, job_outputs_dict, check_key=True):
+                for job in self.find_job_inputs(id, job_outputs_dict, check_key=True):
                     # find all jobs for every analysis id
                     # (i.e. all samples job ids for analysis_X)
                     if job:
@@ -308,7 +308,7 @@ class manageDict():
 
 
     def link_inputs_to_outputs(
-            job_outputs_dict, input_dict, analysis, sample=None) -> dict:
+            self, job_outputs_dict, input_dict, analysis, sample=None) -> dict:
         """
         Check input dict for 'analysis_', these will be for linking outputs of
         previous jobs and stored in the job_outputs_dict to input of next job.
@@ -359,7 +359,8 @@ class manageDict():
                 ))
 
         # search input dict for job ids to add
-        inputs = list(find_job_inputs('analysis_', input_dict, check_key=True))
+        inputs = list(self.find_job_inputs(
+            'analysis_', input_dict, check_key=True))
 
         if not inputs:
             # no inputs found to replace
@@ -399,7 +400,7 @@ class manageDict():
                 ))
 
             # replace analysis id with given job id in input dict
-            replace_job_inputs(input_dict, job_input, job_id[0])
+            self.replace_job_inputs(input_dict, job_input, job_id[0])
 
         return input_dict
 
@@ -460,7 +461,7 @@ class manageDict():
         return output_dict
 
 
-    def check_all_inputs(input_dict) -> None:
+    def check_all_inputs(self, input_dict) -> None:
         """
         Check for any remaining INPUT-, should be none, if there is most likely
         either a typo in config or invalid input given => raise AssertionError
@@ -476,7 +477,7 @@ class manageDict():
             Raised if any 'INPUT-' are found in the input dict
         """
         # checking if any INPUT- in dict still present
-        inputs = find_job_inputs('INPUT-', input_dict, check_key=False)
+        inputs = self.find_job_inputs('INPUT-', input_dict, check_key=False)
         _empty = object()
 
         assert next(inputs, _empty) == _empty, (
@@ -595,15 +596,15 @@ class DXExecute():
         output_dict = config_copy['executables'][executable]['output_dirs']
 
         # create output directory structure in config
-        populate_output_dir_config(executable, output_dict, out_folder)
+        manageDict().populate_output_dir_config(executable, output_dict, out_folder)
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
-            input_dict = add_fastqs(input_dict, fastq_details, sample)
+            input_dict = manageDict().add_fastqs(input_dict, fastq_details, sample)
 
         # find all jobs for previous analyses if next job depends on them finishing
         if params.get("depends_on"):
-            dependent_jobs = get_dependent_jobs(
+            dependent_jobs = manageDict().get_dependent_jobs(
                 params, job_outputs_dict, sample=sample)
         else:
             dependent_jobs = []
@@ -621,16 +622,16 @@ class DXExecute():
                 ))
 
         # handle other inputs defined in config to add to inputs
-        input_dict = add_other_inputs(
+        input_dict = manageDict().add_other_inputs(
             input_dict, args.dx_project_id, executable_out_dirs, sample)
 
         # check any inputs dependent on previous job outputs to add
-        input_dict = link_inputs_to_outputs(
+        input_dict = manageDict().link_inputs_to_outputs(
             job_outputs_dict, input_dict, params["analysis"], sample=sample
         )
 
         # check that all INPUT- have been parsed in config
-        check_all_inputs(input_dict)
+        manageDict().check_all_inputs(input_dict)
 
         # set job name as executable name and sample name
         job_name = f"{params['executable_name']}-{sample}"
@@ -688,28 +689,28 @@ class DXExecute():
         output_dict = config['executables'][executable]['output_dirs']
 
         # create output directory structure in config
-        populate_output_dir_config(executable, output_dict, out_folder)
+        manageDict().populate_output_dir_config(executable, output_dict, out_folder)
 
         if params["process_fastqs"] is True:
-            input_dict = add_fastqs(input_dict, fastq_details)
+            input_dict = manageDict().add_fastqs(input_dict, fastq_details)
 
         # handle other inputs defined in config to add to inputs
-        input_dict = add_other_inputs(
+        input_dict = manageDict().add_other_inputs(
             input_dict, args.dx_project_id, executable_out_dirs)
 
         # check any inputs dependent on previous job outputs to add
-        input_dict = link_inputs_to_outputs(
+        input_dict = manageDict().link_inputs_to_outputs(
             job_outputs_dict, input_dict, params["analysis"]
         )
 
         # find all jobs for previous analyses if next job depends on them finishing
         if params.get("depends_on"):
-            dependent_jobs = get_dependent_jobs(params, job_outputs_dict)
+            dependent_jobs = manageDict().get_dependent_jobs(params, job_outputs_dict)
         else:
             dependent_jobs = []
 
         # check that all INPUT- have been parsed in config
-        check_all_inputs(input_dict)
+        manageDict().check_all_inputs(input_dict)
 
         # passing all samples to workflow
         print(f'Calling {params["name"]} for all samples')
@@ -731,7 +732,7 @@ class DXManage():
     """
     Methods for generic handling of dx related things
     """
-    def find_dx_project(project_name) -> Union[None, str]:
+    def find_dx_project(self, project_name) -> Union[None, str]:
         """
         Check if project already exists in DNAnexus with given name,
         returns project ID if present and None if not found.
@@ -758,7 +759,7 @@ class DXManage():
         return dx_projects[0]['id']
 
 
-    def get_or_create_dx_project(config):
+    def get_or_create_dx_project(self, config):
         """
         Create new project in DNAnexus if one with given name doesn't already exist
 
@@ -774,7 +775,7 @@ class DXManage():
 
         output_project = f'{prefix}_{args.run_id}_{args.assay_code}'
 
-        project_id = find_dx_project(output_project)
+        project_id = self.find_dx_project(output_project)
 
         if not project_id:
             # create new project and capture returned project id and store
@@ -805,7 +806,7 @@ class DXManage():
             fh.write(f'{output_project} ({project_id})')
 
 
-    def create_dx_folder(out_folder) -> str:
+    def create_dx_folder(self, out_folder) -> str:
         """
         Create output folder in DNAnexus project for storing analysis output
 
@@ -989,7 +990,7 @@ def main():
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        get_or_create_dx_project(config)
+        DXManage().get_or_create_dx_project(config)
 
     # set context to project for running jobs
     dxpy.set_workspace_id()
@@ -1057,7 +1058,7 @@ def main():
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
-        out_folder = create_dx_folder(out_folder)
+        out_folder = DXManage().create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
         params['executable_name'] = dxpy.api.app_describe(
