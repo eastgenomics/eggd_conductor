@@ -1,0 +1,97 @@
+{
+    "name": "Config for myeloid assay",
+    "version": "v1.0.0",
+    "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
+    "demultiplex": true,
+    "users": {
+        "org-emee_1": "CONTRIBUTE"
+    },
+    "executables": {
+        "workflow-G4VpkG8433GZKf90KkXB4XZx": {
+            "name": "uranus_main_workflow_GRCh38_v1.5.0_novaseq",
+            "details": "Main Uranus workflow for alignment and variant calling",
+            "url": "https://github.com/eastgenomics/eggd_uranus_main_workflow",
+            "analysis": "analysis_1",
+            "per_sample": true,
+            "process_fastqs": true,
+            "inputs": {
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs": "INPUT-R1",
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs": "INPUT-R2"
+            },
+            "output_dirs": {
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G0qpY1Q433GpzBp958KJYfBK": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G21GYKj4q5J37F0B5ky018QG": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G02ZFz0433GpQB4j9Gvg0b81": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G0Y87ZQ433Gy6y7vBB74p30j": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G0KbB6Q433GyV6vbJZKVYV96": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy0549Q41zg02Kjg05x69yvK": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fv6jY9Q4KB7yKfKx8Fq8b7zG": "/output/OUT-FOLDER/APP-NAME",
+                "stage-Fy4j4K041zgF5Z8y0x9KjV55": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G02ZG6Q433GV76v29b6Gggjp": "/output/OUT-FOLDER/APP-NAME"
+            }
+        },
+        "applet-FvyXygj433GbKPPY0QY8ZKQG": {
+            "name": "multi_fastqc",
+            "details": "Takes all fastqs of all samples, starts one job which runs fastqc in sub jobs for each fastq",
+            "url": "https://github.com/eastgenomics/eggd_fastqc",
+            "analysis": "analysis_2",
+            "per_sample": false,
+            "process_fastqs": true,
+            "inputs": {
+                "fastqs": "INPUT-R1-R2"
+            },
+            "output_dirs": {
+                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/output/APP-NAME"
+            }
+        },
+        "applet-Fz93FfQ433Gvf6pKFZYbXZQf": {
+            "name": "MultiQC",
+            "details": "",
+            "url": "https://github.com/eastgenomics/eggd_multiqc",
+            "analysis": "analysis_3",
+            "per_sample": false,
+            "process_fastqs": false,
+            "depends_on": ["analysis_1"],
+            "inputs": {
+                "project_for_multiqc": "INPUT-dx_project_id",
+                "ss_for_multiqc": "INPUT-analysis_1-out_dir",
+                "custom_coverage": true,
+                "eggd_multiqc_config_file": {
+                    "$dnanexus_link": "file-G0K191j433Gv6JG63b43z8Gy"
+                }
+            },
+            "output_dirs": {
+                "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/output/APP-NAME"
+            }
+        },
+        "workflow-G0bj928433GxbZY9632xXP9J": {
+            "name": "uranus_annotation_workflow",
+            "details": "Runs nirvana & nirvana2vcf to generate annotated VCF",
+            "url": "https://github.com/eastgenomics/eggd_uranus_annotation_workflow",
+            "analysis": "analysis_4",
+            "per_sample": true,
+            "process_fastqs": false,
+            "inputs": {
+                "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
+                    "$dnanexus_link": {
+                        "analysis": "analysis_1",
+                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
+                        "field": "out"
+                    }
+                },
+                "stage-G0QQ8q8433Gb8YFG4q7847Px.vcf_file": {
+                    "$dnanexus_link": {
+                        "analysis": "analysis_1",
+                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
+                        "field": "out"
+                    }
+                }
+            },
+            "output_dirs": {
+                "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G0QQ8q8433Gb8YFG4q7847Px": "/output/OUT-FOLDER/APP-NAME"
+            }
+        }
+    }
+}
