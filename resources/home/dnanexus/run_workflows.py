@@ -761,7 +761,8 @@ class DXManage():
 
     def get_or_create_dx_project(self, config):
         """
-        Create new project in DNAnexus if one with given name doesn't already exist
+        Create new project in DNAnexus if one with given name doesn't
+        already exist. Adds project ID to global args namespace.
 
         Parameters
         ----------
@@ -907,11 +908,19 @@ def load_config() -> dict:
     """
     Read in given config json to dict from args.NameSpace
 
+    Raises
+    ------
+    RuntimeError: raised when a non-json file passed as config
+
     Returns
     -------
     config : dict
         dictionary of loaded json file
     """
+    if not args.config_files.endswith('.json'):
+        # sense check a json passed
+        raise RuntimeError('Error: invalid config passed - not a json file')
+
     with open(args.config_file) as file:
         config = json.load(file)
 
@@ -954,7 +963,7 @@ def parse_args() -> argparse.Namespace:
         '--config_file', required=True
     )
     parser.add_argument(
-        '--samples', required=True,
+        '--samples', required=True, nargs='+',
         help='list of sample names to run analysis on'
     )
     parser.add_argument(
