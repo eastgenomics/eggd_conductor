@@ -860,6 +860,37 @@ class DXManage():
         )
 
 
+    def get_bcl2fastq_details(self, job_id) -> list:
+        """
+        Given job ID for bcl2fastq, return a list of the fastq file IDs
+
+        Parameters
+        ----------
+        job_id : str
+            job ID of bcl2fastq job
+
+        Returns
+        -------
+        fastq_ids : list
+            list of tuples with fastq file IDs and file name
+        """
+        bcl2fastq_job = dxpy.bindings.dxjob.DXJob(dxid=job_id).describe()
+        bcl2fastq_project = bcl2fastq_job['project']
+        bcl2fastq_folder = bcl2fastq_job['folder']
+
+        # find all fastqs from bcl2fastq job, return list of dicts with details
+        fastq_details = list(dxpy.search.find_data_objects(
+            name="*.fastq*", name_mode="glob", project=bcl2fastq_project,
+            folder=bcl2fastq_folder, describe=True
+        ))
+        # Build list of tuples with fastq name and file ids
+        fastq_details = [
+            (x['id'], x['describe']['name']) for x in fastq_details
+        ]
+
+        return fastq_details
+
+
 def time_stamp() -> str:
     """
     Returns string of date & time formatted as YYMMDD_HHMM
@@ -984,6 +1015,8 @@ def main():
     config = load_config()
     run_time = time_stamp()
 
+    fastq_details = []
+
     # log file of all jobs run, used in case of failing to launch all
     # downstream analysis to be able to terminate all analyses
     open('job_id.log', 'w').close()
@@ -998,31 +1031,15 @@ def main():
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing to get
         # fastq file ids
-        bcl2fastq_job = dxpy.bindings.dxjob.DXJob(
-            dxid=args.bcl2fastq_id).describe()
-        bcl2fastq_project = bcl2fastq_job['project']
-        bcl2fastq_folder = bcl2fastq_job['folder']
-
-        # find all fastqs from bcl2fastq job, return list of dicts with details
-        fastq_details = list(dxpy.search.find_data_objects(
-            name="*.fastq*", name_mode="glob", project=bcl2fastq_project,
-            folder=bcl2fastq_folder, describe=True
-        ))
-        # Build list of tuples with fastq name and file ids
-        fastq_details = [
-            (x['id'], x['describe']['name']) for x in fastq_details
-        ]
+        fastq_details = DXManage.get_bcl2fastq_details(job_id=args.bcl2fastq_id)
     elif args.fastqs:
         # call describe on files to get name and build list of tuples of
         # (file id, name)
-        fastq_details = []
-
         for fastq_id in args.fastqs:
             fastq_name = dxpy.api.file_describe(
                 fastq_id, input_params={'fields': {'name': True}}
             )
             fastq_name = fastq_name['name']
-
             fastq_details.append((fastq_id, fastq_name))
     else:
         # bcl2fastq wasn't run => we have either a list of fastqs being passed,
