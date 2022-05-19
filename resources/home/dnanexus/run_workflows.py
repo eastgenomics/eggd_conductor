@@ -185,9 +185,6 @@ class manageDict():
         Generalised function for adding other INPUT-s, currently handles parsing:
         workflow output directories, project id and project name.
 
-        Extensible to add more in future, probably could be cleaner than a load of
-        if statements but oh well ¯\_ (ツ)_/¯
-
         Parameters
         ----------
         input_dict : dict
@@ -994,6 +991,10 @@ def parse_args() -> argparse.Namespace:
         help='comma separated string of fastq file ids for starting analysis on'
     )
     parser.add_argument(
+        '--upload_tars', action='store_true',
+        help='pass all input tar file ids as input to executable'
+    )
+    parser.add_argument(
         '--test_samples',
         help=(
             'for test use only. Pass in file with 1 sample per line '
@@ -1025,6 +1026,7 @@ def main():
     run_time = time_stamp()
 
     fastq_details = []
+    upload_tars = []
 
     # log file of all jobs run, used in case of failing to launch all
     # downstream analysis to be able to terminate all analyses
@@ -1050,6 +1052,9 @@ def main():
             )
             fastq_name = fastq_name['name']
             fastq_details.append((fastq_id, fastq_name))
+    elif args.upload_tars:
+        # turn file ids into array input
+        upload_tars = [{"$dnanexus_link": x} for x in args.upload_tars]
     else:
         # bcl2fastq wasn't run => we have either a list of fastqs being passed,
         # this is for tso500 or something else weird this is going to need some
