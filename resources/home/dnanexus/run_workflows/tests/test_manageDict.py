@@ -24,7 +24,7 @@ class TestFindAndReplaceInputs():
         Test recursive function that searches nested dict for inputs
         """
         t = manageDict().find_job_inputs(
-            identifier='name', input_dict=self.full_config, check_key=True
+            identifier='INPUT', input_dict=self.full_config, check_key=False
         )
         print('done')
         print(f'\n\n\n\n')

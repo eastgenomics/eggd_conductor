@@ -53,85 +53,29 @@ class manageDict():
         value : str
             match of identifier in given dict
         """
-        # print('here')
-        # print(input_dict)
-
         if not isinstance(input_dict, bool):
             if check_key == True:
                 for i in getattr(input_dict, 'keys', lambda:input_dict)():
                     if isinstance(i, str) and identifier in i:
-                        print(i)
                         yield i
-                    print(input_dict)
                     if isinstance(input_dict, dict):
                         yield from manageDict().find_job_inputs(
                             identifier, input_dict[i], check_key=check_key
                         )
                     elif isinstance(input_dict, list):
-                        yield from manageDict().find_job_inputs(
-                            identifier, input_dict[i], check_key=check_key
-                        )
+                        for item in input_dict:
+                            yield from manageDict().find_job_inputs(
+                                identifier, item, check_key=check_key
+                            )
             else:
-                if isinstance(i, str):
-                    if identifier in i:
-                        print(i)
-                        yield i
-                elif i:
-                    yield from manageDict().find_job_inputs(
-                        identifier, i, check_key=check_key
-                    )
-
-
-        # def parse_dict():
-        #     """
-        #     """
-        #     yield from self.find_job_inputs(identifier, value, check_key)
-
-        # def parse_list(curr_list):
-        #     """
-        #     """
-        #     for list_val in curr_list:
-        #         print('list val: ', list_val)
-        #         if isinstance(list_val, bool):
-        #             continue
-        #         if isinstance(list_val, str):
-        #             parse_str(curr_str=list_val)
-        #         if isinstance(list_val, list):
-        #             # nested list, call again
-        #             parse_list(list_val)
-        #         if isinstance(list_val, dict):
-        #             yield from self.find_job_inputs(identifier, list_val, check_key)
-
-        # def parse_str(curr_str):
-        #     """
-        #     """
-        #     if identifier in curr_str:
-        #         yield curr_str
-
-
-        # for key, value in input_dict.items():
-        #     # set field to check for identifier to either key or value
-        #     if check_key is True:
-        #         check_field = key
-        #     else:
-        #         check_field = value
-
-        #     if isinstance(value, dict):
-        #         print('its a dict')
-        #         print(key, value)
-        #         parse_dict()
-        #     if isinstance(value, list):
-        #         print('itds a list')
-        #         print(key, value)
-        #         # found list of dicts -> loop over them
-        #         parse_list(curr_list=value)
-        #     if isinstance(value, bool):
-        #         print('its a bool')
-        #         print(key, value)
-        #         # stop it breaking on booleans
-        #         continue
-        #     if isinstance(value, str):
-        #         parse_str(curr_str=check_field)
+                for i in getattr(input_dict, 'values', lambda:input_dict)():
+                    if isinstance(i, str):
+                        if identifier in i:
+                            yield i
+                    elif i:
+                        yield from manageDict().find_job_inputs(
+                            identifier, i, check_key=check_key
+                        )
 
 
     def replace_job_inputs(self, input_dict, job_input, dx_id):
