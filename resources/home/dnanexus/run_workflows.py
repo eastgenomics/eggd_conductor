@@ -185,7 +185,8 @@ class manageDict():
             self, input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
-        parsing: workflow output directories, project id and project name.
+        parsing: workflow output directories, sample name, project id and
+        project name.
 
         Parameters
         ----------
@@ -211,55 +212,44 @@ class manageDict():
             requires it as an input
         """
         # first checking if any INPUT- in dict to fill, if not return
-        other_inputs = list(self.find_job_inputs('INPUT-', input_dict, check_key=False))
+        other_inputs = set(list(self.find_job_inputs(
+            'INPUT-', input_dict, check_key=False
+        )))
 
         if not other_inputs:
             # no other inputs found to replace
             return input_dict
 
-        print('found other inputs to fill')
+        project_name = dxpy.api.project_describe(
+            dx_project_id, input_params={'fields': {'name': True}}).get('name')
 
-        for job_input in other_inputs:
-            if job_input == 'INPUT-SAMPLE-NAME':
-                # add sample name
-                self.replace_job_inputs(input_dict, job_input, sample)
+        self.replace_job_inputs(input_dict, 'INPUT-SAMPLE-NAME', sample)
+        self.replace_job_inputs(input_dict, 'INPUT-dx_project_id', dx_project_id)
+        self.replace_job_inputs(input_dict, 'INPUT-dx_project_name', project_name)
 
-            if job_input == 'INPUT-dx_project_id':
-                # add project id
-                self.replace_job_inputs(input_dict, job_input, dx_project_id)
+        # find and replace any out dirs
+        regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
+        out_dirs = [re.search(regex, x) for x in self.other_inputs]
+        out_dirs = [x.group(0) for x in out_dirs if x]
 
-            if job_input == 'INPUT-dx_project_name':
-                # call describe on job id and add project name
-                output = dxpy.api.project_describe(
-                    dx_project_id, input_params={'fields': {'name': True}})
-                project_name = output.get('name')
+        for dir in out_dirs:
+            # find the output directory for the given analysis
+            analysis_out_dir = executable_out_dirs.get(
+                dir.replace('INPUT-', '').replace('-out_dir', ''))
 
-                self.replace_job_inputs(input_dict, job_input, project_name)
+            if not analysis_out_dir:
+                raise KeyError((
+                    'Error trying to parse output directory to input dict.'
+                    f'\nNo output directory found for given input: {dir}\n'
+                    'Please check config to ensure job input is in the '
+                    'format: INPUT-analysis_[0-9]-out_dir'
+                ))
 
-            # match analysis_X (i.e. analysis_1, analysis_2...)
-            out_folder_match = re.search(
-                r'^INPUT-analysis_[0-9]{1,2}-out_dir$', job_input)
+            # removing /output/ for now to fit to MultiQC
+            analysis_out_dir = Path(analysis_out_dir).name
+            self.replace_job_inputs(input_dict, dir, analysis_out_dir)
 
-            if out_folder_match:
-                # passing an out folder for given analysis
-                # will be specified in format INPUT-analysis_1-out_dir, where
-                # job input should be replaced with respective out dir
-                analysis = job_input.replace('INPUT-', '').replace('-out_dir', '')
-                analysis_out_dir = executable_out_dirs.get(analysis)
-
-                if analysis_out_dir:
-                    # removing /output/ for now to fit to MultiQC
-                    analysis_out_dir = Path(analysis_out_dir).name
-                    self.replace_job_inputs(input_dict, job_input, analysis_out_dir)
-                else:
-                    raise KeyError((
-                        'Error trying to parse output directory to input dict.\n'
-                        f'No output directory found for given input: {job_input}\n'
-                        'Please check config to ensure job input is in the '
-                        'format: INPUT-analysis_[0-9]-out_dir'
-                    ))
-
-        return input_dict
+            return input_dict
 
 
     def get_dependent_jobs(self, params, job_outputs_dict, sample=None):
