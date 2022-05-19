@@ -26,6 +26,7 @@ import dxpy
 
 PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
+
 class manageDict():
     """
     Methods to handle parsing and populating input and output dictionaries
@@ -102,8 +103,8 @@ class manageDict():
 
     def add_fastqs(self, input_dict, fastq_details, sample=None) -> dict:
         """
-        If process_fastqs set to true, function is called to populate input dict
-        with appropriate fastq file ids.
+        If process_fastqs set to true, function is called to populate input
+        dict with appropriate fastq file ids.
 
         If running per_sample, sample will be specified and the fastqs filtered
         for just those corresponding to the given sample. If not, all fastqs in
@@ -135,8 +136,8 @@ class manageDict():
                 rf'{sample}_[A-za-z0-9]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
             )
             for fastq in fastq_details:
-                # sample specified => running per sample, if not using all fastqs
-                # find fastqs for given sample
+                # sample specified => running per sample, if not using
+                # all fastqs find fastqs for given sample
                 match = re.search(sample_regex, fastq[1])
 
                 if match:
@@ -152,10 +153,11 @@ class manageDict():
         r1_fastqs = [x for x in sample_fastqs if 'R1_001.fastq' in x[1]]
         r2_fastqs = [x for x in sample_fastqs if 'R2_001.fastq' in x[1]]
 
-        print(f'Found {len(r1_fastqs)} R1 fastqs and {len(r2_fastqs)} R2 fastqs')
+        print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
         assert len(r1_fastqs) == len(r2_fastqs), (
-            f"Mismatched number of FastQs found.\n R1: {r1_fastqs} \nR2: {r2_fastqs}"
+            f"Mismatched number of FastQs found.\n"
+            f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
         )
 
         for stage, inputs in input_dict.items():
@@ -182,8 +184,8 @@ class manageDict():
     def add_other_inputs(
             self, input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
         """
-        Generalised function for adding other INPUT-s, currently handles parsing:
-        workflow output directories, project id and project name.
+        Generalised function for adding other INPUT-s, currently handles
+        parsing: workflow output directories, project id and project name.
 
         Parameters
         ----------
@@ -265,8 +267,9 @@ class manageDict():
         If app / workflow depends on previous job(s) completing these will be
         passed with depends_on = [analysis_1, analysis_2...].
 
-        Get all job ids for given analysis to pass to dx run (i.e. if analysis_2 depends
-        on analysis_1 finishing, get the dx id of the job to pass to current analysis).
+        Get all job ids for given analysis to pass to dx run (i.e. if
+        analysis_2 depends on analysis_1 finishing, get the dx id of the job
+        to pass to current analysis).
 
         Parameters
         ----------
@@ -283,8 +286,8 @@ class manageDict():
             list of dependent jobs found
         """
         if sample:
-            # running per sample, assume we only wait on the samples previous job
-            # and not all instances of the job for all samples
+            # running per sample, assume we only wait on the samples previous
+            # job and not all instances of the job for all samples
             job_outputs_dict = job_outputs_dict[sample]
 
         # check if job depends on previous jobs to hold till complete
@@ -331,7 +334,7 @@ class manageDict():
         KeyError
             Sample missing from `job_outputs_dict`
         RuntimeError
-            Raised if an input does not appear to be a analysis id (i.e analysis_2)
+            Raised if an input is nota analysis id (i.e analysis_2)
         RuntimeError
             Raised if more than one job for a sample for a given analysis found
         ValueError
@@ -342,17 +345,16 @@ class manageDict():
             return input_dict
 
         if sample:
-            # ensure we only use outputs for given sample for per sample workflow
+            # ensure we only use outputs for given sample
             try:
                 job_outputs_dict = job_outputs_dict[sample]
             except KeyError:
                 raise KeyError((
-                    f'{sample} not found in output dict. This is most likely from '
-                    'this being the first executable called and having '
-                    'a misconfigured input section in config (i.e. misspelt input)'
-                    ' that should have been parsed earlier. Check config and try'
-                    ' again. Input dict given: '
-                    f'{input_dict}'
+                    f'{sample} not found in output dict. This is most likely '
+                    'from this being the first executable called and having '
+                    'a misconfigured input section in config (i.e. misspelt '
+                    'input) that should have been parsed earlier. Check '
+                    f'config and try again. Input dict given: {input_dict}'
                 ))
 
         # search input dict for job ids to add
@@ -370,8 +372,8 @@ class manageDict():
             if not match:
                 # doesn't seem to be a valid app or worklfow, we cry
                 raise RuntimeError((
-                    f'{job_input} does not seem to be a valid analysis id, check '
-                    'config and try again'
+                    f'{job_input} does not seem to be a valid analysis id, '
+                    'check config and try again'
                 ))
 
             analysis_id = match.group(0)
@@ -380,8 +382,8 @@ class manageDict():
             # select job id for appropriate analysis id
             job_id = [v for k, v in job_outputs_dict.items() if analysis_id == k]
 
-            # job out should always(?) only have one output with given name, exit
-            # for now if more found
+            # job out should always(?) only have one output with given name,
+            # exit for now if more found
             if len(job_id) > 1:
                 raise RuntimeError(
                     f'More than one job found for {job_input}: {job_id}'
@@ -391,9 +393,9 @@ class manageDict():
                 # this shouldn't happen as it will be caught with the regex but
                 # double checking anyway
                 raise ValueError((
-                    f"No job id found for given analysis id: {job_input}, please "
-                    "check that it has the same analysis as a previous job in the "
-                    "config"
+                    f"No job id found for given analysis id: {job_input}, "
+                    "please check that it has the same analysis as a previous "
+                    "job in the config"
                 ))
 
             # replace analysis id with given job id in input dict
@@ -404,8 +406,8 @@ class manageDict():
 
     def populate_output_dir_config(executable, output_dict, out_folder) -> dict:
         """
-        Loops over stages in dict for output directory naming and adds worlflow /
-        app name.
+        Loops over stages in dict for output directory naming and adds
+        worlflow app name.
 
         i.e. will be named /output/{out_folder}/{stage_name}/, where stage
         name is the human readable name of each stage defined in the config
@@ -516,7 +518,7 @@ class DXExecute():
         Raises
         ------
         RuntimeError
-            Raised when workflow-, app- or applet- not present in executable name
+            Raised when workflow-, app- or applet- not present in exe name
         """
         if 'workflow-' in executable:
             job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
@@ -540,7 +542,7 @@ class DXExecute():
         else:
             # doesn't appear to be valid workflow or app
             raise RuntimeError(
-                f'Specified executable id does not appear to be valid:{executable}'
+                f'Given executable id is not valid: {executable}'
             )
 
         job_details = job_handle.describe()
@@ -558,9 +560,9 @@ class DXExecute():
         self, executable, params, sample, config, out_folder,
             job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
-        Populate input and output dicts for given workflow and sample, then call
-        to dx to start job. Job id is returned and stored in output dict that maps
-        the workflow to dx job id for given sample.
+        Populate input and output dicts for given workflow and sample, then
+        call to dx to start job. Job id is returned and stored in output dict
+        that maps the workflow to dx job id for given sample.
 
         Parameters
         ----------
@@ -577,8 +579,9 @@ class DXExecute():
         job_outputs_dict : dict
             dictionary of previous job outputs
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass output of
-            an analysis to input of another (i.e. analysis_1 : /path/to/output)
+            dict of analsysis stage to its output dir path, used to pass output
+            of an analysis to input of another (i.e.
+            analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
 
@@ -599,7 +602,7 @@ class DXExecute():
         if params["process_fastqs"] is True:
             input_dict = manageDict().add_fastqs(input_dict, fastq_details, sample)
 
-        # find all jobs for previous analyses if next job depends on them finishing
+        # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
             dependent_jobs = manageDict().get_dependent_jobs(
                 params, job_outputs_dict, sample=sample)
@@ -639,7 +642,9 @@ class DXExecute():
             print(f'Input dict: {PPRINT(input_dict)}')
 
         job_id = self.call_dx_run(
-            args, executable, job_name, input_dict, output_dict, dependent_jobs)
+            args, executable, job_name, input_dict,
+            output_dict, dependent_jobs
+        )
 
         if sample not in job_outputs_dict.keys():
             # create new dict to store sample outputs
@@ -655,8 +660,8 @@ class DXExecute():
         self, executable, params, config, out_folder,
             job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
-        Populates input and output dicts from config for given workflow, returns
-        dx job id and stores in dict to map workflow -> dx job id.
+        Populates input and output dicts from config for given workflow,
+        returns dx job id and stores in dict to map workflow -> dx job id.
 
         Parameters
         ----------
@@ -671,8 +676,9 @@ class DXExecute():
         job_outputs_dict : dict
             dictionary of previous job outputs
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass output of
-            an analysis to input of another (i.e. analysis_1 : /path/to/output)
+            dict of analsysis stage to its output dir path, used to pass
+            output of an analysis to input of another (i.e.
+            analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
 
@@ -700,7 +706,7 @@ class DXExecute():
             job_outputs_dict, input_dict, params["analysis"]
         )
 
-        # find all jobs for previous analyses if next job depends on them finishing
+        # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
             dependent_jobs = manageDict().get_dependent_jobs(params, job_outputs_dict)
         else:
@@ -852,7 +858,7 @@ class DXManage():
 
         # got to end of loop, highly unlikely we would ever run this many in a
         # project but catch it here to stop some ambiguous downstream error
-        raise RuntimeError (
+        raise RuntimeError(
             "Found 100 output directories in project, exiting now as "
             "there is likely an issue in the project."
         )
@@ -972,7 +978,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--run_id',
-        help='id of run parsed from sentinel file, used to create output project'
+        help='id of run parsed from sentinel file'
     )
     parser.add_argument(
         '--assay_code',
@@ -988,7 +994,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--fastqs',
-        help='comma separated string of fastq file ids for starting analysis on'
+        help='comma separated string of fastq file ids for starting analysis'
     )
     parser.add_argument(
         '--upload_tars', action='store_true',
