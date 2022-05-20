@@ -62,7 +62,7 @@ class manageDict():
                         yield from manageDict().find_job_inputs(
                             identifier, input_dict[i], check_key=check_key
                         )
-                    elif isinstance(input_dict, list):
+                    elif isinstance(input_dict, list) or isinstance(input_dict, set):
                         for item in input_dict:
                             yield from manageDict().find_job_inputs(
                                 identifier, item, check_key=check_key
