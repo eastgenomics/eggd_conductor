@@ -12,22 +12,36 @@ inputs are valid.
 Jethro Rainford 210902
 """
 import argparse
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 import pprint
+from random import sample
 import re
 import sys
 from typing import Generator, Union
 
-import dxpy
+import dxpy as dx
+import pandas as pd
 
 
 PPRINT = pprint.PrettyPrinter(indent=4).pprint
 
 
-class manageDict():
+class config():
+    """
+    Methods to handle parsing of configs
+    """
+
+
+
+
+
+
+class ManageDict():
     """
     Methods to handle parsing and populating input and output dictionaries
     """
@@ -59,12 +73,12 @@ class manageDict():
                     if isinstance(i, str) and identifier in i:
                         yield i
                     if isinstance(input_dict, dict):
-                        yield from manageDict().find_job_inputs(
+                        yield from ManageDict().find_job_inputs(
                             identifier, input_dict[i], check_key=check_key
                         )
                     elif isinstance(input_dict, list) or isinstance(input_dict, set):
                         for item in input_dict:
-                            yield from manageDict().find_job_inputs(
+                            yield from ManageDict().find_job_inputs(
                                 identifier, item, check_key=check_key
                             )
             else:
@@ -73,7 +87,7 @@ class manageDict():
                         if identifier in i:
                             yield i
                     elif i:
-                        yield from manageDict().find_job_inputs(
+                        yield from ManageDict().find_job_inputs(
                             identifier, i, check_key=check_key
                         )
 
@@ -186,7 +200,8 @@ class manageDict():
 
 
     def add_other_inputs(
-            self, input_dict, dx_project_id, executable_out_dirs, sample=None) -> dict:
+            self, input_dict, dx_project_id, upload_tars,
+            executable_out_dirs, sample=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
         parsing: workflow output directories, sample name, project id and
@@ -198,6 +213,9 @@ class manageDict():
             dict of input parameters for calling workflow / app
         dx_project_id : str
             DNAnexus ID of project to run analysis
+        upload_tars : list of dicts
+            list of all upload tar file IDs, formatted as
+            [{$dnanexus_link: fileID}, {$dnanexus_link: fileID}...]
         executable_out_dirs : dict
             dict of analsysis stage to its output dir path, used to pass output of
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
@@ -224,12 +242,13 @@ class manageDict():
             # no other inputs found to replace
             return input_dict
 
-        project_name = dxpy.api.project_describe(
+        project_name = dx.api.project_describe(
             dx_project_id, input_params={'fields': {'name': True}}).get('name')
 
         self.replace_job_inputs(input_dict, 'INPUT-SAMPLE-NAME', sample)
         self.replace_job_inputs(input_dict, 'INPUT-dx_project_id', dx_project_id)
         self.replace_job_inputs(input_dict, 'INPUT-dx_project_name', project_name)
+        self.replace_job_inputs(input_dict, 'INPUT-upload_tars', upload_tars)
 
         # find and replace any out dirs
         regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
@@ -427,7 +446,7 @@ class manageDict():
             if "APP-NAME" in dir:
                 # use describe method to get actual name of app with version
                 if 'workflow-' in executable:
-                    workflow_details = dxpy.api.workflow_describe(executable)
+                    workflow_details = dx.api.workflow_describe(executable)
                     stage_app_id = [
                         (x['id'], x['executable'])
                         for x in workflow_details['stages']
@@ -436,7 +455,7 @@ class manageDict():
                     if stage_app_id:
                         # get applet id for given stage id
                         stage_app_id = stage_app_id[0][1]
-                        applet_details = dxpy.api.workflow_describe(stage_app_id)
+                        applet_details = dx.api.workflow_describe(stage_app_id)
                         app_name = applet_details['name']
                     else:
                         # not found app ID for stage, going to print message
@@ -444,7 +463,7 @@ class manageDict():
                         print('Error finding applet ID for naming output dir')
                         app_name = stage
                 elif 'app-' or 'applet-' in executable:
-                    app_details = dxpy.api.workflow_describe(executable)
+                    app_details = dx.api.workflow_describe(executable)
                     app_name = app_details['name']
 
                 # add app/workflow name to output dir name
@@ -483,6 +502,48 @@ class DXExecute():
     """
     Methods for handling exeuction of apps / worklfows
     """
+    def demultiplex(self) -> str:
+        """
+        Run demultiplexing app, hold until app completes
+
+        Returns
+        -------
+        str
+            ID of demultiplexing job
+        """
+        print("Starting demultiplexing, holding app until comletion...")
+        app_id = os.environ.get('BCL2FASTQ_APP_ID')
+        sentinel_path = dx.describe(args.sentinel_file).get('folder')
+        sentinel_parent = sentinel_path.replace('/runs', '')
+        inputs = {
+            'upload_sentinel_record': args.sentinel_file,
+        }
+
+        # check no fastqs are already present in the output directory for
+        # bcl2fastq, exit if any present to prevent making a mess
+        # with bcl2fastq output
+        fastqs = list(dx.find_data_objects(
+            name="*.fastq*",
+            name_mode='glob',
+            folder=sentinel_parent
+        ))
+
+        assert not fastqs, (
+            "Error: fastqs already present in directory for bcl2fastq output"
+        )
+
+        job = dx.bindings.dxapp.DXApp(app_id).run(
+            app_input=inputs,
+            folder=sentinel_parent,
+            priority='high'
+        )
+
+        dx.bindings.dxjob.DXJob(dxid=job).wait_on_done()
+
+        print("Demuliplexing completed!")
+
+        return job
+
 
     def call_dx_run(self, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
         """
@@ -515,20 +576,20 @@ class DXExecute():
             Raised when workflow-, app- or applet- not present in exe name
         """
         if 'workflow-' in executable:
-            job_handle = dxpy.bindings.dxworkflow.DXWorkflow(
+            job_handle = dx.bindings.dxworkflow.DXWorkflow(
                 dxid=executable, project=args.dx_project_id
             ).run(
                 workflow_input=input_dict, stage_folders=output_dict,
                 rerun_stages=['*'], depends_on=prev_jobs, name=job_name
             )
         elif 'app-' in executable:
-            job_handle = dxpy.bindings.dxapp.DXApp(dxid=executable).run(
+            job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
                 app_input=input_dict, project=args.dx_project_id,
                 folder=output_dict[executable], ignore_reuse=True,
                 depends_on=prev_jobs, name=job_name
             )
         elif 'applet-' in executable:
-            job_handle = dxpy.bindings.dxapplet.DXApplet(dxid=executable).run(
+            job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
                 applet_input=input_dict, project=args.dx_project_id,
                 folder=output_dict[executable], ignore_reuse=True,
                 depends_on=prev_jobs, name=job_name
@@ -552,7 +613,8 @@ class DXExecute():
 
     def call_per_sample(
         self, executable, params, sample, config, out_folder,
-            job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+            job_outputs_dict, executable_out_dirs, fastq_details,
+            upload_tars) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -578,6 +640,9 @@ class DXExecute():
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
+        upload_tars : list of dicts
+            list of all upload tar file IDs, formatted as
+            [{$dnanexus_link: fileID}, {$dnanexus_link: fileID}...]
 
         Returns
         -------
@@ -590,15 +655,15 @@ class DXExecute():
         output_dict = config_copy['executables'][executable]['output_dirs']
 
         # create output directory structure in config
-        manageDict().populate_output_dir_config(executable, output_dict, out_folder)
+        ManageDict().populate_output_dir_config(executable, output_dict, out_folder)
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
-            input_dict = manageDict().add_fastqs(input_dict, fastq_details, sample)
+            input_dict = ManageDict().add_fastqs(input_dict, fastq_details, sample)
 
         # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
-            dependent_jobs = manageDict().get_dependent_jobs(
+            dependent_jobs = ManageDict().get_dependent_jobs(
                 params, job_outputs_dict, sample=sample)
         else:
             dependent_jobs = []
@@ -616,16 +681,18 @@ class DXExecute():
                 ))
 
         # handle other inputs defined in config to add to inputs
-        input_dict = manageDict().add_other_inputs(
-            input_dict, args.dx_project_id, executable_out_dirs, sample)
+        input_dict = ManageDict().add_other_inputs(
+            input_dict, args.dx_project_id, upload_tars,
+            executable_out_dirs, sample
+        )
 
         # check any inputs dependent on previous job outputs to add
-        input_dict = manageDict().link_inputs_to_outputs(
+        input_dict = ManageDict().link_inputs_to_outputs(
             job_outputs_dict, input_dict, params["analysis"], sample=sample
         )
 
         # check that all INPUT- have been parsed in config
-        manageDict().check_all_inputs(input_dict)
+        ManageDict().check_all_inputs(input_dict)
 
         # set job name as executable name and sample name
         job_name = f"{params['executable_name']}-{sample}"
@@ -652,7 +719,8 @@ class DXExecute():
 
     def call_per_run(
         self, executable, params, config, out_folder,
-            job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+            job_outputs_dict, executable_out_dirs, fastq_details,
+            upload_tars) -> dict:
         """
         Populates input and output dicts from config for given workflow,
         returns dx job id and stores in dict to map workflow -> dx job id.
@@ -675,6 +743,9 @@ class DXExecute():
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
+        upload_tars : list of dicts
+            list of all upload tar file IDs, formatted as
+            [{$dnanexus_link: fileID}, {$dnanexus_link: fileID}...]
 
         Returns
         -------
@@ -686,28 +757,28 @@ class DXExecute():
         output_dict = config['executables'][executable]['output_dirs']
 
         # create output directory structure in config
-        manageDict().populate_output_dir_config(executable, output_dict, out_folder)
+        ManageDict().populate_output_dir_config(executable, output_dict, out_folder)
 
         if params["process_fastqs"] is True:
-            input_dict = manageDict().add_fastqs(input_dict, fastq_details)
+            input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
 
         # handle other inputs defined in config to add to inputs
-        input_dict = manageDict().add_other_inputs(
-            input_dict, args.dx_project_id, executable_out_dirs)
+        input_dict = ManageDict().add_other_inputs(
+            input_dict, args.dx_project_id, upload_tars, executable_out_dirs)
 
         # check any inputs dependent on previous job outputs to add
-        input_dict = manageDict().link_inputs_to_outputs(
+        input_dict = ManageDict().link_inputs_to_outputs(
             job_outputs_dict, input_dict, params["analysis"]
         )
 
         # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
-            dependent_jobs = manageDict().get_dependent_jobs(params, job_outputs_dict)
+            dependent_jobs = ManageDict().get_dependent_jobs(params, job_outputs_dict)
         else:
             dependent_jobs = []
 
         # check that all INPUT- have been parsed in config
-        manageDict().check_all_inputs(input_dict)
+        ManageDict().check_all_inputs(input_dict)
 
         # passing all samples to workflow
         print(f'Calling {params["name"]} for all samples')
@@ -744,7 +815,7 @@ class DXManage():
         dx_project : str
             dx ID of given project if found, else returns `None`
         """
-        dx_projects = list(dxpy.bindings.search.find_projects(
+        dx_projects = list(dx.bindings.search.find_projects(
             name=project_name, limit=1
         ))
 
@@ -777,7 +848,7 @@ class DXManage():
 
         if not project_id:
             # create new project and capture returned project id and store
-            project_id = dxpy.bindings.dxproject.DXProject().new(
+            project_id = dx.bindings.dxproject.DXProject().new(
                 name=output_project,
                 summary=f'Analysis of run {args.run_id} with {args.assay_code}',
                 description="This project was automatically created by eggd_conductor"
@@ -793,7 +864,7 @@ class DXManage():
         if users:
             # users specified in config to grant access to project
             for user, access_level in users.items():
-                dxpy.bindings.dxproject.DXProject(dxid=project_id).invite(
+                dx.bindings.dxproject.DXProject(dxid=project_id).invite(
                     user, access_level, send_email=False
                 )
 
@@ -830,14 +901,14 @@ class DXManage():
             dx_folder = f'{out_folder}-{i}'
 
             try:
-                dxpy.api.project_list_folder(
+                dx.api.project_list_folder(
                     args.dx_project_id,
                     input_params={"folder": dx_folder, "only": "folders"},
                     always_retry=True
                 )
-            except dxpy.exceptions.ResourceNotFound:
+            except dx.exceptions.ResourceNotFound:
                 # can't find folder => create one
-                dxpy.api.project_new_folder(
+                dx.api.project_new_folder(
                     args.dx_project_id, input_params={
                         'folder': dx_folder, "parents": True
                     }
@@ -872,12 +943,12 @@ class DXManage():
         fastq_ids : list
             list of tuples with fastq file IDs and file name
         """
-        bcl2fastq_job = dxpy.bindings.dxjob.DXJob(dxid=job_id).describe()
+        bcl2fastq_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
         bcl2fastq_project = bcl2fastq_job['project']
         bcl2fastq_folder = bcl2fastq_job['folder']
 
         # find all fastqs from bcl2fastq job, return list of dicts with details
-        fastq_details = list(dxpy.search.find_data_objects(
+        fastq_details = list(dx.search.find_data_objects(
             name="*.fastq*", name_mode="glob", project=bcl2fastq_project,
             folder=bcl2fastq_folder, describe=True
         ))
@@ -887,6 +958,56 @@ class DXManage():
         ]
 
         return fastq_details
+
+
+    def get_json_configs(self) -> list:
+        """
+        Query path in DNAnexus for json config files fo each assay, returning
+        highest version available for each assay code
+
+        Returns
+        -------
+        dict
+            dict of dicts of configs, one per assay
+        """
+        project, path = os.environ.get('config_path').split(':')
+        files = list(dx.find_data_objects(
+            name="*.json",
+            name_mode='glob',
+            project=project,
+            folder=path
+        ))
+
+        # sense check we find config files
+        assert files, f"No config files found in given path: {project}:{path}"
+
+        configs = {}
+
+        for file in files:
+            current_config = json.loads(
+                dx.bindings.dxfile.DXFile(
+                    dxid=file['id'], project=file['project']).read())
+
+            assay_code = current_config.get('assay_code')
+            current_version = current_config.get('version')
+
+            # more sense checking there's an assay and version
+            assert assay_code, f"No assay code found in config file: {file}"
+            assert current_version, f"No version found in config file: {file}"
+
+            if configs.get(assay_code):
+                # config for assay already found, check version if newer
+                present_version = configs.get(assay_code).get('version')
+                if present_version > current_version:
+                    continue
+
+            # add config to dict if not already present or newer one found
+            configs[assay_code] = current_config
+
+        print(f"Found config files for assays: {', '.join(configs.keys())}")
+
+        return configs
+
 
 
 def time_stamp() -> str:
@@ -899,6 +1020,75 @@ def time_stamp() -> str:
         String of current date and time as YYMMDD_HHMM
     """
     return datetime.now().strftime("%Y%m%d_%H%M")
+
+
+def parse_sample_sheet(samplesheet) -> list:
+    """
+    Parses list of sample names from given samplesheet
+
+    Parameters
+    ----------
+    samplesheet : file
+        samplesheet to parse
+
+    Returns
+    -------
+    list
+        list of samplenames
+    """
+    sheet = pd.read_csv(samplesheet, header=None)
+    column = sheet[0].tolist()
+    sample_list = column[column.index('Sample_ID') + 1:]
+
+    # sense check some samples found and samplesheet isn't malformed
+    assert sample_list, (
+        f"Sample list could not be parsed from samplesheet: {samplesheet}\n\n"
+        f"{sheet}"
+    )
+
+    return sample_list
+
+
+def match_samples_to_assays(configs) -> dict:
+    """
+    Match sample list against configs to identify correct config to use
+    for each sample
+
+    Parameters
+    ----------
+    configs : list
+        list of config dicts for each assay
+
+    Returns
+    -------
+    dict
+        dict of assay codes: list of matching samples
+    """
+    # build a dict of assay codes from configs found to samples based off
+    # matching assay_code in sample names
+    all_config_assay_codes = [x.get('assay_code') for x in configs.values()]
+    assay_to_samples = defaultdict(list)
+
+    for code in all_config_assay_codes:
+        for sample in args.samples:
+            if code in sample:
+                assay_to_samples[code].append(sample)
+
+    # check all samples have an assay code in one of the configs
+    samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
+    assert sorted(args.samples) == sorted(samples_w_codes), (
+        "Error: could not identify assay code for all samples - "
+        f"{set(args.samples) - set(samples_w_codes)}"
+    )
+
+    # check all samples are for the same assay, don't handle mixed runs for now
+    assert len(assay_to_samples.keys() == 1), (
+        f"Error: more than one assay found in given sample list: {assay_to_samples}"
+    )
+
+    print(f"Total samples per assay identified: {assay_to_samples}")
+
+    return assay_to_samples
 
 
 def load_config() -> dict:
@@ -957,7 +1147,7 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        '--config_file', required=True
+        '--config_file'
     )
     parser.add_argument(
         '--samples', required=True, nargs='+',
@@ -967,16 +1157,16 @@ def parse_args() -> argparse.Namespace:
         '--dx_project_id', required=False,
         help=(
             'DNAnexus project ID to use to run analysis in, '
-            'if not specified will create one named 002_{run_id}_{assay_code}'
+            'if not specified will create one based off run ID and assay name'
         )
     )
     parser.add_argument(
         '--run_id',
-        help='id of run parsed from sentinel file'
+        help='ID of run, used to name output project.'
     )
     parser.add_argument(
-        '--assay_code',
-        help='assay code, used for naming outputs'
+        '--assay_name',
+        help='assay name, used for naming outputs'
     )
     parser.add_argument(
         '--development', '-d', action='store_true',
@@ -990,10 +1180,10 @@ def parse_args() -> argparse.Namespace:
         '--fastqs',
         help='comma separated string of fastq file ids for starting analysis'
     )
-    parser.add_argument(
-        '--upload_tars', action='store_true',
-        help='pass all input tar file ids as input to executable'
-    )
+    # parser.add_argument(
+    #     '--upload_tars', nargs='+',
+    #     help='pass all input tar file ids as input to executable'
+    # )
     parser.add_argument(
         '--test_samples',
         help=(
@@ -1022,7 +1212,26 @@ def main():
     global args
     args = parse_args()
 
-    config = load_config()
+    if not args.samples:
+        # TODO : sample sheet validation?
+        args.samples = parse_sample_sheet(args.samplesheet)
+
+    if args.config_file:
+        # using user defined config file
+        config = load_config()
+        assay_code = config.get('assay_code')
+        sample_list = args.samples.copy()
+    else:
+        # get all json assay configs from path in conductor config
+        configs = DXManage().get_json_configs()
+        assay_to_samples = match_samples_to_assays(configs)
+
+        # select config to use by assay code from all samples
+        assay_code = next(iter(assay_to_samples))
+        config = configs[assay_code]
+        sample_list = assay_to_samples[assay_code]
+
+
     run_time = time_stamp()
 
     fastq_details = []
@@ -1037,7 +1246,7 @@ def main():
         DXManage().get_or_create_dx_project(config)
 
     # set context to project for running jobs
-    dxpy.set_workspace_id()
+    dx.set_workspace_id()
 
     if args.bcl2fastq_id:
         # get details of job that ran to perform demultiplexing to get
@@ -1047,7 +1256,7 @@ def main():
         # call describe on files to get name and build list of tuples of
         # (file id, name)
         for fastq_id in args.fastqs:
-            fastq_name = dxpy.api.file_describe(
+            fastq_name = dx.api.file_describe(
                 fastq_id, input_params={'fields': {'name': True}}
             )
             fastq_name = fastq_name['name']
@@ -1055,15 +1264,17 @@ def main():
     elif args.upload_tars:
         # turn file ids into array input
         upload_tars = [{"$dnanexus_link": x} for x in args.upload_tars]
-    else:
-        # bcl2fastq wasn't run => we have either a list of fastqs being passed,
-        # this is for tso500 or something else weird this is going to need some
-        # thought and clever handling to know what is being passed
+    elif args.test_samples:
+        # test files of fastq names : file ids given
         fastq_details = []
-
-        # test data - myeloid sample
         if args.test_samples:
             fastq_details = load_test_data()
+    else:
+        # no files to start from given => perform demultiplexing from
+        # given sentinel file
+        job_id = DXExecute().demultiplex()
+        DXManage().get_bcl2fastq_details(job_id)
+
 
     # sense check per_sample defined for all workflows / apps before starting
     # we want this explicitly defined for everything to ensure it is
@@ -1092,7 +1303,7 @@ def main():
         out_folder = DXManage().create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
-        params['executable_name'] = dxpy.api.app_describe(
+        params['executable_name'] = dx.api.app_describe(
             executable).get('name')
 
         if params['per_sample'] is True:
@@ -1107,7 +1318,8 @@ def main():
                 )
                 job_outputs_dict = DXExecute().call_per_sample(
                     executable, params, sample, config, out_folder,
-                    job_outputs_dict, executable_out_dirs, fastq_details
+                    job_outputs_dict, executable_out_dirs, fastq_details,
+                    upload_tars
                 )
 
         elif params['per_sample'] is False:
@@ -1116,13 +1328,13 @@ def main():
             # defined to ensure running correctly
             job_outputs_dict = DXExecute().call_per_run(
                 executable, params, config, out_folder, job_outputs_dict,
-                executable_out_dirs, fastq_details
+                executable_out_dirs, fastq_details, upload_tars
             )
         else:
             # per_sample is not True or False, exit
             raise ValueError(
                 f"per_sample declaration for {executable} is not True or "
-                f"False ({params['per_sample']}). Please check the config"
+                f"False ({params['per_sample']}). \n\nPlease check the config."
             )
 
     print("Completed calling jobs")

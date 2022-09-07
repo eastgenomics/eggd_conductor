@@ -17,6 +17,7 @@ _set_environment () {
     # if not given, get highest tagged version of config files from given directories
     if [ -z "$EGGD_CONDUCTOR_CONFIG" ]
     then
+        # get config for conductor app containing API keys etc
         EGGD_CONDUCTOR_CONFIG=$(_select_highest_version "$EGGD_CONDUCTOR_CFG_PATH")
     fi
 
@@ -27,7 +28,7 @@ _set_environment () {
         dx download "$high_level_config" -o high_level_config.tsv
     fi
 
-    dx download "$eggd_conductor_config" -o conductor.cfg
+    dx download "$EGGD_CONDUCTOR_CONFIG" -o conductor.cfg
     mkdir packages hermes
 
     # save original env variables to use later
@@ -59,21 +60,21 @@ _select_highest_version () {
     local path=$1
 
     # get the version and store the file id if it is higher than the previous config AND it has an
-    # associated CAPA property => signed off for use
+    # associated signoff property => signed off for use
     local properties
-    local capa
+    local signoff
     local next_version
     local current_version=0
     local current_file_id
 
     for config in $(dx find data --brief --path "$path"); do
         properties=$(dx describe --json "$config" | jq -r '.properties')
-        capa=$(jq -r '.CAPA' <<< "$properties")
+        signoff=$(jq -r '.signoff' <<< "$properties")
         next_version=$(jq -r '.version' <<< "$properties")
 
-        if awk "BEGIN {exit !($next_version > $current_version)}" && [ ${capa+x} ]
+        if awk "BEGIN {exit !($next_version > $current_version)}" && [ "$signoff" == 'True' ]
         then
-            # version is higher and has CAPA associated => update locals
+            # version is higher and has signoff associated => update locals
             current_version="$next_version"
             current_file_id="$config"
         fi
@@ -114,13 +115,16 @@ _slack_notify () {
 
 _parse_sentinel_file () {
     # Parses given sentinel file from dx-streaming-upload to find samplesheet
-    # to extract sample ids from
+    # to extract sample ids from, and get all tar file IDs
 
     # get json of details to parse required info from
     local sentinel_details=$(dx describe --json "$SENTINEL_FILE")
     local sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     [ -z "$RUN_ID" ] && RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     SENTINEL_FILE_ID=$(jq -r '.id' <<< "$sentinel_details")
+
+    # get list of all tar file IDs
+    TAR_IDS=$(dx find data --path "$sentinel_path" --brief --name "*.tar.gz")
 
     if [ ! "$SAMPLE_SHEET_ID" ]; then
         # sample sheet has not been specified on running, try get from sentinel details
@@ -157,7 +161,8 @@ _parse_sentinel_file () {
         fi
 
         # parse list of samples from samplesheet
-        sample_list=$(tail -n +22 "$sample_sheet" | cut -d',' -f 1)
+        csplit  <(cut -f1 -d',' "$sample_sheet") /Sample_ID/ --suppress-matched --quiet
+        sample_list=$(tail -n+2 xx01)  # csplit has match of Sample_ID as first row
     fi
 }
 
@@ -169,8 +174,9 @@ _parse_fastqs () {
     if [ ! "$SAMPLE_NAMES" ] && [ ! "$sample_sheet" ]
     # needs sample sheet or sample list passing
     then
-        printf 'No sample sheet or list of samples defined, one of these must be provided. Exiting now.'
-        dx-jobutil-report-error 'No sample sheet or list of samples defined, one of these must be provided.'
+        message="No sample sheet or list of samples defined, one of these must be provided."
+        printf "${message}  Exiting now."
+        dx-jobutil-report-error "$message"
         exit 1
     fi
 
@@ -220,13 +226,13 @@ _match_samples_to_assays () {
             # assay type not specified, infer from eggd code and high level config
 
             # get eggd code from name using regex, if not found will exit
-            if [[ $name =~ EGG[0-9]{1,2} ]]
+            if [[ "${name,,}" =~ egg[0-9]{1,2} ]]
             then
                 local sample_eggd_code="${BASH_REMATCH[0]}"
             else
                 local message_str="Sample name invalid: could not parse EGG code from $name"
                 dx-jobutil-report-error "$message_str"
-                _slack_notify "$message_str" egg-alerts
+                _slack_notify "$message_str" "egg-alerts"
                 _exit "$message_str"
             fi
 
@@ -299,7 +305,7 @@ _run_bcl2fastq () {
     } || {
         # demultiplexing failed, send alert and exit
         local message_str="bcl2fastq job failed in project ${bcl2fastq_out%%:*}"
-        _slack_notify "$message_str" egg-logs
+        _slack_notify "$message_str" egg-alerts
         _exit "$message_str"
     }
 }
@@ -369,16 +375,17 @@ _validate_samplesheet () {
     fi
 }
 
-_trigger_workflow () {
-    # Trigger workflow for given set of samples with appropriate low level config file
+_trigger_apps_workflowss () {
+    # Trigger app(s) / workflow(s) for given set of samples with appropriate low level config file
 
-    printf "Calling workflow for assay $i on samples:\n ${sample_to_assay[$k]}"
+    printf "Calling workflow(s) for assay $i on samples:\n ${sample_to_assay[$k]}"
 
     # set optional arguments to workflow script by app args
     local optional_args
     if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
     if [ "$BCL2FASTQ_JOB_ID" ]; then optional_args+="--bcl2fastq_id $BCL2FASTQ_JOB_ID "; fi
     if [ "$FASTQ_IDS" ]; then optional_args+="--fastqs $FASTQ_IDS"; fi
+    if [ "$TAR_IDS" ]; then optional_args+="--upload_tars $TAR_IDS"; fi
     if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
     if [ "$DEVELOPMENT" ]; then optional_args+="--development "; fi
 
@@ -409,6 +416,18 @@ main () {
     if [ -z "${SENTINEL_FILE+x}" ] && [ -z "${FASTQS+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
+    fi
+
+    if [ "$CUSTOM_CONFIG" ]; then
+        # custom config, must either specify assay type or have the high level config or
+        # path to download the high level config from
+        if [ ! "$ASSAY_TYPE" ] && [ ! "$HIGH_LEVEL_CONFIG" ] && [ ! "$HIGH_LEVEL_CONFIG_PATH" ]; then
+            # no assay type or high level config => error
+            local message_str="Custom config given but no assay type or high lvel config / path provided"
+            dx-jobutil-report-error "$message_str"
+            _slack_notify "$message_str" "egg-alerts"
+            _exit "$message_str"
+        fi
     fi
 
     # our own sample sheet validator and slack bot
@@ -463,12 +482,12 @@ main () {
     fi
 
     # trigger workflows using config for each set of samples for an assay
-    # if calling all apps/workflows fails _trigger_workflow will make a call to _slack_notify then
-    # _exit to stop
+    # if calling all apps/workflows fails, _trigger_apps_workflows will make
+    # a call to _slack_notify then _exit to stop
     mark-section "triggering workflows"
     for k in "${!sample_to_assay[@]}"
     do
-        _trigger_workflow
+        _trigger_apps_workflows
 
         local analysis_project=$(cat run_workflows_output_project.log)
         local message="Workflows triggered for samples successfully in ${analysis_project}"
