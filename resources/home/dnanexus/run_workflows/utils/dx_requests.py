@@ -476,10 +476,6 @@ class DXManage():
                 )
                 print(f"Granted {access_level} priviledge to user {user}")
 
-        # write analysis project to file to pick up at end to send Slack message
-        with open('analysis_project.log', 'w') as fh:
-            fh.write(f'{output_project}\n{project_id}')
-
         return project_id
 
 

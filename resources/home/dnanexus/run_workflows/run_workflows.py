@@ -251,6 +251,8 @@ def main():
     global args
     args = parse_args()
 
+    sys.exit()
+
     if not args.samples:
         # TODO : sample sheet validation?
         args.samples = parse_sample_sheet(args.samplesheet)
@@ -273,13 +275,16 @@ def main():
         config = configs[assay_code]
         sample_list = assay_to_samples[assay_code]
 
-    # log file of all jobs run, used in case of failing to launch all
-    # downstream analysis to be able to terminate all analyses
-    open('job_id.log', 'w').close()
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
         args.dx_project_id = DXManage(args).get_or_create_dx_project(config)
+
+    # write analysis project to file to pick up at end to send Slack message
+    output_project = dx.bindings.dxproject.DXProject(
+        dxid=args.dx_project_id).describe().get('name')
+    with open('analysis_project.log', 'w') as fh:
+        fh.write(f'{output_project} {args.dx_project_id}')
 
     # set context to project for running jobs
     dx.set_workspace_id()
@@ -346,6 +351,10 @@ def main():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
         print(f'\nConfiguring {executable} to start jobs')
+
+        # log file of all jobs run for current executable, used in case
+        # of failing to launch all jobs to be able to terminate all analyses
+        open('job_id.log', 'w').close()
 
         # create output folder for workflow, unique by datetime stamp
         out_folder = f'/output/{params["name"]}-{run_time}'
