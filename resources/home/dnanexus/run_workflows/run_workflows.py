@@ -23,6 +23,7 @@ from collections import defaultdict
 from datetime import datetime
 import json
 import pprint
+import sys
 
 import dxpy as dx
 import pandas as pd
@@ -272,12 +273,6 @@ def main():
         config = configs[assay_code]
         sample_list = assay_to_samples[assay_code]
 
-
-    run_time = time_stamp()
-
-    fastq_details = []
-    upload_tars = []
-
     # log file of all jobs run, used in case of failing to launch all
     # downstream analysis to be able to terminate all analyses
     open('job_id.log', 'w').close()
@@ -292,9 +287,23 @@ def main():
     dx_execute = DXExecute(args)
     dx_manage = DXManage(args)
 
+    run_time = time_stamp()
+
+    fastq_details = []
+    upload_tars = []
+
+    # sense check per_sample defined for all workflows / apps in config before
+    # starting as we want this explicitly defined for everything to ensure
+    # it is launched correctly
+    for executable, params in config['executables'].items():
+        assert 'per_sample' in params.keys(), (
+            f"per_sample key missing from {executable} in config, check config"
+            "and re-run"
+        )
+
     if args.bcl2fastq_id:
         # previous bcl2fastq job specified to use fastqs from
-        fastq_details = DXManage.get_bcl2fastq_details(job_id=args.bcl2fastq_id)
+        fastq_details = dx_manage.get_bcl2fastq_details(args.bcl2fastq_id)
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
@@ -313,21 +322,17 @@ def main():
         fastq_details = []
         if args.test_samples:
             fastq_details = load_test_data()
-    else:
-        # no files to start from given => perform demultiplexing from
-        # given sentinel file
+    elif config.get('demultiplex'):
+        # not using previous demultiplex job, fastqs or test sample list and
+        # demultiplex set to true in config => run bcl2fastq app
         job_id = dx_execute.demultiplex()
         dx_manage.get_bcl2fastq_details(job_id)
+    else:
+        # not demultiplexing or given fastqs, exit as we aren't handling
+        # this for now
+        print('No fastqs passed or demultiplexing specified. Exiting now')
+        sys.exit()
 
-
-    # sense check per_sample defined for all workflows / apps before
-    # starting we want this explicitly defined for everything to ensure
-    # it is launched correctly
-    for executable, params in config['executables'].items():
-        assert 'per_sample' in params.keys(), (
-            f"per_sample key missing from {executable} in config, check config"
-            "and re-run"
-        )
 
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
@@ -347,32 +352,41 @@ def main():
         out_folder = dx_manage.create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
-        params['executable_name'] = dx.api.app_describe(
-            executable).get('name')
+        params['executable_name'] = dx.api.app_describe(executable).get('name')
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
             print(f'\nCalling {params["name"]} per sample')
 
-            # loop over given sample and call workflow
-            for idx, sample in enumerate(args.samples):
+            # loop over samples and call app / workflow
+            for idx, sample in enumerate(sample_list):
                 print(
                     f'\nStarting analysis for {sample} - '
-                    f'({idx}/{len(args.samples)})'
+                    f'({idx}/{len(sample_list)})'
                 )
                 job_outputs_dict = dx_execute.call_per_sample(
-                    executable, params, sample, config, out_folder,
-                    job_outputs_dict, executable_out_dirs, fastq_details,
+                    executable,
+                    params,
+                    sample,
+                    config,
+                    out_folder,
+                    job_outputs_dict,
+                    executable_out_dirs,
+                    fastq_details,
                     upload_tars
                 )
 
         elif params['per_sample'] is False:
             # run workflow / app on all samples at once
-            # need to explicitly check if False vs not given, must always be
-            # defined to ensure running correctly
             job_outputs_dict = dx_execute.call_per_run(
-                executable, params, config, out_folder, job_outputs_dict,
-                executable_out_dirs, fastq_details, upload_tars
+                executable,
+                params,
+                config,
+                out_folder,
+                job_outputs_dict,
+                executable_out_dirs,
+                fastq_details,
+                upload_tars
             )
         else:
             # per_sample is not True or False, exit

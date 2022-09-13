@@ -2,12 +2,16 @@ from copy import deepcopy
 from datetime import datetime
 import json
 import os
+from pprint import PrettyPrinter
 import re
 from typing import Union
 
 import dxpy as dx
 
 from utils.manage_dict import ManageDict
+
+
+PPRINT = PrettyPrinter(indent=4).pprint
 
 
 class DXExecute():
@@ -97,22 +101,32 @@ class DXExecute():
         """
         if 'workflow-' in executable:
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
-                dxid=executable, project=self.args.dx_project_id
+                dxid=executable,
+                project=self.args.dx_project_id
             ).run(
-                workflow_input=input_dict, stage_folders=output_dict,
-                rerun_stages=['*'], depends_on=prev_jobs, name=job_name
+                workflow_input=input_dict,
+                stage_folders=output_dict,
+                rerun_stages=['*'],
+                depends_on=prev_jobs,
+                name=job_name
             )
         elif 'app-' in executable:
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
-                app_input=input_dict, project=self.args.dx_project_id,
-                folder=output_dict[executable], ignore_reuse=True,
-                depends_on=prev_jobs, name=job_name
+                app_input=input_dict,
+                project=self.args.dx_project_id,
+                folder=output_dict[executable],
+                ignore_reuse=True,
+                depends_on=prev_jobs,
+                name=job_name
             )
         elif 'applet-' in executable:
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
-                applet_input=input_dict, project=self.args.dx_project_id,
-                folder=output_dict[executable], ignore_reuse=True,
-                depends_on=prev_jobs, name=job_name
+                applet_input=input_dict,
+                project=self.args.dx_project_id,
+                folder=output_dict[executable],
+                ignore_reuse=True,
+                depends_on=prev_jobs,
+                name=job_name
             )
         else:
             # doesn't appear to be valid workflow or app
@@ -133,8 +147,7 @@ class DXExecute():
 
     def call_per_sample(
         self, executable, params, sample, config, out_folder,
-            job_outputs_dict, executable_out_dirs, fastq_details,
-            upload_tars) -> dict:
+        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -160,9 +173,6 @@ class DXExecute():
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
-        upload_tars : list of dicts
-            list of all upload tar file IDs, formatted as
-            [{$dnanexus_link: fileID}, {$dnanexus_link: fileID}...]
 
         Returns
         -------
@@ -197,18 +207,23 @@ class DXExecute():
             else:
                 print((
                     f'Specified delimeter ({delim}) is not in sample name '
-                    f'({sample}), ignoring and continuing.'
+                    f'({sample}), ignoring and continuing...'
                 ))
 
         # handle other inputs defined in config to add to inputs
         input_dict = ManageDict().add_other_inputs(
-            input_dict, self.args.dx_project_id, upload_tars,
-            executable_out_dirs, sample
+            input_dict=input_dict,
+            dx_project_id=self.args.dx_project_id,
+            executable_out_dirs=executable_out_dirs,
+            sample=sample
         )
 
         # check any inputs dependent on previous job outputs to add
         input_dict = ManageDict().link_inputs_to_outputs(
-            job_outputs_dict, input_dict, params["analysis"], sample=sample
+            job_outputs_dict=job_outputs_dict,
+            input_dict=input_dict,
+            analysis=params["analysis"],
+            sample=sample
         )
 
         # check that all INPUT- have been parsed in config
@@ -219,12 +234,16 @@ class DXExecute():
 
         # call dx run to start jobs
         print(f"Calling {params['executable_name']} ({executable}) on sample {sample}")
-        if input_dict and input_dict.keys:
+
+        if input_dict.keys:
             print(f'Input dict: {PPRINT(input_dict)}')
 
         job_id = self.call_dx_run(
-            self.args, executable, job_name, input_dict,
-            output_dict, dependent_jobs
+            executable=executable,
+            job_name=job_name,
+            input_dict=input_dict,
+            output_dict=output_dict,
+            prev_jobs=dependent_jobs
         )
 
         if sample not in job_outputs_dict.keys():
@@ -239,8 +258,7 @@ class DXExecute():
 
     def call_per_run(
         self, executable, params, config, out_folder,
-            job_outputs_dict, executable_out_dirs, fastq_details,
-            upload_tars) -> dict:
+        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populates input and output dicts from config for given workflow,
         returns dx job id and stores in dict to map workflow -> dx job id.
@@ -263,9 +281,6 @@ class DXExecute():
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
-        upload_tars : list of dicts
-            list of all upload tar file IDs, formatted as
-            [{$dnanexus_link: fileID}, {$dnanexus_link: fileID}...]
 
         Returns
         -------
@@ -284,16 +299,24 @@ class DXExecute():
 
         # handle other inputs defined in config to add to inputs
         input_dict = ManageDict().add_other_inputs(
-            input_dict, self.args.dx_project_id, upload_tars, executable_out_dirs)
+            input_dict=input_dict,
+            dx_project_id=self.args.dx_project_id,
+            executable_out_dirs=executable_out_dirs
+        )
 
         # check any inputs dependent on previous job outputs to add
         input_dict = ManageDict().link_inputs_to_outputs(
-            job_outputs_dict, input_dict, params["analysis"]
+            job_outputs_dict=job_outputs_dict,
+            input_dict=input_dict,
+            analysis=params["analysis"]
         )
 
         # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
-            dependent_jobs = ManageDict().get_dependent_jobs(params, job_outputs_dict)
+            dependent_jobs = ManageDict().get_dependent_jobs(
+                params=params,
+                job_outputs_dict=job_outputs_dict
+            )
         else:
             dependent_jobs = []
 
@@ -303,8 +326,11 @@ class DXExecute():
         # passing all samples to workflow
         print(f'Calling {params["name"]} for all samples')
         job_id = self.call_dx_run(
-            self.args, executable, params['executable_name'], input_dict,
-            output_dict, dependent_jobs
+            executable=executable,
+            job_name=params['executable_name'],
+            input_dict=input_dict,
+            output_dict=output_dict,
+            prev_jobs=dependent_jobs
         )
 
         PPRINT(input_dict)
@@ -409,7 +435,7 @@ class DXManage():
     def get_or_create_dx_project(self, config):
         """
         Create new project in DNAnexus if one with given name doesn't
-        already exist. Adds project ID to global self.args namespace.
+        already exist.
 
         Parameters
         ----------
@@ -425,8 +451,7 @@ class DXManage():
         else:
             prefix = '002'
 
-        output_project = f'{prefix}_{self.args.run_id}_{self.args.assay_code}'
-
+        output_project = f'{prefix}_{self.args.run_id}_{config.get("assay")}'
         project_id = self.find_dx_project(output_project)
 
         if not project_id:
@@ -443,19 +468,17 @@ class DXManage():
             print(f'Using existing found project: {output_project} ({project_id})')
 
         users = config.get('users')
-
         if users:
             # users specified in config to grant access to project
             for user, access_level in users.items():
                 dx.bindings.dxproject.DXProject(dxid=project_id).invite(
                     user, access_level, send_email=False
                 )
+                print(f"Granted {access_level} priviledge to user {user}")
 
-        self.args.dx_project_id = project_id
-
-        with open('run_workflows_output_project.log', 'w') as fh:
-            # record project used to send slack notification
-            fh.write(f'{output_project} ({project_id})')
+        # write analysis project to file to pick up at end to send Slack message
+        with open('analysis_project.log', 'w') as fh:
+            fh.write(f'{output_project}\n{project_id}')
 
         return project_id
 
@@ -528,6 +551,7 @@ class DXManage():
         fastq_ids : list
             list of tuples with fastq file IDs and file name
         """
+        print(f"Getting fastqs from given bcl2fastq job: {job_id}")
         bcl2fastq_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
         bcl2fastq_project = bcl2fastq_job['project']
         bcl2fastq_folder = bcl2fastq_job['folder']
@@ -542,5 +566,7 @@ class DXManage():
             (x['id'], x['describe']['name']) for x in fastq_details
         ]
 
-        return fastq_details
+        print(f'fastqs parsed from bcl2fastq job {job_id}')
+        print(''.join([f'\t{x}\n' for x in fastq_details]))
 
+        return fastq_details

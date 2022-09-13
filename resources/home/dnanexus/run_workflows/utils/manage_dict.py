@@ -128,7 +128,7 @@ class ManageDict():
             # ensure some fastqs found
             assert sample_fastqs, f'No fastqs found for {sample}'
         else:
-            # use all fastqs
+            # sample not specified => use all fastqs
             sample_fastqs = fastq_details
 
         # fastqs should always be named with R1/2_001
@@ -164,7 +164,7 @@ class ManageDict():
 
 
     def add_other_inputs(
-            self, input_dict, dx_project_id, upload_tars,
+            self, input_dict, dx_project_id,
             executable_out_dirs, sample=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
@@ -177,9 +177,6 @@ class ManageDict():
             dict of input parameters for calling workflow / app
         dx_project_id : str
             DNAnexus ID of project to run analysis
-        upload_tars : list of dicts
-            list of all upload tar file IDs, formatted as
-            [{$dnanexus_link: fileID}, {$dnanexus_link: fileID}...]
         executable_out_dirs : dict
             dict of analsysis stage to its output dir path, used to pass output of
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
@@ -264,7 +261,7 @@ class ManageDict():
         """
         if sample:
             # running per sample, assume we only wait on the samples previous
-            # job and not all instances of the job for all samples
+            # job and not all instances of the executable for all samples
             job_outputs_dict = job_outputs_dict[sample]
 
         # check if job depends on previous jobs to hold till complete

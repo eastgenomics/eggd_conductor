@@ -7,6 +7,12 @@
 # upload of a sequencing run, or manually by providing a set of fastqs
 # to analyse and a sample sheet / list of sample names
 
+## TODO
+#  - checking for valid inputs (i.e. fastqs w/ sample sheet/sample names etc)
+#
+#
+
+
 set -exo pipefail
 
 _set_environment () {
@@ -15,10 +21,9 @@ _set_environment () {
     in other projects.
 
     Sets tokens to env variables from eggd_conductor config for later
-    use, parses out slack API token to slack_token.py
+    use
     '''
     dx download "$EGGD_CONDUCTOR_CONFIG" -o conductor.cfg
-    mkdir hermes
 
     # save original env variables to use later
     PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
@@ -39,7 +44,6 @@ _set_environment () {
     set +x
     source conductor.cfg &> /dev/null
     dx login --noprojects --token $AUTH_TOKEN
-    echo "hermes_token=\"${SLACK_TOKEN}\"" > hermes/slack_token.py
     set -x
 }
 
@@ -59,17 +63,20 @@ _exit () {
 
 _slack_notify () {
     : '''
-    Send message to either egg-logs or egg-alerts slack channel using Hermes slack bot
+    Send message to a given Slack channel
 
     Arguments
        str : message to send
        str : Slack channel to send to
     '''
-
-    local message="eggd_conductor - ${1}"
+    local message="eggd_conductor: ${1}"
     local channel=$2
 
-    python3 hermes/hermes.py -v msg "$message" "$channel"
+    curl -d "text=${message}" \
+         -d "channel=${channel}" \
+         -H "Authorization: Bearer ${SLACK_TOKEN}" \
+         -X POST https://slack.com/api/chat.postMessage
+
     printf "Message sent to $channel: $message"
 }
 
@@ -131,25 +138,13 @@ main () {
 
     # our own sample sheet validator and slack bot
     tar xf validate_sample_sheet_v*.tar.gz
-    tar xf hermes_v*.tar.gz -C hermes --strip-components 1
 
     python3 -m pip install --no-index --no-deps  packages/*
-
-    # send a message to logs so we know something is starting
-    message="Automated analysis beginning in ${PROJECT_NAME} ($PROJECT_ID) "
-    message+="to process ${RUN_ID}\n\neggd_conductor job: "
-    message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
-    message+="/monitor/job/${PARENT_JOB_ID/job-/}"
-    _slack_notify "$message" "$SLACK_LOG_CHANNEL"
-
 
     if [ -z "${SENTINEL_FILE+x}" ] && [ -z "${FASTQS+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
     fi
-
-    exit 1
-
 
     if [[ "$SENTINEL_FILE" ]]; then
         if [[ -z "$SAMPLESHEET"  ]]; then
@@ -165,6 +160,15 @@ main () {
         mark-section "running manually from provided FastQ files"
         _parse_fastqs
     fi
+
+    # send a message to logs so we know something is starting
+    message="Automated analysis beginning to process *${RUN_ID}*%0A"
+    message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+    message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+    _slack_notify "$message" "$SLACK_LOG_CHANNEL"
+
+
+    exit 1
 
     mark-section "Building input arguments"
 
