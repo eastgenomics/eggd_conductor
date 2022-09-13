@@ -50,9 +50,8 @@ def parse_sample_sheet(samplesheet) -> list:
     sample_list = column[column.index('Sample_ID') + 1:]
 
     # sense check some samples found and samplesheet isn't malformed
-    assert sample_list, (
+    assert sample_list, Slack().send(
         f"Sample list could not be parsed from samplesheet: {samplesheet}\n\n"
-        f"{sheet}"
     )
 
     return sample_list
@@ -85,14 +84,14 @@ def match_samples_to_assays(configs) -> dict:
 
     # check all samples have an assay code in one of the configs
     samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
-    assert sorted(args.samples) == sorted(samples_w_codes), (
-        "Error: could not identify assay code for all samples - "
+    assert sorted(args.samples) == sorted(samples_w_codes), Slack().send(
+        "could not identify assay code for all samples - "
         f"{set(args.samples) - set(samples_w_codes)}"
     )
 
     # check all samples are for the same assay, don't handle mixed runs for now
-    assert len(assay_to_samples.keys() == 1), (
-        f"Error: more than one assay found in given sample list: {assay_to_samples}"
+    assert len(assay_to_samples.keys() == 1), Slack().send(
+        f"more than one assay found in given sample list: {assay_to_samples}"
     )
 
     print(f"Total samples per assay identified: {assay_to_samples}")
@@ -233,10 +232,7 @@ def main():
     """
     Main function to run apps and workflows
     """
-    global args
     args = parse_args()
-
-    sys.exit()
 
     if not args.samples:
         # TODO : sample sheet validation?
@@ -286,7 +282,7 @@ def main():
     # starting as we want this explicitly defined for everything to ensure
     # it is launched correctly
     for executable, params in config['executables'].items():
-        assert 'per_sample' in params.keys(), (
+        assert 'per_sample' in params.keys(), Slack().send(
             f"per_sample key missing from {executable} in config, check config"
             "and re-run"
         )

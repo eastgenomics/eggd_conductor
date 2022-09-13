@@ -362,7 +362,7 @@ class DXManage():
         config_path = os.environ.get('ASSAY_CONFIG_PATH').split(':')
 
         # check for valid project:path structure
-        assert re.match(r'project-[\d\w]*:/.*', config_path), (
+        assert re.match(r'project-[\d\w]*:/.*', config_path), Slack().send(
             'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
         )
 
@@ -376,7 +376,8 @@ class DXManage():
         ))
 
         # sense check we find config files
-        assert files, f"No config files found in given path: {project}:{path}"
+        assert files, Slack().send(
+            f"No config files found in given path: {project}:{path}")
 
         all_configs = {}
 
@@ -389,8 +390,10 @@ class DXManage():
             current_version = current_config.get('version')
 
             # more sense checking there's an assay and version
-            assert assay_code, f"No assay code found in config file: {file}"
-            assert current_version, f"No version found in config file: {file}"
+            assert assay_code, Slack().send(
+                f"No assay code found in config file: {file}")
+            assert current_version, Slack().send(
+                f"No version found in config file: {file}")
 
             if all_configs.get(assay_code):
                 # config for assay already found, check version if newer

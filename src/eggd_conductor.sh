@@ -225,5 +225,8 @@ main () {
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
+    # tag conductor job with downstream project used for analysis
+    dx tag "$PARENT_JOB_ID" "$conductor_job_url"
+
     mark-success
 }

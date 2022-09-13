@@ -128,7 +128,7 @@ class ManageDict():
                     sample_fastqs.append(fastq)
 
             # ensure some fastqs found
-            assert sample_fastqs, f'No fastqs found for {sample}'
+            assert sample_fastqs, Slack().send(f'No fastqs found for {sample}')
         else:
             # sample not specified => use all fastqs
             sample_fastqs = fastq_details
@@ -139,7 +139,7 @@ class ManageDict():
 
         print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
-        assert len(r1_fastqs) == len(r2_fastqs), (
+        assert len(r1_fastqs) == len(r2_fastqs), Slack().send(
             f"Mismatched number of FastQs found.\n"
             f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
         )
@@ -455,7 +455,7 @@ class ManageDict():
         inputs = self.find_job_inputs('INPUT-', input_dict, check_key=False)
         _empty = object()
 
-        assert next(inputs, _empty) == _empty, (
-            f"Error: unparsed INPUT- still in config, please check readme for "
-            f"valid input parameters. Input dict: {input_dict}"
+        assert next(inputs, _empty) == _empty, Slack().send(
+            f"unparsed INPUT- still in config, please check readme for "
+            f"valid input parameters. \nInput dict:\n{input_dict}"
         )
