@@ -9,6 +9,7 @@ from typing import Union
 import dxpy as dx
 
 from utils.manage_dict import ManageDict
+from utils.utils import Slack
 
 
 PPRINT = PrettyPrinter(indent=4).pprint
@@ -51,8 +52,8 @@ class DXExecute():
             folder=sentinel_parent
         ))
 
-        assert not fastqs, (
-            "Error: fastqs already present in directory for bcl2fastq output"
+        assert not fastqs, Slack().send(
+            "fastqs already present in directory for bcl2fastq output"
             f"({sentinel_parent})"
         )
 

@@ -162,9 +162,11 @@ main () {
     fi
 
     # send a message to logs so we know something is starting
+    conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+    conductor_job_url+="/monitor/job/${PARENT_JOB_ID/job-/}"
+
     message="eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
-    message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
-    message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+    message+="${conductor_job_url}"
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
 
@@ -195,7 +197,7 @@ main () {
             dx terminate "$jobs"
         fi
 
-        if [ -s slack_fail_sent.log ]; then
+        if [ -f slack_fail_sent.log ]; then
             # something went wrong and Slack alert sent in Python script =>
             # just exit
             exit 1
@@ -216,6 +218,12 @@ main () {
 
         exit 1
     }
+
+    read -r project_name project_id < analysis_project.log
+    message=":white_check_mark: eggd_conductor: All jobs successfully launched for "
+    message+="*${RUN_ID}*%0AAnalysis project: platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+
+    _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
     mark-success
 }

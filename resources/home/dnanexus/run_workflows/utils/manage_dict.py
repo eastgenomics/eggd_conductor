@@ -4,6 +4,8 @@ from typing import Generator
 
 import dxpy as dx
 
+from utils.utils import Slack
+
 
 class ManageDict():
     """

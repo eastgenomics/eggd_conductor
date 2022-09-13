@@ -22,28 +22,13 @@ import argparse
 from collections import defaultdict
 from datetime import datetime
 import json
-import pprint
 import sys
 
 import dxpy as dx
 import pandas as pd
 
 from utils.dx_requests import DXExecute, DXManage
-
-
-PPRINT = pprint.PrettyPrinter(indent=4).pprint
-
-
-def time_stamp() -> str:
-    """
-    Returns string of date & time formatted as YYMMDD_HHMM
-
-    Returns
-    -------
-    str
-        String of current date and time as YYMMDD_HHMM
-    """
-    return datetime.now().strftime("%Y%m%d_%H%M")
+from utils.utils import Slack, time_stamp
 
 
 def parse_sample_sheet(samplesheet) -> list:
@@ -117,7 +102,7 @@ def match_samples_to_assays(configs) -> dict:
 
 def load_config(config_file) -> dict:
     """
-    Read in given config json to dict from args.NameSpace
+    Read in given config json to dict
 
     Parameters
     ----------
