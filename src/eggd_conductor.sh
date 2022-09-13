@@ -69,7 +69,7 @@ _slack_notify () {
        str : message to send
        str : Slack channel to send to
     '''
-    local message="eggd_conductor: ${1}"
+    local message="$1"
     local channel=$2
 
     curl -d "text=${message}" \
@@ -162,13 +162,11 @@ main () {
     fi
 
     # send a message to logs so we know something is starting
-    message="Automated analysis beginning to process *${RUN_ID}*%0A"
+    message="eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
     message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
     message+="/monitor/job/${PARENT_JOB_ID/job-/}"
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
-
-    exit 1
 
     mark-section "Building input arguments"
 
@@ -185,7 +183,39 @@ main () {
     if [ "$DEVELOPMENT" ]; then optional_args+="--development "; fi
 
     mark-section "starting analyses"
-    python3 run_workflows.py "$optional_args"
+    {
+        python3 run_workflows.py "$optional_args"
+    } || {
+        # failed to launch all jobs, terminate whatever is in 'job_id.log'
+        # if present as these will be an incomplete set of jobs for a given
+        # app / workflow
+        if [ -s job_id.log ]; then
+            # non empty log => jobs to terminate
+            jobs=$(cat job_id.log)
+            dx terminate "$jobs"
+        fi
+
+        if [ -s slack_fail_sent.log ]; then
+            # something went wrong and Slack alert sent in Python script =>
+            # just exit
+            exit 1
+        fi
+
+        # build message to send to alert channel and exit
+        message=':warning: eggd_conductor: Jobs failed to successfully launch!%0A'
+        message+="eggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+        if [ -s analysis_project.log ]; then
+            # analysis project was created, add to alert
+            read -r project_name project_id < analysis_project.log
+            message+="%0AAnalysis project *${project_name}*:"
+            message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+        fi
+
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+
+        exit 1
+    }
 
     mark-success
 }
