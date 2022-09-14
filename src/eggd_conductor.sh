@@ -10,7 +10,7 @@
 ## TODO
 #  - checking for valid inputs (i.e. fastqs w/ sample sheet/sample names etc)
 #
-#
+##
 
 
 set -exo pipefail
@@ -130,6 +130,26 @@ _parse_sentinel_file () {
     fi
 }
 
+_testing_clean_up () {
+    : '''
+    If testing set to true a log file named testing_job_id.log will
+    be generated with all job ids in that have been launched, these
+    will all be terminated and any jobs that managed to complete
+    before all were launched will have outputs deleted
+    '''
+    job_ids=$(cat testing_job_id.log)
+
+    dx terminate $job_ids
+
+    for job in $job_ids; do
+        # find any output files and delete
+        outputs=$(dx describe --json "$job" | jq -r '.output | flatten | .[] | .["$dnanexus_link"] | select( . !=null )')
+        if [ -z "$outputs" ]; then
+            xargs -P8 -n1 <<< $outputs dx rm
+        fi
+    done
+}
+
 
 main () {
 
@@ -182,7 +202,11 @@ main () {
     if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
     if [ "$BCL2FASTQ_JOB_ID" ]; then optional_args+="--bcl2fastq_id $BCL2FASTQ_JOB_ID "; fi
     if [ "$BCL2FASTQ_OUT" ]; then optional_args+="--bcl2fastq_output ${BCL2FASTQ_OUT} "; fi
-    if [ "$DEVELOPMENT" ]; then optional_args+="--development "; fi
+    if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
+    if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
+
+    echo $optional_args
+    exit 1
 
     mark-section "starting analyses"
     {
@@ -191,8 +215,12 @@ main () {
         # failed to launch all jobs, terminate whatever is in 'job_id.log'
         # if present as these will be an incomplete set of jobs for a given
         # app / workflow
-        if [ -s job_id.log ]; then
+        if [ -s testing_job_id.log ]; then
+            # testing mode => terminate everything and clear output
+            _testing_clean_up
+        elif [ -s job_id.log ]; then
             # non empty log => jobs to terminate
+            echo "Terminating jobs"
             jobs=$(cat job_id.log)
             dx terminate "$jobs"
         fi
@@ -218,6 +246,10 @@ main () {
 
         exit 1
     }
+
+    if [ "$TESTING" == true ]; then
+        _testing_clean_up
+    fi
 
     read -r project_name project_id < analysis_project.log
     message=":white_check_mark: eggd_conductor: All jobs successfully launched for "
