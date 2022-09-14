@@ -95,6 +95,13 @@
       "help": "Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format"
     },
     {
+      "name": "TESTING",
+      "label": "testing",
+      "class": "boolean",
+      "optional": true,
+      "help": "Terminates all jobs and clears output files after launching - for testing use only"
+    },
+    {
       "name": "BCL2FASTQ_JOB_ID",
       "label": "bcl2fastq job id",
       "class": "string",
