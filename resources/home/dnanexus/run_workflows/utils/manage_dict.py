@@ -267,11 +267,11 @@ class ManageDict():
             job_outputs_dict = job_outputs_dict[sample]
 
         # check if job depends on previous jobs to hold till complete
-        dependent_analysis = params.get("depends_on")
+        dependent_analyses = params.get("depends_on")
         dependent_jobs = []
 
-        if dependent_analysis:
-            for id in dependent_analysis:
+        if dependent_analyses:
+            for id in dependent_analyses:
                 for job in self.find_job_inputs(id, job_outputs_dict, check_key=True):
                     # find all jobs for every analysis id
                     # (i.e. all samples job ids for analysis_X)

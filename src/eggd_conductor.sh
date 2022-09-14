@@ -91,18 +91,21 @@ _parse_sentinel_file () {
     Arguments
         None
     '''
-
     # get json of details to parse required info from
     sentinel_details=$(dx describe --json "$SENTINEL_FILE")
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
-    samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
+    sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
     if [ -z "$RUN_ID" ]; then
         RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
-    if [ "$samplesheet" != 'null' ]; then
+    if [ "$SAMPLESHEET" ]; then
+        # samplesheet specified as input arg
+        dx download "$SAMPLESHEET" -o SampleSheet.csv
+        SAMPLESHEET='SampleSheet.csv'
+    elif [ "$sentinel_samplesheet" != 'null' ]; then
         # samplesheet found during upload and associated to sentinel file
-        dx download "$samplesheet" -o SampleSheet.csv
+        dx download "$sentinel_samplesheet" -o SampleSheet.csv
         SAMPLESHEET="SampleSheet.csv"
     else
         # sample sheet missing from sentinel file, most likely due to not being
@@ -167,13 +170,8 @@ main () {
     fi
 
     if [[ "$SENTINEL_FILE" ]]; then
-        if [[ -z "$SAMPLESHEET"  ]]; then
-            # no samplesheet specified, try get from sentinel file
-            mark-section "getting samplesheet from sentinel file"
-            _parse_sentinel_file
-        else
-            echo "Using sentinel file ${SENTINEL_FILE} and samplesheet ${SAMPLESHEET}"
-        fi
+        echo "Parsing sentinel file"
+        _parse_sentinel_file
     else
         # app run manually without sentinel file
         # should have array of fastqs and sample sheet or sample names
@@ -206,7 +204,6 @@ main () {
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
 
     echo $optional_args
-    exit 1
 
     mark-section "starting analyses"
     {

@@ -20,7 +20,6 @@ TODO
 """
 import argparse
 from collections import defaultdict
-from datetime import datetime
 import json
 import sys
 
@@ -29,6 +28,9 @@ import pandas as pd
 
 from utils.dx_requests import DXExecute, DXManage
 from utils.utils import Slack, time_stamp
+
+
+TESTING = False  # controls if to terminate all jobs and clean up
 
 
 def parse_sample_sheet(samplesheet) -> list:
@@ -57,7 +59,7 @@ def parse_sample_sheet(samplesheet) -> list:
     return sample_list
 
 
-def match_samples_to_assays(configs) -> dict:
+def match_samples_to_assays(configs, all_samples) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
@@ -66,6 +68,8 @@ def match_samples_to_assays(configs) -> dict:
     ----------
     configs : list
         list of config dicts for each assay
+    all_samples : list
+        list of samples parsed from samplesheet or specified with --samples
 
     Returns
     -------
@@ -78,15 +82,15 @@ def match_samples_to_assays(configs) -> dict:
     assay_to_samples = defaultdict(list)
 
     for code in all_config_assay_codes:
-        for sample in args.samples:
+        for sample in all_samples:
             if code in sample:
                 assay_to_samples[code].append(sample)
 
     # check all samples have an assay code in one of the configs
     samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
-    assert sorted(args.samples) == sorted(samples_w_codes), Slack().send(
+    assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
         "could not identify assay code for all samples - "
-        f"{set(args.samples) - set(samples_w_codes)}"
+        f"{set(all_samples) - set(samples_w_codes)}"
     )
 
     # check all samples are for the same assay, don't handle mixed runs for now
@@ -193,6 +197,13 @@ def parse_args() -> argparse.Namespace:
         help='Created project will be prefixed with 003 instead of 002.'
     )
     parser.add_argument(
+        '--testing', action='store_true',
+        help=(
+            'controls if to terminate and clean up jobs after launching '
+            'for testing purposes'
+        )
+    )
+    parser.add_argument(
         '--bcl2fastq_id',
         help='id of job from running bcl2fastq (if run)'
     )
@@ -234,6 +245,11 @@ def main():
     """
     args = parse_args()
 
+    if args.testing:
+        # if testing, log all jobs to one file to terminate and clean up
+        TESTING = True
+        open('testing_job_id.log', 'w').close()
+
     if not args.samples:
         # TODO : sample sheet validation?
         args.samples = parse_sample_sheet(args.samplesheet)
@@ -246,7 +262,7 @@ def main():
     else:
         # get all json assay configs from path in conductor config
         configs = DXManage(args).get_json_configs()
-        assay_to_samples = match_samples_to_assays(configs)
+        assay_to_samples = match_samples_to_assays(configs, args.samples)
 
         # select config to use by assay code from all samples
         # TODO : if/when there are mixed runs this should be looped over for

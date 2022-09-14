@@ -9,7 +9,7 @@ from typing import Union
 import dxpy as dx
 
 from utils.manage_dict import ManageDict
-from utils.utils import Slack
+from utils.utils import Slack, time_stamp
 
 
 PPRINT = PrettyPrinter(indent=4).pprint
@@ -34,9 +34,15 @@ class DXExecute():
         """
         print("Starting demultiplexing, holding app until comletion...")
 
-        # set output path to parent of sentinel file
-        sentinel_path = dx.describe(self.args.sentinel_file).get('folder')
-        sentinel_parent = sentinel_path.replace('/runs', '')
+        if not self.args.testing:
+            # set output path to parent of sentinel file
+            sentinel_path = dx.describe(self.args.sentinel_file).get('folder')
+            bcl2fastq_out = sentinel_path.replace('/runs', '')
+        else:
+            # running in testing and going to demultiplex -> dump output to
+            # our testing analysis project to not go to semtinel file dir
+            bcl2fastq_out = f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp}'
+
 
         app_id = os.environ.get('BCL2FASTQ_APP_ID')
         inputs = {
@@ -49,17 +55,17 @@ class DXExecute():
         fastqs = list(dx.find_data_objects(
             name="*.fastq*",
             name_mode='glob',
-            folder=sentinel_parent
+            folder=bcl2fastq_out
         ))
 
         assert not fastqs, Slack().send(
             "fastqs already present in directory for bcl2fastq output"
-            f"({sentinel_parent})"
+            f"({bcl2fastq_out})"
         )
 
         job = dx.bindings.dxapp.DXApp(app_id).run(
             app_input=inputs,
-            folder=sentinel_parent,
+            folder=bcl2fastq_out,
             priority='high'
         )
 
@@ -86,7 +92,7 @@ class DXExecute():
         input_dict : dict
             dict of input parameters for calling workflow / app
         output_dict : dict
-            dict of output directorie paths for each app
+            dict of output directory paths for each app
         prev_jobs : list
             list of job ids to wait for completion before starting
 
@@ -141,7 +147,11 @@ class DXExecute():
         print(f'Started analysis in project {self.args.dx_project_id}, job: {job_id}')
 
         with open('job_id.log', 'a') as fh:
-            fh.write(f'{job_id} ')
+            fh.write(job_id)
+
+        if TESTING:
+            with open('testing_job_id.log', 'a') as fh:
+                fh.write(job_id)
 
         return job_id
 
@@ -347,6 +357,10 @@ class DXManage():
     """
     Methods for generic handling of dx related things
     """
+    def __init__(self, args) -> None:
+        self.args = args
+
+
     def get_json_configs(self) -> list:
         """
         Query path in DNAnexus for json config files fo each assay, returning
@@ -455,7 +469,13 @@ class DXManage():
         else:
             prefix = '002'
 
-        output_project = f'{prefix}_{self.args.run_id}_{config.get("assay")}'
+        suffix = ''
+        if self.args.testing:
+            suffix = '-EGGD_CONDUCTOR_TESTING'
+
+        output_project = (
+            f'{prefix}_{self.args.run_id}_{config.get("assay")}{suffix}'
+        )
         project_id = self.find_dx_project(output_project)
 
         if not project_id:
