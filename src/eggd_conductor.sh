@@ -93,6 +93,7 @@ _parse_sentinel_file () {
     '''
     # get json of details to parse required info from
     sentinel_details=$(dx describe --json "$SENTINEL_FILE")
+    sentinel_id=$(jq -r '.id' <<< "$sentinel_details")
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
     if [ -z "$RUN_ID" ]; then
@@ -162,7 +163,7 @@ main () {
     # our own sample sheet validator and slack bot
     tar xf validate_sample_sheet_v*.tar.gz
 
-    python3 -m pip install --no-index --no-deps  packages/*
+    python3 -m pip install -q --no-index --no-deps  packages/*
 
     if [ -z "${SENTINEL_FILE+x}" ] && [ -z "${FASTQS+x}" ]; then
         # requires either sentinel file or fastqs
@@ -192,7 +193,7 @@ main () {
 
     optional_args=""
     if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ASSAY_CONFIG "; fi
-    if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${SENTINEL_FILE} "; fi
+    if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ "$SAMPLESHEET" ]; then optional_args+="--samplesheet ${SAMPLESHEET} "; fi
     if [ "$FASTQS" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
     if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
@@ -207,7 +208,7 @@ main () {
 
     mark-section "starting analyses"
     {
-        python3 run_workflows.py "$optional_args"
+        python3 run_workflows/run_workflows.py $optional_args
     } || {
         # failed to launch all jobs, terminate whatever is in 'job_id.log'
         # if present as these will be an incomplete set of jobs for a given
@@ -229,8 +230,8 @@ main () {
         fi
 
         # build message to send to alert channel and exit
-        message=':warning: eggd_conductor: Jobs failed to successfully launch!%0A'
-        message+="eggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message=':warning: eggd_conductor: Jobs failed to successfully launch - uncaught exception occurred!'
+        message+="%0Aeggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
         if [ -s analysis_project.log ]; then
             # analysis project was created, add to alert
