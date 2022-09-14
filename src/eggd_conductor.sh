@@ -41,9 +41,11 @@ _set_environment () {
     # use of &> /dev/null  and removing set -x suppresses printing tokens
     # to DNAnexus logs which would not be ideal
     printf "sourcing config file and calling dx login"
-    set +x
-    source conductor.cfg &> /dev/null
-    dx login --noprojects --token $AUTH_TOKEN
+    # set +x
+    printf "\n" >> conductor.cfg  # add new line char so read parses last line
+    while IFS= read -r line; do export "${line?}"; done < conductor.cfg
+    # for line in $(cat conductor.cfg); do export "$line"; done
+    dx login --noprojects --token "$AUTH_TOKEN"
     set -x
 }
 
@@ -147,9 +149,13 @@ _testing_clean_up () {
 
     for job in $job_ids; do
         # find any output files and delete
-        outputs=$(dx describe --json "$job" | jq -r '.output | flatten | .[] | .["$dnanexus_link"] | select( . !=null )')
-        if [ -z "$outputs" ]; then
-            xargs -P8 -n1 <<< $outputs dx rm
+        output=$(dx describe --json "$job" | jq -r '.output')
+        if [ -z "$output" ]; then
+            # some output present, gather all and delete
+            all_outputs=$(dx describe --json "$job" | jq -r '.output | flatten | .[] | .["$dnanexus_link"] | select( . !=null )')
+            if [ -z "$all_outputs" ]; then
+                xargs -P8 -n1 <<< $all_outputs dx rm
+            fi
         fi
     done
 }
@@ -207,14 +213,27 @@ main () {
     echo $optional_args
 
     mark-section "starting analyses"
+
     {
         python3 run_workflows/run_workflows.py $optional_args
     } || {
-        # failed to launch all jobs, terminate whatever is in 'job_id.log'
-        # if present as these will be an incomplete set of jobs for a given
-        # app / workflow
+        # failed to launch all jobs, build message to send to alert channel and exit
+        message=':warning: eggd_conductor: Jobs failed to successfully launch - uncaught exception occurred!'
+        message+="%0Aeggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+        if [ -s analysis_project.log ]; then
+            # analysis project was created, add to alert
+            read -r project_name project_id < analysis_project.log
+            message+="%0AAnalysis project *${project_name}*:"
+            message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+        fi
+
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+
+        # if in testing mode terminate everything and clear output, else
+        # terminate whatever is in 'job_id.log' if present as these will be
+        # an incomplete set of jobs for a given app / workflow
         if [ -s testing_job_id.log ]; then
-            # testing mode => terminate everything and clear output
             _testing_clean_up
         elif [ -s job_id.log ]; then
             # non empty log => jobs to terminate
@@ -228,19 +247,6 @@ main () {
             # just exit
             exit 1
         fi
-
-        # build message to send to alert channel and exit
-        message=':warning: eggd_conductor: Jobs failed to successfully launch - uncaught exception occurred!'
-        message+="%0Aeggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
-        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
-        if [ -s analysis_project.log ]; then
-            # analysis project was created, add to alert
-            read -r project_name project_id < analysis_project.log
-            message+="%0AAnalysis project *${project_name}*:"
-            message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
-        fi
-
-        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
 
         exit 1
     }

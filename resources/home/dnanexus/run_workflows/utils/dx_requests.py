@@ -147,11 +147,11 @@ class DXExecute():
         print(f'Started analysis in project {self.args.dx_project_id}, job: {job_id}')
 
         with open('job_id.log', 'a') as fh:
-            fh.write(job_id)
+            fh.write(f'{job_id} ')
 
-        if TESTING:
+        if self.args.testing:
             with open('testing_job_id.log', 'a') as fh:
-                fh.write(job_id)
+                fh.write(f'{job_id} ')
 
         return job_id
 
@@ -373,11 +373,11 @@ class DXManage():
         dict
             dict of dicts of configs, one per assay
         """
-        config_path = os.environ.get('ASSAY_CONFIG_PATH').split(':')
+        config_path = os.environ.get('ASSAY_CONFIG_PATH', '')
 
         # check for valid project:path structure
         assert re.match(r'project-[\d\w]*:/.*', config_path), Slack().send(
-            'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
+            f'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
         )
 
         project, path = config_path.split(':')
@@ -482,7 +482,10 @@ class DXManage():
             # create new project and capture returned project id and store
             project_id = dx.bindings.dxproject.DXProject().new(
                 name=output_project,
-                summary=f'Analysis of run {self.args.run_id} with {self.args.assay_code}',
+                summary=(
+                    f'Analysis of run {self.args.run_id} with '
+                    f'{self.args.assay} {config.get("version")} config'
+                ),
                 description="This project was automatically created by eggd_conductor"
             )
             print(

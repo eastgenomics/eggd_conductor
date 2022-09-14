@@ -380,7 +380,7 @@ class ManageDict():
         return input_dict
 
 
-    def populate_output_dir_config(executable, output_dict, out_folder) -> dict:
+    def populate_output_dir_config(self, executable, output_dict, out_folder) -> dict:
         """
         Loops over stages in dict for output directory naming and adds
         worlflow app name.

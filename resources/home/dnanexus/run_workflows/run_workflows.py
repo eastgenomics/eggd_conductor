@@ -21,6 +21,7 @@ TODO
 import argparse
 from collections import defaultdict
 import json
+import os
 import sys
 
 import dxpy as dx
@@ -66,8 +67,8 @@ def match_samples_to_assays(configs, all_samples) -> dict:
 
     Parameters
     ----------
-    configs : list
-        list of config dicts for each assay
+    configs : dict
+        dict of config dicts for each assay
     all_samples : list
         list of samples parsed from samplesheet or specified with --samples
 
@@ -80,6 +81,9 @@ def match_samples_to_assays(configs, all_samples) -> dict:
     # matching assay_code in sample names
     all_config_assay_codes = [x.get('assay_code') for x in configs.values()]
     assay_to_samples = defaultdict(list)
+
+    print(f'All assay codes: {all_config_assay_codes}')
+    print(f'All samples: {all_samples}')
 
     for code in all_config_assay_codes:
         for sample in all_samples:
@@ -94,7 +98,7 @@ def match_samples_to_assays(configs, all_samples) -> dict:
     )
 
     # check all samples are for the same assay, don't handle mixed runs for now
-    assert len(assay_to_samples.keys() == 1), Slack().send(
+    assert len(assay_to_samples.keys()) == 1, Slack().send(
         f"more than one assay found in given sample list: {assay_to_samples}"
     )
 
@@ -245,6 +249,14 @@ def main():
     """
     args = parse_args()
 
+    print(f'Config path: {os.environ.get("ASSAY_CONFIG_PATH")}')
+    print(f'BCL2FASTQ_APP_ID: {os.environ.get("BCL2FASTQ_APP_ID")}')
+    print(f'AUTH_TOKEN: {os.environ.get("AUTH_TOKEN")}')
+    print(f'AUTH_TOKEN: {os.environ.get("AUTH_TOKEN")}')
+    print(f'SLACK_LOG_CHANNEL: {os.environ.get("SLACK_LOG_CHANNEL")}')
+    print(f'SLACK_ALERT_CHANNEL: {os.environ.get("SLACK_ALERT_CHANNEL")}')
+
+
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
         TESTING = True
@@ -272,6 +284,8 @@ def main():
         config = configs[assay_code]
         sample_list = assay_to_samples[assay_code]
 
+    if not args.assay_name:
+        args.assay_name = config.get('assay_name')
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
@@ -281,10 +295,10 @@ def main():
     output_project = dx.bindings.dxproject.DXProject(
         dxid=args.dx_project_id).describe().get('name')
     with open('analysis_project.log', 'w') as fh:
-        fh.write(f'{output_project} {args.dx_project_id}')
+        fh.write(f'{output_project} {args.dx_project_id}\n')
 
     # set context to project for running jobs
-    dx.set_workspace_id()
+    dx.set_workspace_id(args.dx_project_id)
 
     dx_execute = DXExecute(args)
     dx_manage = DXManage(args)
@@ -347,7 +361,9 @@ def main():
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
-        print(f'\nConfiguring {executable} to start jobs')
+        print(
+            f'\nConfiguring {params.get("name")} ({executable}) to start jobs'
+        )
 
         # log file of all jobs run for current executable, used in case
         # of failing to launch all jobs to be able to terminate all analyses
@@ -378,8 +394,7 @@ def main():
                     out_folder,
                     job_outputs_dict,
                     executable_out_dirs,
-                    fastq_details,
-                    upload_tars
+                    fastq_details
                 )
 
         elif params['per_sample'] is False:
@@ -391,8 +406,7 @@ def main():
                 out_folder,
                 job_outputs_dict,
                 executable_out_dirs,
-                fastq_details,
-                upload_tars
+                fastq_details
             )
         else:
             # per_sample is not True or False, exit
