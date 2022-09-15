@@ -73,6 +73,23 @@ class DXExecute():
 
         print("Demuliplexing completed!")
 
+        # copy the demultiplexing stats json into the project for multiQC
+        stats_json = list(dx.bindings.search.find_data_objects(
+            project='project-FpVG0G84X7kzq58g19vF1YJQ',
+            folder=f'{bcl2fastq_out}/Data/Intensities/BaseCalls/Stats/',
+            name="Stats.json"
+        ))
+
+        if stats_json:
+            ## TODO: need to figure out copying files
+            ## DOESNT WORK ATM
+            pass
+            dx.bindings.DXDataObject(dxid=stats_json['id']).clone(
+                project=self.args.dx_project_id,
+                folder='/'
+            )
+
+
         return job
 
 
@@ -234,6 +251,7 @@ class DXExecute():
             job_outputs_dict=job_outputs_dict,
             input_dict=input_dict,
             analysis=params["analysis"],
+            per_sample=True,
             sample=sample
         )
 
@@ -319,7 +337,8 @@ class DXExecute():
         input_dict = ManageDict().link_inputs_to_outputs(
             job_outputs_dict=job_outputs_dict,
             input_dict=input_dict,
-            analysis=params["analysis"]
+            analysis=params["analysis"],
+            per_sample=False
         )
 
         # find all jobs for previous analyses if next job depends on them
@@ -442,7 +461,7 @@ class DXManage():
             name=project_name, limit=1
         ))
 
-        if len(dx_projects) == 0:
+        if not dx_projects:
             # found no project, return None and create one in
             # get_or_create_dx_project()
             return None
@@ -465,16 +484,16 @@ class DXManage():
         str : ID of DNAnexus project
         """
         if self.args.development:
-            prefix = f'003_{datetime.now().strftime("%y%m%d")}'
+            prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
         else:
-            prefix = '002'
+            prefix = '002_'
 
         suffix = ''
         if self.args.testing:
             suffix = '-EGGD_CONDUCTOR_TESTING'
 
         output_project = (
-            f'{prefix}_{self.args.run_id}_{config.get("assay")}{suffix}'
+            f'{prefix}{self.args.run_id}_{config.get("assay")}{suffix}'
         )
         project_id = self.find_dx_project(output_project)
 
@@ -484,7 +503,7 @@ class DXManage():
                 name=output_project,
                 summary=(
                     f'Analysis of run {self.args.run_id} with '
-                    f'{self.args.assay} {config.get("version")} config'
+                    f'{config.get("assay")} {config.get("version")} config'
                 ),
                 description="This project was automatically created by eggd_conductor"
             )
