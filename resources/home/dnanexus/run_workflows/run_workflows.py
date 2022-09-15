@@ -27,7 +27,7 @@ import sys
 import dxpy as dx
 import pandas as pd
 
-from utils.dx_requests import DXExecute, DXManage
+from utils.dx_requests import PPRINT, DXExecute, DXManage
 from utils.utils import Slack, time_stamp
 
 
@@ -85,6 +85,9 @@ def match_samples_to_assays(configs, all_samples) -> dict:
     print(f'All assay codes: {all_config_assay_codes}')
     print(f'All samples: {all_samples}')
 
+    # TODO: remove below, just for dev
+    all_samples = all_samples[:5]
+
     for code in all_config_assay_codes:
         for sample in all_samples:
             if code in sample:
@@ -92,10 +95,10 @@ def match_samples_to_assays(configs, all_samples) -> dict:
 
     # check all samples have an assay code in one of the configs
     samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
-    assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
-        "could not identify assay code for all samples - "
-        f"{set(all_samples) - set(samples_w_codes)}"
-    )
+    # assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
+    #     "could not identify assay code for all samples - "
+    #     f"{set(all_samples) - set(samples_w_codes)}"
+    # )
 
     # check all samples are for the same assay, don't handle mixed runs for now
     assert len(assay_to_samples.keys()) == 1, Slack().send(
@@ -364,6 +367,8 @@ def main():
         print(
             f'\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
+        print(f"Params parsed from config before modifying:")
+        PPRINT(params)
 
         # log file of all jobs run for current executable, used in case
         # of failing to launch all jobs to be able to terminate all analyses
@@ -414,6 +419,11 @@ def main():
                 f"per_sample declaration for {executable} is not True or "
                 f"False ({params['per_sample']}). \n\nPlease check the config."
             )
+
+        print(
+            f'\n\nAll jobs for {params.get("name")} ({executable}) '
+            f'launched successfully!\n\n'
+        )
 
     print("Completed calling jobs")
 
