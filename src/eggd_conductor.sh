@@ -224,7 +224,7 @@ main () {
         if [ -s analysis_project.log ]; then
             # analysis project was created, add to alert
             read -r project_name project_id < analysis_project.log
-            message+="%0AAnalysis project *${project_name}*:"
+            message+="%0AAnalysis project: "
             message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
         fi
 
