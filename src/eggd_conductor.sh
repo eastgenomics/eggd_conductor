@@ -189,6 +189,7 @@ main () {
     # send a message to logs so we know something is starting
     conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
     conductor_job_url+="/monitor/job/${PARENT_JOB_ID/job-/}"
+    export conductor_job_url
 
     message="eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
     message+="${conductor_job_url}"
@@ -217,19 +218,7 @@ main () {
     {
         python3 run_workflows/run_workflows.py $optional_args
     } || {
-        # failed to launch all jobs, build message to send to alert channel and exit
-        message=':warning: eggd_conductor: Jobs failed to successfully launch - uncaught exception occurred!'
-        message+="%0Aeggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
-        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
-        if [ -s analysis_project.log ]; then
-            # analysis project was created, add to alert
-            read -r project_name project_id < analysis_project.log
-            message+="%0AAnalysis project: "
-            message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
-        fi
-
-        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
-
+        # failed to launch all jobs -> handle clean up and sending error notification
         # if in testing mode terminate everything and clear output, else
         # terminate whatever is in 'job_id.log' if present as these will be
         # an incomplete set of jobs for a given app / workflow
@@ -248,6 +237,23 @@ main () {
             exit 1
         fi
 
+        # build message to send to alert channel and exit
+        message=':warning: eggd_conductor: Jobs failed to launch - uncaught exception occurred!'
+        message+="%0Aeggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+        if [ -s analysis_project.log ]; then
+            # analysis project was created, add to alert
+            read -r project_name project_id < analysis_project.log
+            message+="%0AAnalysis project: "
+            message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+        fi
+
+        # parse out the Python traceback to add to the message
+        traceback=$(awk '/^Traceback/,/+/' dx_stderr | head -n -1)
+        message+="%0ATraceback: \`\`\`${traceback}\`\`\`"
+
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+
         exit 1
     }
 
@@ -256,7 +262,9 @@ main () {
     fi
 
     read -r project_name project_id < analysis_project.log
-    message=":white_check_mark: eggd_conductor: All jobs successfully launched for "
+    total_jobs=$(cat total_jobs.log)
+
+    message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
     message+="*${RUN_ID}*%0AAnalysis project: platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
