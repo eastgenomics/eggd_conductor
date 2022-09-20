@@ -576,7 +576,7 @@ class ManageDict():
         Raises
         ------
         AssertionError
-            Raised if any 'INPUT-' are found in the input dict
+            Raised if any 'INPUT-' or 'analysis_' are found in the input dict
         """
         unparsed_inputs = self.search(
             'INPUT-', input_dict, check_key=False, return_key=False)

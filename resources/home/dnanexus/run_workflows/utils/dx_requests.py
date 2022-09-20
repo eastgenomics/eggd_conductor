@@ -24,8 +24,8 @@ class DXExecute():
 
     def hold_until_complete(self, job_ids) -> None:
         """
-        Calls dx.bindings.dxjob.DXJob().wait_on_done() on all given
-        job ids to hold current execution until all jobs have completed.
+        Calls wait_on_done() method on all given job and / or analysis ids
+        to hold current execution until all jobs have completed.
 
         This is required when downstream jobs are dependent on those
         specified, and trying to launch these before previous are complete
@@ -35,17 +35,43 @@ class DXExecute():
         ----------
         job_ids : list
             list of dx job ids to wait on
-        """
-        # split analysis- (workflows) jobs- as they use diff. methods
-        analyses = [x for x in job_ids if x.startswith('analysis-')]
-        jobs = [x for x in job_ids if x.startswith('jobs-')]
 
-        while not all([
-            dx.bindings.dxjob.DXJob(dxid=x).wait_on_done() for x in jobs
-        ]) and not all([
-            dx.bindings.dxanalysis.DXAnalysis(dxid=x).wait_on_done() for x in analyses
-        ]):
-            pass
+        Raises
+        ------
+        AssertionError
+            Raised when job_ids is not entirely analysis- or job- items
+        """
+        print(f'Jobs to wait on: {job_ids}')
+
+        # sense check we only have dx executions (analysis- and job-)
+        assert all([
+            x.startswith('analysis-') or x.startswith('job-') for x in job_ids
+        ]), f'Invalid execution IDs given: {job_ids}'
+
+        # get remote object handles for each execution ID as both have the same
+        # wait_on_done() method available
+        remote_objects = [
+            dx.bindings.dxjob.DXJob(dxid=x)
+            if x.startswith('job-')
+            else dx.bindings.dxanalysis.DXAnalysis(dxid=x)
+            for x in job_ids
+        ]
+
+        for object in remote_objects:
+            # wait on each job to be done, since all have to complete and the
+            # order is not important we can be lazy with a simple loop
+            object.wait_on_done()
+            print(f'{object.get_id()} completed!')
+
+        # print(f'Analyses to wait on: {analyses}')
+        # print(f'Jobs to wait on: {jobs}')
+
+        # while not all([
+        #     dx.bindings.dxjob.DXJob(dxid=x).wait_on_done() for x in jobs
+        # ]) and not all([
+        #     dx.bindings.dxanalysis.DXAnalysis(dxid=x).wait_on_done() for x in analyses
+        # ]):
+        #     pass
 
 
     def demultiplex(self) -> str:
