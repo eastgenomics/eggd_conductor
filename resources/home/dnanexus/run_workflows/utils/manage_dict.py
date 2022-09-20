@@ -10,7 +10,7 @@ from flatten_json import flatten, unflatten_list
 from utils.utils import Slack
 
 
-PPRINT = PrettyPrinter(indent=2).pprint
+PPRINT = PrettyPrinter(indent=1).pprint
 
 
 class ManageDict():

@@ -30,9 +30,6 @@ from utils.dx_requests import PPRINT, DXExecute, DXManage
 from utils.utils import Slack, time_stamp
 
 
-TESTING = False  # controls if to terminate all jobs and clean up
-
-
 def parse_sample_sheet(samplesheet) -> list:
     """
     Parses list of sample names from given samplesheet
@@ -253,7 +250,6 @@ def main():
 
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
-        TESTING = True
         open('testing_job_id.log', 'w').close()
 
     if not args.samples:

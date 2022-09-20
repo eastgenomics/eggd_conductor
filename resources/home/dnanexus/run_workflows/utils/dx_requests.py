@@ -12,7 +12,7 @@ from utils.manage_dict import ManageDict
 from utils.utils import Slack, time_stamp
 
 
-PPRINT = PrettyPrinter(indent=2).pprint
+PPRINT = PrettyPrinter(indent=1).pprint
 
 
 class DXExecute():
