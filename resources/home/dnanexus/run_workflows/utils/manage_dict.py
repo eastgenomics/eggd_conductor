@@ -408,6 +408,9 @@ class ManageDict():
 
         print(f"Found analyses to replace: {all_analysis_ids}")
 
+        print("Input dictionary before modifying")
+        PPRINT(input_dict)
+
         if not all_analysis_ids:
             # no inputs found to replace
             return input_dict
@@ -485,12 +488,12 @@ class ManageDict():
                     input_dict[input_field] = []
                     for job in job_ids:
                         stage_input_tmp = deepcopy(stage_input_template)
-                        self.replace(
+                        stage_input_tmp = self.replace(
                             input_dict=stage_input_tmp,
                             to_replace=analysis_id,
                             replacement=job,
-                            search_key=True,
-                            replace_key=True
+                            search_key=False,
+                            replace_key=False
                         )
                         input_dict[input_field].append(stage_input_tmp)
 
@@ -560,8 +563,10 @@ class ManageDict():
 
     def check_all_inputs(self, input_dict) -> None:
         """
-        Check for any remaining INPUT-, should be none, if there is most likely
-        either a typo in config or invalid input given => raise AssertionError
+        Check for any remaining INPUT- or analysis_, should be none.
+
+        If there is most likely either a typo in config or invalid input
+        given (or a bug 🙃) => raise AssertionError
 
         Parameters
         ----------
@@ -573,11 +578,18 @@ class ManageDict():
         AssertionError
             Raised if any 'INPUT-' are found in the input dict
         """
-        # checking if any INPUT- in dict still present
         unparsed_inputs = self.search(
             'INPUT-', input_dict, check_key=False, return_key=False)
 
         assert not unparsed_inputs, Slack().send(
             f"unparsed `INPUT-` still in config, please check readme for "
+            f"valid input parameters. \nInput dict:\n```{input_dict}```"
+        )
+
+        unparsed_inputs = self.search(
+            'analysis_', input_dict, check_key=False, return_key=False)
+
+        assert not unparsed_inputs, Slack().send(
+            f"unparsed `analysis-` still in config, please check readme for "
             f"valid input parameters. \nInput dict:\n```{input_dict}```"
         )
