@@ -22,6 +22,31 @@ class DXExecute():
     def __init__(self, args) -> None:
         self.args = args
 
+    def hold_until_complete(self, job_ids) -> None:
+        """
+        Calls dx.bindings.dxjob.DXJob().wait_on_done() on all given
+        job ids to hold current execution until all jobs have completed.
+
+        This is required when downstream jobs are dependent on those
+        specified, and trying to launch these before previous are complete
+        raises an error as no output spec is present for the given job.
+
+        Parameters
+        ----------
+        job_ids : list
+            list of dx job ids to wait on
+        """
+        # split analysis- (workflows) jobs- as they use diff. methods
+        analyses = [x for x in job_ids if x.startswith('analysis-')]
+        jobs = [x for x in job_ids if x.startswith('jobs-')]
+
+        while not all([
+            dx.bindings.dxjob.DXJob(dxid=x).wait_on_done() for x in jobs
+        ]) and not all([
+            dx.bindings.dxanalysis.DXAnalysis(dxid=x).wait_on_done() for x in analyses
+        ]):
+            pass
+
 
     def demultiplex(self) -> str:
         """
@@ -123,6 +148,13 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
+        if prev_jobs:
+            print(
+                f"Execution waiting on {len(prev_jobs)} previous "
+                "jobs completing..."
+            )
+            self.hold_until_complete(job_ids=prev_jobs)
+
         if 'workflow-' in executable:
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
                 dxid=executable,
@@ -217,12 +249,19 @@ class DXExecute():
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
-            input_dict = ManageDict().add_fastqs(input_dict, fastq_details, sample)
+            input_dict = ManageDict().add_fastqs(
+                input_dict=input_dict,
+                fastq_details=fastq_details,
+                sample=sample
+            )
 
         # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
             dependent_jobs = ManageDict().get_dependent_jobs(
-                params, job_outputs_dict, sample=sample)
+                params=params,
+                job_outputs_dict=job_outputs_dict,
+                sample=sample
+            )
         else:
             dependent_jobs = []
 
@@ -612,7 +651,7 @@ class DXManage():
             x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
-        print(f'fastqs parsed from bcl2fastq job {job_id}')
+        print(f'Fastqs parsed from bcl2fastq job {job_id}')
         print(''.join([f'\t{x}\n' for x in fastq_details]))
 
         return fastq_details
