@@ -1,5 +1,4 @@
 from copy import deepcopy
-from dataclasses import replace
 from pathlib import Path
 from pprint import PrettyPrinter
 import re
@@ -39,6 +38,7 @@ class ManageDict():
         ------
         list : list of unique keys or values containing identifier
         """
+        # flatten to single level dict with keys as paths to 
         flattened_dict = flatten(input_dict, '|')
         found = []
 
@@ -119,30 +119,6 @@ class ManageDict():
                 new_dict[key] = value
 
         return unflatten_list(new_dict, '|')
-
-
-
-
-
-
-        #     if replace_key:
-        #         # searching keys for pattern
-        #         match = re.search(rf'[^|]*{to_replace}[^|]*', key)
-        #         if match:
-        #             new_key = re.sub(match.group(), replacement, key)
-        #             new_dict[new_key] = value
-        #     else:
-        #         # searching values for pattern
-        #         match = re.search(to_replace, value)
-        #         if match:
-        #             new_dict[key] = replacement
-
-        #     if not match:
-        #         new_dict[key] = value
-
-        # new_dict = unflatten_list(new_dict, '|')
-
-        # return new_dict
 
 
     def add_fastqs(self, input_dict, fastq_details, sample=None) -> dict:
@@ -277,7 +253,13 @@ class ManageDict():
         ]
 
         for pair in to_replace:
-            self.replace(input_dict, pair[0], pair[1], replace_key=False)
+            self.replace(
+                input_dict=input_dict,
+                to_replace=pair[0],
+                replacement=pair[1],
+                search_key=False,
+                replace_key=False
+            )
 
         # find and replace any out dirs
         regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
@@ -299,7 +281,13 @@ class ManageDict():
 
             # removing /output/ for now to fit to MultiQC
             analysis_out_dir = Path(analysis_out_dir).name
-            self.replace(input_dict, dir, analysis_out_dir, replace_key=False)
+            self.replace(
+                input_dict=input_dict,
+                to_replace=dir,
+                replacement=analysis_out_dir,
+                search_key=False,
+                replace_key=False
+            )
 
         return input_dict
 
@@ -338,7 +326,7 @@ class ManageDict():
 
         if dependent_analyses:
             for id in dependent_analyses:
-                for job in self.find_job_inputs(
+                for job in self.search(
                     id, job_outputs_dict, check_key=True, return_key=False
                     ):
                         # find all jobs for every analysis id
@@ -411,8 +399,12 @@ class ManageDict():
             PPRINT(job_outputs_dict)
 
         # check if input dict has any analysis_X => need to link a previous job
-        all_analysis_ids = list(self.find_job_inputs(
-            'analysis_', input_dict, check_key=False, return_key=False))
+        all_analysis_ids = self.search(
+            identifier='analysis_',
+            input_dict=input_dict,
+            check_key=False,
+            return_key=False
+        )
 
         print(f"Found analyses to replace: {all_analysis_ids}")
 
@@ -433,7 +425,9 @@ class ManageDict():
             if per_sample:
                 # job_outputs_dict has analysis_X: job-id
                 # select job id for appropriate analysis id
-                job_id = [v for k, v in job_outputs_dict.items() if analysis_id == k]
+                job_id = [
+                    v for k, v in job_outputs_dict.items() if analysis_id == k
+                ]
 
                 if not job_id:
                     # this shouldn't happen as it will be caught with
@@ -446,7 +440,12 @@ class ManageDict():
 
                 # replace analysis id with given job id in input dict
                 self.replace(
-                    input_dict, analysis_id, job_id[0], replace_key=False)
+                    input_dict=input_dict,
+                    to_replace=analysis_id,
+                    replacementg=job_id[0],
+                    search_key=False,
+                    replace_key=False
+                )
             else:
                 # current executable is running on all samples => need to
                 # gather all previous jobs for all samples and build input
@@ -454,21 +453,21 @@ class ManageDict():
                 print("Job outputs dict to search")
                 PPRINT(job_outputs_dict)
 
-                job_ids = list(self.find_job_inputs(
+                job_ids = self.search(
                     identifier=analysis_id,
                     input_dict=job_outputs_dict,
                     check_key=True,
                     return_key=False
-                ))
+                )
 
                 if not job_ids:
-                    # this shouldn't happen as it will be caught with
-                    # the regex but double checking anyway
                     raise ValueError((
                         "No job id found for given analysis id: "
                         f"{analysis_id}, please check that it has the "
                         "same analysis as a previous job in the config"
                     ))
+
+                print(f"Found job IDs to link as inputs: {job_ids}")
 
                 # for each input, first check if given analysis_X is present
                 # => need to link job IDs to the input. If true, turn that
@@ -490,7 +489,8 @@ class ManageDict():
                             input_dict=stage_input_tmp,
                             to_replace=analysis_id,
                             replacement=job,
-                            replace_key=False
+                            search_key=True,
+                            replace_key=True
                         )
                         input_dict[input_field].append(stage_input_tmp)
 
@@ -528,6 +528,8 @@ class ManageDict():
                 dir = dir.replace("OUT-FOLDER", out_folder)
             if "APP-NAME" in dir:
                 # use describe method to get actual name of app with version
+                # TODO: search the config up front and gather all executable
+                # names first instead of in loops to make querying faster
                 if 'workflow-' in executable:
                     workflow_details = dx.api.workflow_describe(executable)
                     stage_app_id = [
@@ -572,108 +574,10 @@ class ManageDict():
             Raised if any 'INPUT-' are found in the input dict
         """
         # checking if any INPUT- in dict still present
-        inputs = self.find_job_inputs(
+        unparsed_inputs = self.search(
             'INPUT-', input_dict, check_key=False, return_key=False)
-        _empty = object()
 
-        assert next(inputs, _empty) == _empty, Slack().send(
-            f"unparsed INPUT- still in config, please check readme for "
-            f"valid input parameters. \nInput dict:\n{input_dict}"
+        assert not unparsed_inputs, Slack().send(
+            f"unparsed `INPUT-` still in config, please check readme for "
+            f"valid input parameters. \nInput dict:\n```{input_dict}```"
         )
-
-
-
-
-
-"""
-        print(f'yielded: {yielded}')
-        print(input_dict)
-        if isinstance(input_dict, bool) or not input_dict:
-            return
-
-        if check_key == True:
-            # check dict keys for given identifier
-            for item in getattr(input_dict, 'keys', lambda:input_dict)():
-                print(item)
-                if isinstance(item, str):
-                    # found a string => yield
-                    if identifier in item:
-                        if return_key:
-                            yield item
-                        else:
-                            yield input_dict[item]
-                elif isinstance(input_dict, dict):
-                    # dict => call again
-                    yield from self.find_job_inputs(
-                        identifier,
-                        input_dict[item],
-                        check_key=check_key,
-                        return_key=return_key,
-                        yielded=yielded
-                    )
-                elif isinstance(input_dict, (list, set)):
-                    # iterable => loop over and call again
-                    for item in input_dict:
-                        yield from self.find_job_inputs(
-                            identifier,
-                            item,
-                            check_key=check_key,
-                            return_key=return_key,
-                            yielded=yielded
-                        )
-        else:
-            # check dict values for given identifier
-            for item in getattr(input_dict, 'values', lambda:input_dict)():
-                # print(input_dict)
-                # import sys
-                # sys.exit()
-                if isinstance(item, str):
-                    # found a str => yield if a match
-                    if identifier in item:
-                        if return_key:
-                            # checking values but returning key => go back
-                            # over dict and return keys matching the value
-                            for key in input_dict:
-                                if input_dict[key] == item:
-                                    if not key in yielded:
-                                        yielded.append(key)
-                                        yield key
-                        else:
-                            if not item in yielded:
-                                yielded.append(item)
-                                yield item
-                elif isinstance(item, dict):
-                    yield from self.find_job_inputs(
-                        identifier,
-                        item,
-                        check_key=check_key,
-                        return_key=return_key,
-                        yielded=yielded
-                    )
-                elif isinstance(item, (list, set)):
-                    # iterable => loop over and call again
-                    for sub_item in item:
-                        if isinstance(sub_item, str):
-                            # found a str => yield if a match
-                            if identifier in sub_item:
-                                if return_key:
-                                    # checking values but returning key => go back
-                                    # over dict and return keys matching the value
-                                    for key in input_dict:
-                                        if input_dict[key] == item:
-                                            if not key in yielded:
-                                                yielded.append(key)
-                                                yield key
-                                else:
-                                    if not item in yielded:
-                                        yielded.append(item)
-                                        yield item
-                        else:
-                            yield from self.find_job_inputs(
-                                identifier,
-                                sub_item,
-                                check_key=check_key,
-                                return_key=return_key,
-                                yielded=yielded
-                            )
-"""

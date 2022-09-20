@@ -11,11 +11,10 @@ inputs are valid.
 
 
 TODO
-    - slack notifications
-    - test mode
-    - log jobs started in case of failing to start some and terminate all
-    - tag conductor job with link to downstream project jobs and
-        bcl2fastq job
+    - slack notifications - DONE
+    - test mode - DONE
+    - log jobs started in case of failing to start some and terminate all - DONE
+    - tag conductor job with link to downstream project jobs and bcl2fastq job
 
 """
 import argparse
@@ -248,17 +247,9 @@ def parse_args() -> argparse.Namespace:
 
 def main():
     """
-    Main function to run apps and workflows
+    Main entry point to run all apps and workflows
     """
     args = parse_args()
-
-    print(f'Config path: {os.environ.get("ASSAY_CONFIG_PATH")}')
-    print(f'BCL2FASTQ_APP_ID: {os.environ.get("BCL2FASTQ_APP_ID")}')
-    print(f'AUTH_TOKEN: {os.environ.get("AUTH_TOKEN")}')
-    print(f'AUTH_TOKEN: {os.environ.get("AUTH_TOKEN")}')
-    print(f'SLACK_LOG_CHANNEL: {os.environ.get("SLACK_LOG_CHANNEL")}')
-    print(f'SLACK_ALERT_CHANNEL: {os.environ.get("SLACK_ALERT_CHANNEL")}')
-
 
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
@@ -288,7 +279,7 @@ def main():
         sample_list = assay_to_samples[assay_code]
 
     if not args.assay_name:
-        args.assay_name = config.get('assay_name')
+        args.assay_name = config.get('assay')
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
@@ -308,9 +299,6 @@ def main():
 
     run_time = time_stamp()
 
-    fastq_details = []
-    upload_tars = []
-
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
     # it is launched correctly
@@ -326,21 +314,16 @@ def main():
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
+        fastq_details = []
         for fastq_id in args.fastqs:
             fastq_name = dx.api.file_describe(
                 fastq_id, input_params={'fields': {'name': True}}
             )
             fastq_name = fastq_name['name']
             fastq_details.append((fastq_id, fastq_name))
-    elif args.upload_tars:
-        # passed a list of upload tar files from dx-streaming-upload to
-        # use as start point for analysis
-        upload_tars = [{"$dnanexus_link": x} for x in args.upload_tars]
     elif args.test_samples:
         # test files of fastq names : file ids given
-        fastq_details = []
-        if args.test_samples:
-            fastq_details = load_test_data()
+        fastq_details = load_test_data()
     elif config.get('demultiplex'):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run bcl2fastq app
@@ -377,7 +360,7 @@ def main():
         open('job_id.log', 'w').close()
 
         # create output folder for workflow, unique by datetime stamp
-        out_folder = f'/output/{params["assay"]}-{run_time}/{params["name"]}'
+        out_folder = f'/output/{args.assay_name}-{run_time}/{params["name"]}'
         out_folder = dx_manage.create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 

@@ -68,6 +68,7 @@ class DXExecute():
             # our testing analysis project to not go to semtinel file dir
             bcl2fastq_out = f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp}'
 
+        bcl2fastq_project = bcl2fastq_out.split(':')[0]
 
         app_id = os.environ.get('BCL2FASTQ_APP_ID')
         inputs = {
@@ -100,19 +101,18 @@ class DXExecute():
 
         # copy the demultiplexing stats json into the project for multiQC
         stats_json = list(dx.bindings.search.find_data_objects(
-            project='project-FpVG0G84X7kzq58g19vF1YJQ',
+            project=bcl2fastq_project,
             folder=f'{bcl2fastq_out}/Data/Intensities/BaseCalls/Stats/',
             name="Stats.json"
         ))
 
         if stats_json:
-            ## TODO: need to figure out copying files
-            ## DOESNT WORK ATM
-            pass
-            dx.bindings.DXDataObject(dxid=stats_json['id']).clone(
-                project=self.args.dx_project_id,
-                folder='/'
-            )
+            data = dx.DXFile(
+                dxid=stats_json['id'],
+                project=bcl2fastq_project,
+                mode='r'
+            ).read()
+
 
 
         return job
