@@ -361,6 +361,8 @@ def main():
     # store data together / access specific dirs of data
     executable_out_dirs = {}
 
+    total_jobs = 0  # counter to write to final Slack message
+
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
@@ -375,7 +377,7 @@ def main():
         open('job_id.log', 'w').close()
 
         # create output folder for workflow, unique by datetime stamp
-        out_folder = f'/output/{params["name"]}-{run_time}'
+        out_folder = f'/output/{params["assay"]}-{run_time}/{params["name"]}'
         out_folder = dx_manage.create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
@@ -401,6 +403,7 @@ def main():
                     executable_out_dirs,
                     fastq_details
                 )
+                total_jobs += 1
 
         elif params['per_sample'] is False:
             # run workflow / app on all samples at once
@@ -413,6 +416,7 @@ def main():
                 executable_out_dirs,
                 fastq_details
             )
+            total_jobs += 1
         else:
             # per_sample is not True or False, exit
             raise ValueError(
@@ -424,6 +428,9 @@ def main():
             f'\n\nAll jobs for {params.get("name")} ({executable}) '
             f'launched successfully!\n\n'
         )
+
+    with open('total_jobs.log', 'w') as fh:
+        fh.write(str(total_jobs))
 
     print("Completed calling jobs")
 
