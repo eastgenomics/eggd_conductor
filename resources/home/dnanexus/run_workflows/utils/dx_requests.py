@@ -12,7 +12,7 @@ from utils.manage_dict import ManageDict
 from utils.utils import Slack, time_stamp
 
 
-PPRINT = PrettyPrinter(indent=4).pprint
+PPRINT = PrettyPrinter(indent=2).pprint
 
 
 class DXExecute():
@@ -603,9 +603,13 @@ class DXManage():
             name="*.fastq*", name_mode="glob", project=bcl2fastq_project,
             folder=bcl2fastq_folder, describe=True
         ))
-        # Build list of tuples with fastq name and file ids
+        # build list of tuples with fastq name and file ids
         fastq_details = [
             (x['id'], x['describe']['name']) for x in fastq_details
+        ]
+        # filter out Undetermined fastqs
+        fastq_details = [
+            x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
         print(f'fastqs parsed from bcl2fastq job {job_id}')

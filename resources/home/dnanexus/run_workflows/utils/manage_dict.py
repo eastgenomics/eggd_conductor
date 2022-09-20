@@ -1,29 +1,28 @@
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from pprint import PrettyPrinter
 import re
 from typing import Generator
 
 import dxpy as dx
+from flatten_json import flatten, unflatten_list
 
 from utils.utils import Slack
 
 
-PPRINT = PrettyPrinter(indent=4).pprint
+PPRINT = PrettyPrinter(indent=2).pprint
 
 
 class ManageDict():
     """
     Methods to handle parsing and populating input and output dictionaries
     """
-
-    def find_job_inputs(
+    def search(
         self, identifier, input_dict, check_key, return_key) -> Generator:
         """
-        Recursive function to find all values in arbitrarialy structured dict
-        with identifying prefix, these require replacing with appropriate
-        job output file ids. This funtion is used when needing to link inputs
-        to outputs and for adding dependent jobs to new analyses.
+        Searches nested dictionary for given identifier string in either
+        the dict keys or values, and returns the key or value of the match.
 
         Parameters
         ----------
@@ -36,59 +35,30 @@ class ManageDict():
         return_key : bool
             sets if to return key (True) or value (False)
 
-        Yields
+        Returns
         ------
-        value : str
-            match of identifier in given dict
+        list : list of unique keys or values containing identifier
         """
-        if not isinstance(input_dict, bool):
-            if check_key == True:
-                # check dict keys for given identifier
-                for item in getattr(input_dict, 'keys', lambda:input_dict)():
-                    if isinstance(item, str):
-                        # found a string => yield
-                        if identifier in item:
-                            if return_key:
-                                yield item
-                            else:
-                                yield input_dict[item]
-                    if isinstance(input_dict, dict):
-                        # dict => call again
-                        yield from self.find_job_inputs(
-                            identifier,
-                            input_dict[item],
-                            check_key=check_key,
-                            return_key=return_key
-                        )
-                    elif isinstance(input_dict, (list, set)):
-                        # iterable => loop over and call again
-                        for item in input_dict:
-                            yield from self.find_job_inputs(
-                                identifier,
-                                item,
-                                check_key=check_key,
-                                return_key=return_key
-                            )
+        flattened_dict = flatten(input_dict, '|')
+        found = []
+
+        for key, value in flattened_dict.items():
+            if check_key:
+                to_check = key
             else:
-                # check dict values for given identifier
-                for item in getattr(input_dict, 'values', lambda:input_dict)():
-                    if isinstance(item, str):
-                        # found a str => yield
-                        if identifier in item:
-                            if return_key:
-                                yield input_dict[item]
-                            else:
-                                yield item
-                    elif item:
-                        yield from self.find_job_inputs(
-                            identifier,
-                            item,
-                            check_key=check_key,
-                            return_key=return_key
-                        )
+                to_check = value
+
+            match = re.search(rf'[^|]*{identifier}[^|]*', to_check)
+            if match:
+                if return_key:
+                    found.append(match.group())
+                else:
+                    found.append(value)
+
+        return list(set(found))
 
 
-    def replace_job_inputs(self, input_dict, job_input, dx_id):
+    def replace(self, input_dict, to_replace, replacement, search_key, replace_key):
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
@@ -97,22 +67,82 @@ class ManageDict():
         ----------
         input_dict : dict
             dict of input parameters for calling workflow / app
-        job_input : str
+        to_replace : str
             input key in `input_dict` to replace (i.e. INPUT-s left to replace)
-        dx_id : str
+        replacement : str
             id of DNAnexus object to link input to
+        search_key : bool
+            determines it to search dictionary keys or values
+        replace_key : bool
+            determines if to replace keys or values
+
+        Returns
+        -------
+        dict : dict with modified keys or values
         """
-        for key, val in input_dict.items():
-            if isinstance(val, dict):
-                # found a dict, continue
-                self.replace_job_inputs(val, job_input, dx_id)
-            if isinstance(val, list):
-                # found list of dicts, check each dict
-                for list_val in val:
-                    self.replace_job_inputs(list_val, job_input, dx_id)
-            if val == job_input:
-                # replace analysis_ with correct job id
-                input_dict[key] = dx_id
+        matches = self.search(
+            identifier=to_replace,
+            input_dict=input_dict,
+            check_key=search_key,
+            return_key=replace_key
+        )
+
+        if not matches:
+            return input_dict
+
+        flattened_dict = flatten(input_dict, '|')
+        new_dict = {}
+
+        for key, value in flattened_dict.items():
+            if search_key:
+                searched = key
+            else:
+                searched = value
+
+            for match in matches:
+                if not match in searched:
+                    added_key = False
+                    continue
+
+                # match is in this key / value => replace
+                added_key = True
+                if replace_key:
+                    new_key = re.sub(match, replacement, searched)
+                    new_dict[new_key] = value
+                else:
+                    new_dict[key] = replacement
+
+                break
+
+            if not added_key:
+                # match not in this key - value => add original pair back
+                new_dict[key] = value
+
+        return unflatten_list(new_dict, '|')
+
+
+
+
+
+
+        #     if replace_key:
+        #         # searching keys for pattern
+        #         match = re.search(rf'[^|]*{to_replace}[^|]*', key)
+        #         if match:
+        #             new_key = re.sub(match.group(), replacement, key)
+        #             new_dict[new_key] = value
+        #     else:
+        #         # searching values for pattern
+        #         match = re.search(to_replace, value)
+        #         if match:
+        #             new_dict[key] = replacement
+
+        #     if not match:
+        #         new_dict[key] = value
+
+        # new_dict = unflatten_list(new_dict, '|')
+
+        # return new_dict
 
 
     def add_fastqs(self, input_dict, fastq_details, sample=None) -> dict:
@@ -226,25 +256,32 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
-        # first checking if any INPUT- in dict to fill, if not return
-        other_inputs = set(list(self.find_job_inputs(
-            'INPUT-', input_dict, check_key=False, return_key=False
-        )))
+        # first checking if any INPUT- in dict to fill
+        other_inputs = self.search(
+            identifier='INPUT-',
+            input_dict=input_dict,
+            check_key=False,
+            return_key=False
+        )
 
         if not other_inputs:
-            # no other inputs found to replace
             return input_dict
 
         project_name = dx.api.project_describe(
             dx_project_id, input_params={'fields': {'name': True}}).get('name')
 
-        self.replace_job_inputs(input_dict, 'INPUT-SAMPLE-NAME', sample)
-        self.replace_job_inputs(input_dict, 'INPUT-dx_project_id', dx_project_id)
-        self.replace_job_inputs(input_dict, 'INPUT-dx_project_name', project_name)
+        to_replace = [
+            ('INPUT-SAMPLE-NAME', sample),
+            ('INPUT-dx_project_id', dx_project_id),
+            ('INPUT-dx_project_name', project_name)
+        ]
+
+        for pair in to_replace:
+            self.replace(input_dict, pair[0], pair[1], replace_key=False)
 
         # find and replace any out dirs
         regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
-        out_dirs = [re.search(regex, x) for x in self.other_inputs]
+        out_dirs = [re.search(regex, x) for x in other_inputs]
         out_dirs = [x.group(0) for x in out_dirs if x]
 
         for dir in out_dirs:
@@ -262,7 +299,7 @@ class ManageDict():
 
             # removing /output/ for now to fit to MultiQC
             analysis_out_dir = Path(analysis_out_dir).name
-            self.replace_job_inputs(input_dict, dir, analysis_out_dir)
+            self.replace(input_dict, dir, analysis_out_dir, replace_key=False)
 
         return input_dict
 
@@ -408,7 +445,8 @@ class ManageDict():
                     ))
 
                 # replace analysis id with given job id in input dict
-                self.replace_job_inputs(input_dict, analysis_id, job_id[0])
+                self.replace(
+                    input_dict, analysis_id, job_id[0], replace_key=False)
             else:
                 # current executable is running on all samples => need to
                 # gather all previous jobs for all samples and build input
@@ -448,10 +486,11 @@ class ManageDict():
                     input_dict[input_field] = []
                     for job in job_ids:
                         stage_input_tmp = deepcopy(stage_input_template)
-                        self.replace_job_inputs(
+                        self.replace(
                             input_dict=stage_input_tmp,
-                            job_input=analysis_id,
-                            dx_id=job
+                            to_replace=analysis_id,
+                            replacement=job,
+                            replace_key=False
                         )
                         input_dict[input_field].append(stage_input_tmp)
 
@@ -541,3 +580,100 @@ class ManageDict():
             f"unparsed INPUT- still in config, please check readme for "
             f"valid input parameters. \nInput dict:\n{input_dict}"
         )
+
+
+
+
+
+"""
+        print(f'yielded: {yielded}')
+        print(input_dict)
+        if isinstance(input_dict, bool) or not input_dict:
+            return
+
+        if check_key == True:
+            # check dict keys for given identifier
+            for item in getattr(input_dict, 'keys', lambda:input_dict)():
+                print(item)
+                if isinstance(item, str):
+                    # found a string => yield
+                    if identifier in item:
+                        if return_key:
+                            yield item
+                        else:
+                            yield input_dict[item]
+                elif isinstance(input_dict, dict):
+                    # dict => call again
+                    yield from self.find_job_inputs(
+                        identifier,
+                        input_dict[item],
+                        check_key=check_key,
+                        return_key=return_key,
+                        yielded=yielded
+                    )
+                elif isinstance(input_dict, (list, set)):
+                    # iterable => loop over and call again
+                    for item in input_dict:
+                        yield from self.find_job_inputs(
+                            identifier,
+                            item,
+                            check_key=check_key,
+                            return_key=return_key,
+                            yielded=yielded
+                        )
+        else:
+            # check dict values for given identifier
+            for item in getattr(input_dict, 'values', lambda:input_dict)():
+                # print(input_dict)
+                # import sys
+                # sys.exit()
+                if isinstance(item, str):
+                    # found a str => yield if a match
+                    if identifier in item:
+                        if return_key:
+                            # checking values but returning key => go back
+                            # over dict and return keys matching the value
+                            for key in input_dict:
+                                if input_dict[key] == item:
+                                    if not key in yielded:
+                                        yielded.append(key)
+                                        yield key
+                        else:
+                            if not item in yielded:
+                                yielded.append(item)
+                                yield item
+                elif isinstance(item, dict):
+                    yield from self.find_job_inputs(
+                        identifier,
+                        item,
+                        check_key=check_key,
+                        return_key=return_key,
+                        yielded=yielded
+                    )
+                elif isinstance(item, (list, set)):
+                    # iterable => loop over and call again
+                    for sub_item in item:
+                        if isinstance(sub_item, str):
+                            # found a str => yield if a match
+                            if identifier in sub_item:
+                                if return_key:
+                                    # checking values but returning key => go back
+                                    # over dict and return keys matching the value
+                                    for key in input_dict:
+                                        if input_dict[key] == item:
+                                            if not key in yielded:
+                                                yielded.append(key)
+                                                yield key
+                                else:
+                                    if not item in yielded:
+                                        yielded.append(item)
+                                        yield item
+                        else:
+                            yield from self.find_job_inputs(
+                                identifier,
+                                sub_item,
+                                check_key=check_key,
+                                return_key=return_key,
+                                yielded=yielded
+                            )
+"""
