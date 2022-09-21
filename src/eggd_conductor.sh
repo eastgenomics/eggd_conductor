@@ -41,7 +41,7 @@ _set_environment () {
     # use of &> /dev/null  and removing set -x suppresses printing tokens
     # to DNAnexus logs which would not be ideal
     printf "sourcing config file and calling dx login"
-    # set +x
+    set +x
     printf "\n" >> conductor.cfg  # add new line char so read parses last line
     while IFS= read -r line; do export "${line?}"; done < conductor.cfg
     # for line in $(cat conductor.cfg); do export "$line"; done
