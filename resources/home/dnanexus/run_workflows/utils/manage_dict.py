@@ -103,20 +103,21 @@ class ManageDict():
             else:
                 searched = value
 
-            for match in matches:
-                if not match in searched:
-                    added_key = False
-                    continue
+            if not isinstance(searched, bool) and searched:
+                for match in matches:
+                    if not match in searched:
+                        added_key = False
+                        continue
 
-                # match is in this key / value => replace
-                added_key = True
-                if replace_key:
-                    new_key = re.sub(match, replacement, searched)
-                    new_dict[new_key] = value
-                else:
-                    new_dict[key] = replacement
+                    # match is in this key / value => replace
+                    added_key = True
+                    if replace_key:
+                        new_key = re.sub(match, replacement, searched)
+                        new_dict[new_key] = value
+                    else:
+                        new_dict[key] = replacement
 
-                break
+                    break
 
             if not added_key:
                 # match not in this key - value => add original pair back
