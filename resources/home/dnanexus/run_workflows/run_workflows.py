@@ -394,6 +394,7 @@ def main():
             # run workflow / app on all samples at once
             job_outputs_dict = dx_execute.call_per_run(
                 executable=executable,
+                exe_names=exe_names,
                 params=params,
                 config=config,
                 out_folder=out_folder,

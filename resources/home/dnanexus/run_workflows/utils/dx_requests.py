@@ -672,6 +672,16 @@ class DXManage():
         print(f'Getting names for all executables: {executables}')
         mapping = defaultdict(dict)
 
+        # sense check everything is a valid dx executable
+        assert all([
+            x.startswith('workflow-')
+            or x.startswith('app')
+            or x.startswith('applet-')
+            for x in executables
+        ]), Slack().send(
+            f'Executable(s) from the config not valid: {executables}'
+        )
+
         for exe in executables:
             if exe.startswith('workflow-'):
                 workflow_details = dx.api.workflow_describe(exe)
@@ -692,7 +702,7 @@ class DXManage():
                     stage_name = stage_name.replace('/', '-')
                     mapping[exe]['stages'][stage_id] = stage_name
 
-            elif exe.startswith('--app') or exe.startswith('--applet'):
+            elif exe.startswith('app-') or exe.startswith('applet-'):
                 app_details = dx.api.workflow_describe(exe)
                 app_name = app_details['name'].replace('/', '-')
                 mapping[exe] = {'name': app_name}
