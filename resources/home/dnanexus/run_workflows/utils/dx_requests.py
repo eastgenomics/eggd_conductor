@@ -22,47 +22,6 @@ class DXExecute():
     def __init__(self, args) -> None:
         self.args = args
 
-    def hold_until_complete(self, job_ids) -> None:
-        """
-        Calls wait_on_done() method on all given job and / or analysis ids
-        to hold current execution until all jobs have completed.
-
-        This is required when downstream jobs are dependent on those
-        specified, and trying to launch these before previous are complete
-        raises an error as no output spec is present for the given job.
-
-        Parameters
-        ----------
-        job_ids : list
-            list of dx job ids to wait on
-
-        Raises
-        ------
-        AssertionError
-            Raised when job_ids is not entirely analysis- or job- items
-        """
-        print(f'Jobs to wait on: {job_ids}')
-
-        # sense check we only have dx executions (analysis- and job-)
-        assert all([
-            x.startswith('analysis-') or x.startswith('job-') for x in job_ids
-        ]), f'Invalid execution IDs given: {job_ids}'
-
-        # get remote object handles for each execution ID as both have the same
-        # wait_on_done() method available
-        remote_objects = [
-            dx.bindings.dxjob.DXJob(dxid=x)
-            if x.startswith('job-')
-            else dx.bindings.dxanalysis.DXAnalysis(dxid=x)
-            for x in job_ids
-        ]
-
-        for object in remote_objects:
-            # wait on each job to be done, since all have to complete and the
-            # order is not important we can be lazy with a simple loop
-            object.wait_on_done()
-            print(f'{object.get_id()} completed!')
-
 
     def demultiplex(self) -> str:
         """
@@ -164,13 +123,6 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
-        # if prev_jobs:
-        #     print(
-        #         f"Execution waiting on {len(prev_jobs)} previous "
-        #         "jobs completing..."
-        #     )
-        #     self.hold_until_complete(job_ids=prev_jobs)
-
         if 'workflow-' in executable:
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
                 dxid=executable,
