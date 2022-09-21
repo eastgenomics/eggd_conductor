@@ -42,7 +42,7 @@
       "class": "file",
       "optional": true,
       "patterns": [
-        "*"
+        "*.csv"
       ],
       "group": "files"
     },
@@ -52,7 +52,8 @@
       "class": "array:file",
       "optional": true,
       "patterns": [
-        "*"
+        "*.fastq",
+        "*.fastq.gz"
       ],
       "help": "Set of fastqs to use for starting analysis on if already demultiplexed",
       "group": "files"
