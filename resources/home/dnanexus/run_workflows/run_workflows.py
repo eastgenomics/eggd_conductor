@@ -332,6 +332,9 @@ def main():
         sys.exit()
 
 
+    # build a dict mapping executable names to human readable names
+    exe_names = dx_manage.get_executable_names(config['executables'].keys())
+
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
     job_outputs_dict = {}
@@ -360,11 +363,11 @@ def main():
         out_folder = dx_manage.create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
-        params['executable_name'] = dx.api.app_describe(executable).get('name')
+        params['executable_name'] = exe_names[executable]['name']
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
-            print(f'\nCalling {params["name"]} per sample')
+            print(f'\nCalling {params["executable_name"]} per sample')
 
             # loop over samples and call app / workflow
             for idx, sample in enumerate(sample_list):

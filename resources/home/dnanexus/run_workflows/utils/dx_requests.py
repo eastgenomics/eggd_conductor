@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 import json
@@ -174,7 +175,7 @@ class DXExecute():
 
 
     def call_per_sample(
-        self, executable, params, sample, config, out_folder,
+        self, executable, exe_names, params, sample, config, out_folder,
         job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
@@ -185,6 +186,8 @@ class DXExecute():
         ----------
         executable : str
             human readable name of dx executable (workflow-, app- or applet-)
+        exe_names : dict
+            mapping of executable IDs to human readable names
         params : dict
             dictionary of parameters specified in config for running analysis
         sample : str, default None
@@ -213,7 +216,12 @@ class DXExecute():
         output_dict = config_copy['executables'][executable]['output_dirs']
 
         # create output directory structure in config
-        ManageDict().populate_output_dir_config(executable, output_dict, out_folder)
+        ManageDict().populate_output_dir_config(
+            executable=executable,
+            exe_names=exe_names,
+            output_dict=output_dict,
+            out_folder=out_folder
+        )
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
@@ -293,7 +301,7 @@ class DXExecute():
 
 
     def call_per_run(
-        self, executable, params, config, out_folder,
+        self, executable, exe_names, params, config, out_folder,
         job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populates input and output dicts from config for given workflow,
@@ -303,6 +311,8 @@ class DXExecute():
         ----------
         executable : str
             human readable name of dx executable (workflow-, app- or applet-)
+        exe_names : dict
+            mapping of executable IDs to human readable names
         params : dict
             dictionary of parameters specified in config for running analysis
         config : dict
@@ -328,7 +338,12 @@ class DXExecute():
         output_dict = config['executables'][executable]['output_dirs']
 
         # create output directory structure in config
-        ManageDict().populate_output_dir_config(executable, output_dict, out_folder)
+        ManageDict().populate_output_dir_config(
+            executable=executable,
+            exe_names=exe_names,
+            output_dict=output_dict,
+            out_folder=out_folder
+        )
 
         if params["process_fastqs"] is True:
             input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
@@ -623,3 +638,50 @@ class DXManage():
         print(''.join([f'\t{x}\n' for x in fastq_details]))
 
         return fastq_details
+
+
+    def get_executable_names(self, executables) -> dict:
+        """
+        Build a dict of all executable IDs to human readable names, used for
+        naminmg outputs needing workflow/app names
+
+        Parameters
+        ----------
+        executables : list
+            list of executables to get names for (workflow-, app-, applet-)
+
+        Returns
+        -------
+        dict
+            mapping of executable -> human readable name, for workflows this
+            will be workflow_id -> workflow_name + each stage_id -> stage_name
+        """
+        mapping = defaultdict()
+
+        for exe in executables:
+            if exe.startswith('workflow-'):
+                workflow_details = dx.api.workflow_describe(exe)
+                workflow_name = workflow_details.get('name')
+                workflow_name.replace('/', '-')
+                mapping[exe] = {
+                    'name': workflow_name,
+                    'stages': {}
+                }
+
+                for stage in workflow_details.get('stages'):
+                    stage_name = stage.get('executable')
+                    if stage_name.startswith('applet-'):
+                        # need an extra describe for applets
+                        stage_name = dx.api.workflow_describe(stage_name)
+
+                    # app names will be in format app-id/version
+                    stage_name = stage_name.replace('/', '-')
+
+                    mapping[exe]['stages'][stage] = stage_name
+
+            elif exe.startswith('--app') or exe.startswith('--applet'):
+                app_details = dx.api.workflow_describe(exe)
+                app_name = app_details['name'].replace('/', '-')
+                mapping[exe] = {'name': app_name}
+
+        return mapping

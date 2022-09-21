@@ -521,7 +521,8 @@ class ManageDict():
         return input_dict
 
 
-    def populate_output_dir_config(self, executable, output_dict, out_folder) -> dict:
+    def populate_output_dir_config(
+            self, executable, exe_names, output_dict, out_folder) -> dict:
         """
         Loops over stages in dict for output directory naming and adds
         worlflow app name.
@@ -533,6 +534,8 @@ class ManageDict():
         ----------
         executable : str
             human readable name of executable (workflow-, app-, applet-)
+        exe_names : dict
+            mapping of executable IDs to human readable names
         output_dict : dict
             dictionary of output paths for each executable
         out_folder : str
@@ -548,29 +551,10 @@ class ManageDict():
                 out_folder = out_folder.replace('/output/', '')
                 dir = dir.replace("OUT-FOLDER", out_folder)
             if "APP-NAME" in dir:
-                # use describe method to get actual name of app with version
-                # TODO: search the config up front and gather all executable
-                # names first instead of in loops to make querying faster
                 if 'workflow-' in executable:
-                    workflow_details = dx.api.workflow_describe(executable)
-                    stage_app_id = [
-                        (x['id'], x['executable'])
-                        for x in workflow_details['stages']
-                        if x['id'] == stage
-                    ]
-                    if stage_app_id:
-                        # get applet id for given stage id
-                        stage_app_id = stage_app_id[0][1]
-                        applet_details = dx.api.workflow_describe(stage_app_id)
-                        app_name = applet_details['name']
-                    else:
-                        # not found app ID for stage, going to print message
-                        # and continue with using stage id
-                        print('Error finding applet ID for naming output dir')
-                        app_name = stage
+                    app_name = exe_names[executable]['stages'][stage]
                 elif 'app-' or 'applet-' in executable:
-                    app_details = dx.api.workflow_describe(executable)
-                    app_name = app_details['name']
+                   app_name = exe_names[executable]['name']
 
                 # add app/workflow name to output dir name
                 dir = dir.replace("APP-NAME", app_name)
