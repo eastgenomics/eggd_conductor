@@ -38,7 +38,7 @@ class ManageDict():
         ------
         list : list of unique keys or values containing identifier
         """
-        # flatten to single level dict with keys as paths to 
+        # flatten to single level dict with keys as paths to end values
         flattened_dict = flatten(input_dict, '|')
         found = []
 
@@ -47,6 +47,10 @@ class ManageDict():
                 to_check = key
             else:
                 to_check = value
+
+            if isinstance(to_check, bool) or not to_check:
+                # to_check is True, False or None
+                continue
 
             match = re.search(rf'[^|]*{identifier}[^|]*', to_check)
             if match:
@@ -232,6 +236,10 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
+        print('Adding other inputs')
+        print('Input dict passed to check:')
+        PPRINT(input_dict)
+
         # first checking if any INPUT- in dict to fill
         other_inputs = self.search(
             identifier='INPUT-',
