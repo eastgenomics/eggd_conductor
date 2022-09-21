@@ -655,29 +655,42 @@ class DXManage():
         dict
             mapping of executable -> human readable name, for workflows this
             will be workflow_id -> workflow_name + each stage_id -> stage_name
+
+            {
+                'workflow-1' : {
+                    'name' : 'my_workflow_v1.0.0',
+                    'stages' : {
+                        'stage1' : 'first_app-v1.0.0'
+                        'stage2' : 'second_app-v1.0.0'
+                    }
+                },
+                'app-1' : {
+                    'name': 'myapp-v1.0.0'
+                }
+            }
         """
-        mapping = defaultdict()
+        print(f'Getting names for all executables: {executables}')
+        mapping = defaultdict(dict)
 
         for exe in executables:
             if exe.startswith('workflow-'):
                 workflow_details = dx.api.workflow_describe(exe)
                 workflow_name = workflow_details.get('name')
                 workflow_name.replace('/', '-')
-                mapping[exe] = {
-                    'name': workflow_name,
-                    'stages': {}
-                }
+                mapping[exe]['name'] = workflow_name
+                mapping[exe]['stages'] = defaultdict(dict)
 
                 for stage in workflow_details.get('stages'):
+                    stage_id = stage.get('id')
                     stage_name = stage.get('executable')
                     if stage_name.startswith('applet-'):
                         # need an extra describe for applets
-                        stage_name = dx.api.workflow_describe(stage_name)
+                        stage_name = dx.api.workflow_describe(
+                            stage_name).get('name')
 
                     # app names will be in format app-id/version
                     stage_name = stage_name.replace('/', '-')
-
-                    mapping[exe]['stages'][stage] = stage_name
+                    mapping[exe]['stages'][stage_id] = stage_name
 
             elif exe.startswith('--app') or exe.startswith('--applet'):
                 app_details = dx.api.workflow_describe(exe)

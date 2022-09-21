@@ -334,6 +334,8 @@ def main():
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())
+    print('Executable names identified:')
+    PPRINT(exe_names)
 
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
@@ -377,26 +379,27 @@ def main():
                 )
                 job_outputs_dict = dx_execute.call_per_sample(
                     executable,
-                    params,
-                    sample,
-                    config,
-                    out_folder,
-                    job_outputs_dict,
-                    executable_out_dirs,
-                    fastq_details
+                    exe_names=exe_names,
+                    params=params,
+                    sample=sample,
+                    config=config,
+                    out_folder=out_folder,
+                    job_outputs_dict=job_outputs_dict,
+                    executable_out_dirs=executable_out_dirs,
+                    fastq_details=fastq_details
                 )
                 total_jobs += 1
 
         elif params['per_sample'] is False:
             # run workflow / app on all samples at once
             job_outputs_dict = dx_execute.call_per_run(
-                executable,
-                params,
-                config,
-                out_folder,
-                job_outputs_dict,
-                executable_out_dirs,
-                fastq_details
+                executable=executable,
+                params=params,
+                config=config,
+                out_folder=out_folder,
+                job_outputs_dict=job_outputs_dict,
+                executable_out_dirs=executable_out_dirs,
+                fastq_details=fastq_details
             )
             total_jobs += 1
         else:
