@@ -39,6 +39,7 @@ class ManageDict():
         list : list of unique keys or values containing identifier
         """
         # flatten to single level dict with keys as paths to end values
+        # for easy searching
         flattened_dict = flatten(input_dict, '|')
         found = []
 
@@ -103,10 +104,11 @@ class ManageDict():
             else:
                 searched = value
 
+            added_key = False
+
             if not isinstance(searched, bool) and searched:
                 for match in matches:
                     if not match in searched:
-                        added_key = False
                         continue
 
                     # match is in this key / value => replace
@@ -251,6 +253,8 @@ class ManageDict():
 
         if not other_inputs:
             return input_dict
+        else:
+            print(f'Other inputs found to replace: {other_inputs}')
 
         project_name = dx.api.project_describe(
             dx_project_id, input_params={'fields': {'name': True}}).get('name')
@@ -262,7 +266,7 @@ class ManageDict():
         ]
 
         for pair in to_replace:
-            self.replace(
+            input_dict = self.replace(
                 input_dict=input_dict,
                 to_replace=pair[0],
                 replacement=pair[1],
@@ -274,6 +278,8 @@ class ManageDict():
         regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
         out_dirs = [re.search(regex, x) for x in other_inputs]
         out_dirs = [x.group(0) for x in out_dirs if x]
+
+        print(f'Out dirs found to replace: {out_dirs}')
 
         for dir in out_dirs:
             # find the output directory for the given analysis
@@ -290,13 +296,16 @@ class ManageDict():
 
             # removing /output/ for now to fit to MultiQC
             analysis_out_dir = Path(analysis_out_dir).name
-            self.replace(
+            input_dict = self.replace(
                 input_dict=input_dict,
                 to_replace=dir,
                 replacement=analysis_out_dir,
                 search_key=False,
                 replace_key=False
             )
+
+        print('Input dict after adding other inputs:')
+        PPRINT(input_dict)
 
         return input_dict
 

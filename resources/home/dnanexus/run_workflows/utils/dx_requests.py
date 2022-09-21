@@ -63,16 +63,6 @@ class DXExecute():
             object.wait_on_done()
             print(f'{object.get_id()} completed!')
 
-        # print(f'Analyses to wait on: {analyses}')
-        # print(f'Jobs to wait on: {jobs}')
-
-        # while not all([
-        #     dx.bindings.dxjob.DXJob(dxid=x).wait_on_done() for x in jobs
-        # ]) and not all([
-        #     dx.bindings.dxanalysis.DXAnalysis(dxid=x).wait_on_done() for x in analyses
-        # ]):
-        #     pass
-
 
     def demultiplex(self) -> str:
         """
@@ -174,12 +164,12 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
-        if prev_jobs:
-            print(
-                f"Execution waiting on {len(prev_jobs)} previous "
-                "jobs completing..."
-            )
-            self.hold_until_complete(job_ids=prev_jobs)
+        # if prev_jobs:
+        #     print(
+        #         f"Execution waiting on {len(prev_jobs)} previous "
+        #         "jobs completing..."
+        #     )
+        #     self.hold_until_complete(job_ids=prev_jobs)
 
         if 'workflow-' in executable:
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
