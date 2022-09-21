@@ -219,6 +219,7 @@ main () {
         python3 run_workflows/run_workflows.py $optional_args
     } || {
         # failed to launch all jobs -> handle clean up and sending error notification
+
         # if in testing mode terminate everything and clear output, else
         # terminate whatever is in 'job_id.log' if present as these will be
         # an incomplete set of jobs for a given app / workflow

@@ -3,3 +3,4 @@ test_configs/test_dias_low_level_config.json
 test_configs/test_high_level_config.tsv
 test_configs/test_myeloid_low_level_config_no_annotation_workflow.json
 test_configs/*
+*.pyc

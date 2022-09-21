@@ -81,7 +81,7 @@ def match_samples_to_assays(configs, all_samples) -> dict:
     print(f'All samples: {all_samples}')
 
     # TODO: remove below, just for dev
-    all_samples = all_samples[:5]
+    all_samples = all_samples[:2]
 
     for code in all_config_assay_codes:
         for sample in all_samples:
