@@ -20,7 +20,6 @@ TODO
 import argparse
 from collections import defaultdict
 import json
-import os
 import sys
 
 import dxpy as dx

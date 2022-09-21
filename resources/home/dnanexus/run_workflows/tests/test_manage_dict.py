@@ -2,8 +2,6 @@ import json
 import os
 import sys
 
-import flatten_json
-
 sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
