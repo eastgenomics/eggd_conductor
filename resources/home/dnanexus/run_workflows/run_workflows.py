@@ -133,10 +133,15 @@ def load_config(config_file) -> dict:
     return config
 
 
-def load_test_data() -> list:
+def load_test_data(test_samples) -> list:
     """
     Read in file ids of fastqs and sample names from test_samples file to test
     calling workflows
+
+    Parameters
+    ----------
+    test_samples : str
+        filename of test samples to read in
 
     Returns
     -------
@@ -144,7 +149,7 @@ def load_test_data() -> list:
         list with tuple per fastq containing (DNAnexus file id, filename)
 
     """
-    with open(args.test_samples) as f:
+    with open(test_samples) as f:
         fastq_details = f.read().splitlines()
 
     fastq_details = [(x.split()[0], x.split()[1]) for x in fastq_details]
@@ -318,7 +323,7 @@ def main():
             fastq_details.append((fastq_id, fastq_name))
     elif args.test_samples:
         # test files of fastq names : file ids given
-        fastq_details = load_test_data()
+        fastq_details = load_test_data(args.test_samples)
     elif config.get('demultiplex'):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run bcl2fastq app

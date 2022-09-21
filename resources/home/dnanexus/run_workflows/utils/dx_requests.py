@@ -83,13 +83,13 @@ class DXExecute():
         ))
 
         if stats_json:
+            # TODO: figure out copying files with dxpy since support are useless
+            pass
             data = dx.DXFile(
                 dxid=stats_json['id'],
                 project=bcl2fastq_project,
                 mode='r'
-            ).read()
-
-
+            )
 
         return job
 
@@ -642,8 +642,8 @@ class DXManage():
 
     def get_executable_names(self, executables) -> dict:
         """
-        Build a dict of all executable IDs to human readable names, used for
-        naminmg outputs needing workflow/app names
+        Build a dict of all executable IDs parsed from config to human
+        readable names, used for naminmg outputs needing workflow/app names
 
         Parameters
         ----------
