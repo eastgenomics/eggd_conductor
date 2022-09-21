@@ -136,6 +136,31 @@ _parse_sentinel_file () {
     fi
 }
 
+_parse_fastqs () {
+    : '''
+    Parses given fastq files to keep only the file ID from the dict
+    structure provided in the app
+
+    Globals
+    FASTQ_IDS : str of comma separated fastq file IDs
+    '''
+    FASTQ_IDS=""
+
+    for fq in "${FASTQS[@]}"; do
+        if [[ $fq =~ file-[A-Za-z0-9]* ]]
+        then
+            local file_id="${BASH_REMATCH[0]}"
+            FASTQ_IDS+="$file_id, "
+        else
+            local message_str="Given fastq does not seem to be a valid file id: $fq\n"
+            _slack_notify "$message_str" "$SLACK_ALERT_CHANNEL"
+            _exit "$message_str"
+        fi
+    done
+
+    printf "\nFound fastq file ids: %s \n" "$FASTQS"
+}
+
 _testing_clean_up () {
     : '''
     If testing set to true a log file named testing_job_id.log will
@@ -251,7 +276,9 @@ main () {
 
         # parse out the Python traceback to add to the message
         traceback=$(awk '/^Traceback/,/+/' dx_stderr | head -n -1)
-        message+="%0ATraceback: \`\`\`${traceback}\`\`\`"
+        if [ $traceback ]; then
+            message+="%0ATraceback: \`\`\`${traceback}\`\`\`"
+        fi
 
         _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
 
