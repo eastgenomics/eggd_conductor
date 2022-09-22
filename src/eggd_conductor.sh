@@ -208,7 +208,7 @@ main () {
     fi
 
     if [ "$RUN_INFO_XML" ]; then
-        dx donwload "$RUN_INFO_XML" -o RunInfo.xml
+        dx download "$RUN_INFO_XML" -o RunInfo.xml
     fi
 
     if [[ "$SENTINEL_FILE" ]]; then
