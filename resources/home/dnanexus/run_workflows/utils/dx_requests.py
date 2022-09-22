@@ -257,7 +257,7 @@ class DXExecute():
         # handle other inputs defined in config to add to inputs
         input_dict = ManageDict().add_other_inputs(
             input_dict=input_dict,
-            dx_project_id=self.args.dx_project_id,
+            args=self.args,
             executable_out_dirs=executable_out_dirs,
             sample=sample
         )
@@ -352,7 +352,7 @@ class DXExecute():
         # handle other inputs defined in config to add to inputs
         input_dict = ManageDict().add_other_inputs(
             input_dict=input_dict,
-            dx_project_id=self.args.dx_project_id,
+            args=self.args,
             executable_out_dirs=executable_out_dirs
         )
 

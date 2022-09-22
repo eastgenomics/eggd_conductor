@@ -347,10 +347,15 @@ def main():
     # set context to project for running jobs
     dx.set_workspace_id(args.dx_project_id)
 
+    run_time = time_stamp()
+
+    # set parent output directory, each app will have sub dir in here
+    # use argparse Namespace for laziness
+    parent_out_dir = f"/output/{args.assay_name}-{run_time}"
+    args.parent_out_dir = parent_out_dir
+
     dx_execute = DXExecute(args)
     dx_manage = DXManage(args)
-
-    run_time = time_stamp()
 
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
@@ -381,7 +386,7 @@ def main():
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run bcl2fastq app
         job_id = dx_execute.demultiplex()
-        dx_manage.get_bcl2fastq_details(job_id)
+        fastq_details = dx_manage.get_bcl2fastq_details(job_id)
     else:
         # not demultiplexing or given fastqs, exit as we aren't handling
         # this for now
@@ -418,7 +423,7 @@ def main():
         open('job_id.log', 'w').close()
 
         # create output folder for workflow, unique by datetime stamp
-        out_folder = f'/output/{args.assay_name}-{run_time}/{params["name"]}'
+        out_folder = f'{parent_out_dir}/{params["name"]}'
         out_folder = dx_manage.create_dx_folder(out_folder)
         executable_out_dirs[params['analysis']] = out_folder
 
