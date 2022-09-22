@@ -295,7 +295,7 @@ class ManageDict():
                 ))
 
             # removing /output/ for now to fit to MultiQC
-            analysis_out_dir = Path(analysis_out_dir).name
+            analysis_out_dir = analysis_out_dir.replace('/output/', '')
             input_dict = self.replace(
                 input_dict=input_dict,
                 to_replace=dir,
