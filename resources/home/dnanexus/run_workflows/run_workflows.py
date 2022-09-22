@@ -18,7 +18,6 @@ TODO
 
 """
 import argparse
-from asyncio import run
 from collections import defaultdict
 from xml.etree import ElementTree as ET
 import json
