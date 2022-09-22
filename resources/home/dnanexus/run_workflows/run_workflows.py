@@ -79,6 +79,8 @@ def parse_run_info_xml(xml_file) -> str:
         # should always be present
         run_id = run_attributes[0].get('Id')
 
+    print(f'Parsed run ID {run_id} from RunInfo.xml')
+
     return run_id
 
 
@@ -290,6 +292,10 @@ def parse_args() -> argparse.Namespace:
     if args.run_info_xml:
         args.run_id = parse_run_info_xml(args.run_info_xml)
 
+    if not args.samples:
+        # TODO : sample sheet validation?
+        args.samples = parse_sample_sheet(args.samplesheet)
+
     return args
 
 
@@ -302,10 +308,6 @@ def main():
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
         open('testing_job_id.log', 'w').close()
-
-    if not args.samples:
-        # TODO : sample sheet validation?
-        args.samples = parse_sample_sheet(args.samplesheet)
 
     if args.assay_config:
         # using user defined config file
