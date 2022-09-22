@@ -75,7 +75,7 @@ class DXExecute():
 
         print("Demuliplexing completed!")
 
-        # copy the demultiplexing stats json into the project for multiQC
+        # copy the demultiplexing stats json into the project root for multiQC
         stats_json = list(dx.bindings.search.find_data_objects(
             project=bcl2fastq_project,
             folder=f'{bcl2fastq_out}/Data/Intensities/BaseCalls/Stats/',
@@ -83,13 +83,14 @@ class DXExecute():
         ))
 
         if stats_json:
-            # TODO: figure out copying files with dxpy since support are useless
-            pass
-            data = dx.DXFile(
+            file = dx.DXFile(
                 dxid=stats_json['id'],
-                project=bcl2fastq_project,
-                mode='r'
+                project=bcl2fastq_project
             )
+            if not dx.PROJECT_CONTEXT_ID == bcl2fastq_project:
+                # bcl2fastq output in the analysis project
+                # can't clone within the same project
+                file.clone(dx.PROJECT_CONTEXT_ID, folder='')
 
         return job
 
