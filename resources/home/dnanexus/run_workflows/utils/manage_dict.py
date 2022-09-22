@@ -209,8 +209,7 @@ class ManageDict():
 
 
     def add_other_inputs(
-            self, input_dict, dx_project_id,
-            executable_out_dirs, sample=None) -> dict:
+            self, input_dict, args, executable_out_dirs, sample=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
         parsing: workflow output directories, sample name, project id and
@@ -220,8 +219,8 @@ class ManageDict():
         ----------
         input_dict : dict
             dict of input parameters for calling workflow / app
-        dx_project_id : str
-            DNAnexus ID of project to run analysis
+        args : argparse.Namespace
+            namespace object of passed cmd line arguments
         executable_out_dirs : dict
             dict of analsysis stage to its output dir path, used to pass output of
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
@@ -257,12 +256,18 @@ class ManageDict():
             print(f'Other inputs found to replace: {other_inputs}')
 
         project_name = dx.api.project_describe(
-            dx_project_id, input_params={'fields': {'name': True}}).get('name')
+            args.dx_project_id,
+            input_params={'fields': {'name': True}}).get('name')
 
+        # removing /output/ for now to fit to MultiQC
+        args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
+
+        # mapping of potential user defined keys and variables to replace with
         to_replace = [
             ('INPUT-SAMPLE-NAME', sample),
-            ('INPUT-dx_project_id', dx_project_id),
-            ('INPUT-dx_project_name', project_name)
+            ('INPUT-dx_project_id', args.dx_project_id),
+            ('INPUT-dx_project_name', project_name),
+            ('INPUT-parent_out_dir', args.parent_out_dir)
         ]
 
         for pair in to_replace:
@@ -294,8 +299,6 @@ class ManageDict():
                     'format: INPUT-analysis_[0-9]-out_dir'
                 ))
 
-            # removing /output/ for now to fit to MultiQC
-            analysis_out_dir = analysis_out_dir.replace('/output/', '')
             input_dict = self.replace(
                 input_dict=input_dict,
                 to_replace=dir,
