@@ -1,5 +1,4 @@
 from copy import deepcopy
-from pathlib import Path
 from pprint import PrettyPrinter
 import re
 from typing import Generator
