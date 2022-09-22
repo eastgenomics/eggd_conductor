@@ -47,6 +47,17 @@
       "group": "files"
     },
     {
+      "name": "RUN_INFO_XML",
+      "label": "RunInfo.xml",
+      "help": "RunInfo.xml file for the run, used to parse RunID from if providing an array of fastQs and not specifying with -RUN_ID. Not required if providing sentinel file.",
+      "class": "file",
+      "optional": true,
+      "patterns": [
+        "*.csv"
+      ],
+      "group": "files"
+    },
+    {
       "name": "FASTQS",
       "label": "fastqs",
       "class": "array:file",
