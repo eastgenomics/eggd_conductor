@@ -55,7 +55,7 @@ def parse_sample_sheet(samplesheet) -> list:
     return sample_list
 
 
-def match_samples_to_assays(configs, all_samples) -> dict:
+def match_samples_to_assays(configs, all_samples, testing) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
@@ -66,6 +66,8 @@ def match_samples_to_assays(configs, all_samples) -> dict:
         dict of config dicts for each assay
     all_samples : list
         list of samples parsed from samplesheet or specified with --samples
+    testing : bool
+        if running in test mode, if not will perform checks on samples
 
     Returns
     -------
@@ -80,25 +82,23 @@ def match_samples_to_assays(configs, all_samples) -> dict:
     print(f'All assay codes: {all_config_assay_codes}')
     print(f'All samples: {all_samples}')
 
-    # TODO: remove below, just for dev
-    all_samples = all_samples[:2]
-
     for code in all_config_assay_codes:
         for sample in all_samples:
             if code in sample:
                 assay_to_samples[code].append(sample)
 
-    # check all samples have an assay code in one of the configs
-    samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
-    # assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
-    #     "could not identify assay code for all samples - "
-    #     f"{set(all_samples) - set(samples_w_codes)}"
-    # )
+    if not testing:
+        # check all samples have an assay code in one of the configs
+        samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
+        assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
+            "could not identify assay code for all samples - "
+            f"{set(all_samples) - set(samples_w_codes)}"
+        )
 
-    # check all samples are for the same assay, don't handle mixed runs for now
-    assert len(assay_to_samples.keys()) == 1, Slack().send(
-        f"more than one assay found in given sample list: {assay_to_samples}"
-    )
+        # check all samples are for the same assay, don't handle mixed runs for now
+        assert len(assay_to_samples.keys()) == 1, Slack().send(
+            f"more than one assay found in given sample list: {assay_to_samples}"
+        )
 
     print(f"Total samples per assay identified: {assay_to_samples}")
 
@@ -268,7 +268,11 @@ def main():
     else:
         # get all json assay configs from path in conductor config
         configs = DXManage(args).get_json_configs()
-        assay_to_samples = match_samples_to_assays(configs, args.samples)
+        assay_to_samples = match_samples_to_assays(
+            configs=configs,
+            all_samples=args.samples,
+            testing=args.testing
+        )
 
         # select config to use by assay code from all samples
         # TODO : if/when there are mixed runs this should be looped over for
