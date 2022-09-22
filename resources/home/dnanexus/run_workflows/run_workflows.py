@@ -73,6 +73,13 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     -------
     dict
         dict of assay codes: list of matching samples
+
+    Raises
+    ------
+    AssertionError
+        Raised when not all samples have an assay config matched
+    AssertionError
+        Raised when more than one assay config found to use for given samples
     """
     # build a dict of assay codes from configs found to samples based off
     # matching assay_code in sample names
@@ -100,7 +107,13 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             f"more than one assay found in given sample list: {assay_to_samples}"
         )
 
+    # TODO: remove - just for testing
+    for k, v in assay_to_samples.items():
+        assay_to_samples[k] = v[:2]
+
+
     print(f"Total samples per assay identified: {assay_to_samples}")
+
 
     return assay_to_samples
 

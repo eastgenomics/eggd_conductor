@@ -528,7 +528,10 @@ class DXManage():
                     f'Analysis of run {self.args.run_id} with '
                     f'{config.get("assay")} {config.get("version")} config'
                 ),
-                description="This project was automatically created by eggd_conductor"
+                description=(
+                    "This project was automatically created by eggd_conductor "
+                    f"from {os.environ.get('PARENT_JOB_ID')}"
+                )
             )
             print(
                 f'Created new project for output: {output_project} ({project_id})'

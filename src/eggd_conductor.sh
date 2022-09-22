@@ -26,9 +26,9 @@ _set_environment () {
     dx download "$EGGD_CONDUCTOR_CONFIG" -o conductor.cfg
 
     # save original env variables to use later
-    PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
-    PROJECT_ID=$DX_PROJECT_CONTEXT_ID
-    PARENT_JOB_ID=$DX_JOB_ID
+    export PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
+    export PROJECT_ID=$DX_PROJECT_CONTEXT_ID
+    export PARENT_JOB_ID=$DX_JOB_ID
 
     # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
@@ -44,7 +44,6 @@ _set_environment () {
     set +x
     printf "\n" >> conductor.cfg  # add new line char so read parses last line
     while IFS= read -r line; do export "${line?}"; done < conductor.cfg
-    # for line in $(cat conductor.cfg); do export "$line"; done
     dx login --noprojects --token "$AUTH_TOKEN"
     set -x
 }
@@ -150,13 +149,16 @@ _parse_fastqs () {
         if [[ $fq =~ file-[A-Za-z0-9]* ]]
         then
             local file_id="${BASH_REMATCH[0]}"
-            FASTQ_IDS+="$file_id, "
+            FASTQ_IDS+="$file_id,"
         else
             local message_str="Given fastq does not seem to be a valid file id: $fq\n"
             _slack_notify "$message_str" "$SLACK_ALERT_CHANNEL"
             _exit "$message_str"
         fi
     done
+
+    # trim trailing comma
+    FASTQ_IDS="${FASTQ_IDS::-1}"
 
     printf "\nFound fastq file ids: %s \n" "$FASTQS"
 }
@@ -201,6 +203,10 @@ main () {
         _exit "No sentinel file or list of fastqs provided."
     fi
 
+    if [ "$SAMPLESHEET" ]; then
+        dx download "$SAMPLESHEET" -o SampleSheet.csv
+    fi
+
     if [[ "$SENTINEL_FILE" ]]; then
         echo "Parsing sentinel file"
         _parse_sentinel_file
@@ -226,7 +232,7 @@ main () {
     optional_args=""
     if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ASSAY_CONFIG "; fi
     if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
-    if [ "$SAMPLESHEET" ]; then optional_args+="--samplesheet ${SAMPLESHEET} "; fi
+    if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ "$FASTQS" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
     if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
     if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
@@ -276,7 +282,7 @@ main () {
 
         # parse out the Python traceback to add to the message
         traceback=$(awk '/^Traceback/,/+/' dx_stderr | head -n -1)
-        if [ $traceback ]; then
+        if [ "$traceback" ]; then
             message+="%0ATraceback: \`\`\`${traceback}\`\`\`"
         fi
 
