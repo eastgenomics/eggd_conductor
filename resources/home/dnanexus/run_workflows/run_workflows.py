@@ -18,7 +18,9 @@ TODO
 
 """
 import argparse
+from asyncio import run
 from collections import defaultdict
+from xml.etree import ElementTree as ET
 import json
 import sys
 
@@ -53,6 +55,32 @@ def parse_sample_sheet(samplesheet) -> list:
     )
 
     return sample_list
+
+
+def parse_run_info_xml(xml_file) -> str:
+    """
+    Parses RunID from RunInfo.xml file
+
+    Parameters
+    ----------
+    xml_file : file
+        RunInfo.xml file
+
+    Returns
+    -------
+    str
+        Run ID parsed from file
+    """
+    tree = ET.parse('RunInfo.xml')
+    root = tree.getroot()
+    run_attributes = [x.attrib for x in root.findall('Run')]
+    run_id = ''
+
+    if run_attributes:
+        # should always be present
+        run_id = run_attributes[0].get('Id')
+
+    return run_id
 
 
 def match_samples_to_assays(configs, all_samples, testing) -> dict:
@@ -198,6 +226,10 @@ def parse_args() -> argparse.Namespace:
         help='list of sample names to run analysis on'
     )
     parser.add_argument(
+        '--run_info_xml',
+        help='RunInfo.xml file, used to parse run ID from'
+    )
+    parser.add_argument(
         '--dx_project_id', required=False,
         help=(
             'DNAnexus project ID to use to run analysis in, '
@@ -255,6 +287,9 @@ def parse_args() -> argparse.Namespace:
         ]
     if args.fastqs:
         args.fastqs = [x.replace(' ', '') for x in args.fastqs.split(',') if x]
+
+    if args.run_info_xml:
+        args.run_id = parse_run_info_xml(args.run_info_xml)
 
     return args
 

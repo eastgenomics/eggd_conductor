@@ -207,6 +207,10 @@ main () {
         dx download "$SAMPLESHEET" -o SampleSheet.csv
     fi
 
+    if [ "$RUN_INFO_XML" ]; then
+        dx donwload "$RUN_INFO_XML" -o RunInfo.xml
+    fi
+
     if [[ "$SENTINEL_FILE" ]]; then
         echo "Parsing sentinel file"
         _parse_sentinel_file
@@ -233,6 +237,7 @@ main () {
     if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ASSAY_CONFIG "; fi
     if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
+    if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
     if [ "$FASTQS" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
     if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
     if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
