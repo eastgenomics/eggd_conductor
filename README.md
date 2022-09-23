@@ -166,17 +166,19 @@ n.b. where any inputs are linked to previous job outputs, the `depends_on` key s
 
 ### Structuring the output_dirs dictionary
 
-This defines the output directory structure for the executables outputs. For workflows, each stage should have the `stage-id: /path_to_output/` defined, otherwise the output will all go to the root of the project. These may either be hardcoded strings, or optionally use either or both of the following 2 placefolders to subsitute:
+This defines the output directory structure for the executables outputs. For workflows, each stage should have the `stage-id: /path_to_output/` defined, otherwise the output will all go to the root of the project. These may either be hardcoded strings, or optionally use either or both of the following 4 placefolders to subsitute:
 
-- `OUT-FOLDER`: will be named with the `"name"` field for the executable
-- `APP-NAME`: will use the name for the given stage / app id from a `dx describe` call
+- `OUT-FOLDER`: will be in the format of `/output/{assay_name}_{timestamp}/`
+- `APP-NAME`: will use the name for the given app id from a `dx describe` call
+- `WORKFLOW-NAME`: will use the name for the given workflow id from a `dx describe` call
+- `STAGE-NAME`: will use the name for the stage of the given workflow id from a `dx describe` call
 
 - For workflows:
 
     ```
     "output_dirs": {
-        "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/output/OUT-FOLDER/APP-NAME",
-        "stage-G0QQ8q8433Gb8YFG4q7847Px": "/output/OUT-FOLDER/APP-NAME"
+        "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/OUT-FOLDER/STAGE-NAME",
+        "stage-G0QQ8q8433Gb8YFG4q7847Px": "/OUT-FOLDER/STAGE-NAME"
     }
     ```
 
@@ -184,7 +186,7 @@ This defines the output directory structure for the executables outputs. For wor
 
     ```
     "output_dirs": {
-        "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/output/APP-NAME"
+        "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/OUT-FOLDER/APP-NAME"
     }
 
     ```
