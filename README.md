@@ -32,8 +32,8 @@ This currently must contain the following:
 
 - `ASSAY_CONFIG_PATH`: DNAnexus path to directory containing assay level json config files (format: `project:/path/to/configs`)
 - `BCL2FASTQ_APP_ID=`: app ID of bcl2fastq for demultiplexing from dx-streaming-upload runs
-- `AUTH_TOKEN=`: DNAnexus API token
-- `SLACK_TOKEN=`: slack API token for [hermes](hermes-url), used for sending slack notifications
+- `AUTH_TOKEN`: DNAnexus API token
+- `SLACK_TOKEN`: Slack API token, used for sending slack notifications
 - `SLACK_LOG_CHANNEL`: Slack channel to send general start and success notifications to
 - `SLACK_ALERT_CHANNEL`: Slack channel to send any alerts of fails to
 
