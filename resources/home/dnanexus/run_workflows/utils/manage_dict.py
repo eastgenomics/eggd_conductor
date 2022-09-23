@@ -550,17 +550,26 @@ class ManageDict():
         """
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
-                out_folder = out_folder.replace('/output/', '')
+                # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
                 dir = dir.replace("OUT-FOLDER", out_folder)
-            if "APP-NAME" in dir:
-                if 'workflow-' in executable:
-                    app_name = exe_names[executable]['stages'][stage]
-                elif 'app-' or 'applet-' in executable:
-                   app_name = exe_names[executable]['name']
-
-                # add app/workflow name to output dir name
+            if "APP-NAME" in dir or "WORKFLOW-NAME" in dir:
+                app_name = exe_names[executable]['name']
                 dir = dir.replace("APP-NAME", app_name)
-                output_dict[stage] = dir
+            if "STAGE-NAME" in dir:
+                app_name = exe_names[executable]['stages'][stage]
+                dir = dir.replace("STAGE-NAME", app_name)
+
+            # ensure we haven't accidentally got double slashes in path
+            dir = dir.replace('//', '/')
+
+            # ensure we don't end up with double /ouput if given in config and
+            # using OUT-FOLDER
+            dir = dir.replace('output/output', 'output')
+
+            output_dict[stage] = dir
+
+        print(f'Output dict for {executable}:')
+        PPRINT(output_dict)
 
         return output_dict
 

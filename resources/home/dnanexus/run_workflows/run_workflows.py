@@ -350,7 +350,7 @@ def main():
     run_time = time_stamp()
 
     # set parent output directory, each app will have sub dir in here
-    # use argparse Namespace for laziness
+    # use argparse Namespace for laziness to pass to dx_manage functions
     parent_out_dir = f"/output/{args.assay_name}-{run_time}"
     args.parent_out_dir = parent_out_dir
 
@@ -422,10 +422,10 @@ def main():
         # of failing to launch all jobs to be able to terminate all analyses
         open('job_id.log', 'w').close()
 
-        # create output folder for workflow, unique by datetime stamp
-        out_folder = f'{parent_out_dir}/{params["name"]}'
-        out_folder = dx_manage.create_dx_folder(out_folder)
-        executable_out_dirs[params['analysis']] = out_folder
+        # create output folder for workflow
+        # out_folder = f'{parent_out_dir}/{params["name"]}'
+        # out_folder = dx_manage.create_dx_folder(out_folder)
+        # executable_out_dirs[params['analysis']] = out_folder
 
         params['executable_name'] = exe_names[executable]['name']
 
@@ -445,7 +445,7 @@ def main():
                     params=params,
                     sample=sample,
                     config=config,
-                    out_folder=out_folder,
+                    out_folder=parent_out_dir,
                     job_outputs_dict=job_outputs_dict,
                     executable_out_dirs=executable_out_dirs,
                     fastq_details=fastq_details
@@ -459,7 +459,7 @@ def main():
                 exe_names=exe_names,
                 params=params,
                 config=config,
-                out_folder=out_folder,
+                out_folder=parent_out_dir,
                 job_outputs_dict=job_outputs_dict,
                 executable_out_dirs=executable_out_dirs,
                 fastq_details=fastq_details

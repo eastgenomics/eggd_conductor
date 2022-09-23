@@ -88,9 +88,15 @@ class DXExecute():
                 project=bcl2fastq_project
             )
             if not dx.PROJECT_CONTEXT_ID == bcl2fastq_project:
+                file.clone(dx.PROJECT_CONTEXT_ID, folder='')
+            else:
                 # bcl2fastq output in the analysis project
                 # can't clone within the same project
-                file.clone(dx.PROJECT_CONTEXT_ID, folder='')
+                print(
+                    'Warning: bcl2fastq output appears to be in the same '
+                    'project as analysis, the Stats.json can not be cloned '
+                    'within the same project. Continuing without...'
+                )
 
         return job
 
@@ -709,6 +715,8 @@ class DXManage():
             elif exe.startswith('app-') or exe.startswith('applet-'):
                 app_details = dx.api.workflow_describe(exe)
                 app_name = app_details['name'].replace('/', '-')
+                if app_name.startswith('app-'):
+                    app_name = app_name.replace('app-', '')
                 mapping[exe] = {'name': app_name}
 
         return mapping
