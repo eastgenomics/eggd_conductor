@@ -1,17 +1,11 @@
 #!/bin/bash
 # eggd_conductor
-# Jethro Rainford
-# 20210831
 
-# This can either be run automatically by dx-streaming-upload on completing
-# upload of a sequencing run, or manually by providing a set of fastqs
-# to analyse and a sample sheet / list of sample names
 
 ## TODO
 #  - checking for valid inputs (i.e. fastqs w/ sample sheet/sample names etc)
 #
 ##
-
 
 set -exo pipefail
 
