@@ -422,11 +422,8 @@ def main():
         # of failing to launch all jobs to be able to terminate all analyses
         open('job_id.log', 'w').close()
 
-        # create output folder for workflow
-        # out_folder = f'{parent_out_dir}/{params["name"]}'
-        # out_folder = dx_manage.create_dx_folder(out_folder)
-        # executable_out_dirs[params['analysis']] = out_folder
-
+        # TODO: check if this is needed anymore and how to handle
+        # passing app specific output dirs (if needed)
         params['executable_name'] = exe_names[executable]['name']
 
         if params['per_sample'] is True:
