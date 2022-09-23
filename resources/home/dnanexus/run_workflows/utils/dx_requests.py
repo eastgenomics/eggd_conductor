@@ -708,6 +708,10 @@ class DXManage():
                         stage_name = dx.api.workflow_describe(
                             stage_name).get('name')
 
+                    if stage_name.startswith('app-'):
+                        # apps are prefixed with app- which is ugly
+                        stage_name = stage_name.replace('app-', '')
+
                     # app names will be in format app-id/version
                     stage_name = stage_name.replace('/', '-')
                     mapping[exe]['stages'][stage_id] = stage_name
