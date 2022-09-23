@@ -136,6 +136,8 @@ Currently, the available placeholder inputs include the following:
 - `INPUT-R1`: indicates to pass 1 or more R1 fastq files as input
 - `INPUT-R2`: indicates to pass 1 or more R2 fastq files as input
 - `INPUT-R1-R2`: indicates to pass all R1 AND R2 fastq files as input
+- `INPUT-SAMPLE-PREFIX`: if to pass string input of sample name prefix split on `'sample_name_delimeter'` if specified in config
+- `INPUT-SAMPLE-NAME`: if to pass string input of sample name
 - `INPUT-dx_project_id`: pass the project id used for analysis
 - `INPUT-dx_project_name`: pass the project name used for analysis
 - `INPUT-analysis_X-out_dir`: pass the output directory of analysis `X` as input, where `X` is the number of the analysis defined as above (used when an app takes a path to a directory as input)

@@ -248,12 +248,14 @@ class DXExecute():
         else:
             dependent_jobs = []
 
+        sample_prefix = sample
+
         if params.get("sample_name_delimeter"):
             # if delimeter specified to split sample name on, use it
             delim = params.get("sample_name_delimeter")
 
             if delim in sample:
-                sample = sample.split(delim)[0]
+                sample_prefix = sample.split(delim)[0]
             else:
                 print((
                     f'Specified delimeter ({delim}) is not in sample name '
@@ -261,11 +263,13 @@ class DXExecute():
                 ))
 
         # handle other inputs defined in config to add to inputs
+        # sample_prefix passed to pass to INPUT-SAMPLE_NAME
         input_dict = ManageDict().add_other_inputs(
             input_dict=input_dict,
             args=self.args,
             executable_out_dirs=executable_out_dirs,
-            sample=sample
+            sample=sample,
+            sample_prefix=sample_prefix
         )
 
         # check any inputs dependent on previous job outputs to add

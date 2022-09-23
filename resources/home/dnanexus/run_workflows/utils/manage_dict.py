@@ -208,7 +208,8 @@ class ManageDict():
 
 
     def add_other_inputs(
-            self, input_dict, args, executable_out_dirs, sample=None) -> dict:
+            self, input_dict, args, executable_out_dirs,
+            sample=None, sample_prefix=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
         parsing: workflow output directories, sample name, project id and
@@ -225,6 +226,8 @@ class ManageDict():
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
         sample : str, default None
             optional, sample name used to filter list of fastqs
+        sample_prefix : str, default None
+            optional, prefix of sample name split with delimeter from config
 
         Returns
         -------
@@ -264,19 +267,21 @@ class ManageDict():
         # mapping of potential user defined keys and variables to replace with
         to_replace = [
             ('INPUT-SAMPLE-NAME', sample),
+            ('INPUT-SAMPLE-PREFIX', sample_prefix),
             ('INPUT-dx_project_id', args.dx_project_id),
             ('INPUT-dx_project_name', project_name),
             ('INPUT-parent_out_dir', args.parent_out_dir)
         ]
 
         for pair in to_replace:
-            input_dict = self.replace(
-                input_dict=input_dict,
-                to_replace=pair[0],
-                replacement=pair[1],
-                search_key=False,
-                replace_key=False
-            )
+            if pair[1]:
+                input_dict = self.replace(
+                    input_dict=input_dict,
+                    to_replace=pair[0],
+                    replacement=pair[1],
+                    search_key=False,
+                    replace_key=False
+                )
 
         # find and replace any out dirs
         regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
