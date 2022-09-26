@@ -70,7 +70,7 @@ def parse_run_info_xml(xml_file) -> str:
     str
         Run ID parsed from file
     """
-    tree = ET.parse('RunInfo.xml')
+    tree = ET.parse(xml_file)
     root = tree.getroot()
     run_attributes = [x.attrib for x in root.findall('Run')]
     run_id = ''
