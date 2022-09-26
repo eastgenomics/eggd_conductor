@@ -131,6 +131,9 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
+        print(f"Populated input dict for: {executable}")
+        PPRINT(input_dict)
+
         if 'workflow-' in executable:
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
                 dxid=executable,
@@ -222,14 +225,6 @@ class DXExecute():
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
 
-        # create output directory structure in config
-        ManageDict().populate_output_dir_config(
-            executable=executable,
-            exe_names=exe_names,
-            output_dict=output_dict,
-            out_folder=out_folder
-        )
-
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
             input_dict = ManageDict().add_fastqs(
@@ -286,6 +281,14 @@ class DXExecute():
 
         # set job name as executable name and sample name
         job_name = f"{params['executable_name']}-{sample}"
+
+        # create output directory structure in config
+        ManageDict().populate_output_dir_config(
+            executable=executable,
+            exe_names=exe_names,
+            output_dict=output_dict,
+            out_folder=out_folder
+        )
 
         # call dx run to start jobs
         print(f"Calling {params['executable_name']} ({executable}) on sample {sample}")
@@ -348,14 +351,6 @@ class DXExecute():
         input_dict = config['executables'][executable]['inputs']
         output_dict = config['executables'][executable]['output_dirs']
 
-        # create output directory structure in config
-        ManageDict().populate_output_dir_config(
-            executable=executable,
-            exe_names=exe_names,
-            output_dict=output_dict,
-            out_folder=out_folder
-        )
-
         if params["process_fastqs"] is True:
             input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
 
@@ -386,6 +381,14 @@ class DXExecute():
         # check that all INPUT- have been parsed in config
         ManageDict().check_all_inputs(input_dict)
 
+        # create output directory structure in config
+        ManageDict().populate_output_dir_config(
+            executable=executable,
+            exe_names=exe_names,
+            output_dict=output_dict,
+            out_folder=out_folder
+        )
+
         # passing all samples to workflow
         print(f'Calling {params["name"]} for all samples')
         job_id = self.call_dx_run(
@@ -395,9 +398,6 @@ class DXExecute():
             output_dict=output_dict,
             prev_jobs=dependent_jobs
         )
-
-        PPRINT(input_dict)
-        PPRINT(output_dict)
 
         # map workflow id to created dx job id
         job_outputs_dict[params['analysis']] = job_id
