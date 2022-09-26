@@ -206,7 +206,7 @@ main () {
     fi
 
     if [[ "$SENTINEL_FILE" ]]; then
-        echo "Parsing sentinel file"
+        printf "\nParsing sentinel file"
         _parse_sentinel_file
     else
         # app run manually without sentinel file

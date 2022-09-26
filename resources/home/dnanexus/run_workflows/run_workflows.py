@@ -413,7 +413,7 @@ def main():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
         print(
-            f'\nConfiguring {params.get("name")} ({executable}) to start jobs'
+            f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
         print(f"Params parsed from config before modifying:")
         PPRINT(params)
@@ -433,7 +433,7 @@ def main():
             # loop over samples and call app / workflow
             for idx, sample in enumerate(sample_list):
                 print(
-                    f'\nStarting analysis for {sample} - '
+                    f'\n\nStarting analysis for {sample} - '
                     f'({idx}/{len(sample_list)})'
                 )
                 job_outputs_dict = dx_execute.call_per_sample(
