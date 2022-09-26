@@ -361,11 +361,15 @@ class DXExecute():
             executable_out_dirs=executable_out_dirs
         )
 
+        # get any filters from config to apply to job inputs
+        input_filter_dict = config['executables'][executable].get('inputs_filter')
+
         # check any inputs dependent on previous job outputs to add
         input_dict = ManageDict().link_inputs_to_outputs(
             job_outputs_dict=job_outputs_dict,
             input_dict=input_dict,
             analysis=params["analysis"],
+            input_filter_dict=input_filter_dict,
             per_sample=False
         )
 
