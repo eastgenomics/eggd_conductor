@@ -98,22 +98,23 @@ class ManageDict():
         new_dict = {}
 
         for key, value in flattened_dict.items():
-            if search_key:
-                searched = key
+            if replace_key:
+                replacing = key
             else:
-                searched = value
+                replacing = value
 
+            # track if we found a match and already key added to output dict
             added_key = False
 
-            if not isinstance(searched, bool) and searched:
+            if not isinstance(replacing, bool) and replacing:
                 for match in matches:
-                    if not match in searched:
+                    if not match in replacing:
                         continue
 
                     # match is in this key / value => replace
                     added_key = True
                     if replace_key:
-                        new_key = re.sub(match, replacement, searched)
+                        new_key = re.sub(match, replacement, replacing)
                         new_dict[new_key] = value
                     else:
                         new_dict[key] = replacement
