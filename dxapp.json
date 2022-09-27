@@ -111,8 +111,17 @@
       "label": "testing",
       "class": "boolean",
       "optional": true,
-      "help": "Terminates all jobs and clears output files after launching - for testing use only"
+      "help": "Terminates all jobs and clears output files after launching - for testing use only",
+      "group": "testing"
     },
+    {
+      "name": "TESTING_SAMPLE_LIMIT",
+      "label": "testing sample limit",
+      "class": "string",
+      "optional": true,
+      "help": "int number samples to limit analyses to run on - for testing use only",
+      "group": "testing"
+    }
     {
       "name": "BCL2FASTQ_JOB_ID",
       "label": "bcl2fastq job id",

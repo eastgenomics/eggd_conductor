@@ -128,13 +128,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             f"more than one assay found in given sample list: {assay_to_samples}"
         )
 
-    # TODO: remove - just for testing
-    for k, v in assay_to_samples.items():
-        assay_to_samples[k] = v[:2]
-
-
     print(f"Total samples per assay identified: {assay_to_samples}")
-
 
     return assay_to_samples
 
@@ -249,6 +243,10 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
+        '--testing_sample_limit',
+        help='for use when testing only - no. samples to limit running analyses for'
+    )
+    parser.add_argument(
         '--bcl2fastq_id',
         help='id of job from running bcl2fastq (if run)'
     )
@@ -322,6 +320,9 @@ def main():
         assay_code = next(iter(assay_to_samples))
         config = configs[assay_code]
         sample_list = assay_to_samples[assay_code]
+
+    if args.testing_sample_limit:
+        sample_list = sample_list[:int(args.testing_sample_limit)]
 
     if not args.assay_name:
         args.assay_name = config.get('assay')

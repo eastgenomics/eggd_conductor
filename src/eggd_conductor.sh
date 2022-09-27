@@ -240,6 +240,7 @@ main () {
     if [ "$BCL2FASTQ_OUT" ]; then optional_args+="--bcl2fastq_output ${BCL2FASTQ_OUT} "; fi
     if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
+    if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
 
     echo $optional_args
 
