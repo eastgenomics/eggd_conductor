@@ -76,7 +76,7 @@ class ManageDict():
         replacement : str
             id of DNAnexus object to link input to
         search_key : bool
-            determines it to search dictionary keys or values
+            determines if to search dictionary keys or values
         replace_key : bool
             determines if to replace keys or values
 
