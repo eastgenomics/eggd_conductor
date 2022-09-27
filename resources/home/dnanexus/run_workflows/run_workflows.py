@@ -8,14 +8,6 @@ subsequent jobs.
 
 See readme for full documentation of how to structure the config file and what
 inputs are valid.
-
-
-TODO
-    - slack notifications - DONE
-    - test mode - DONE
-    - log jobs started in case of failing to start some and terminate all - DONE
-    - tag conductor job with link to downstream project jobs and bcl2fastq job
-
 """
 import argparse
 from collections import defaultdict
