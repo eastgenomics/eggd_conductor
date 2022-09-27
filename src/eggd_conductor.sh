@@ -297,13 +297,15 @@ main () {
     read -r project_name project_id < analysis_project.log
     total_jobs=$(cat total_jobs.log)
 
+    analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
-    message+="*${RUN_ID}*%0AAnalysis project: platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+    message+="*${RUN_ID}*%0AAnalysis project: ${analysis_project_url}"
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
     # tag conductor job with downstream project used for analysis
-    dx tag "$PARENT_JOB_ID" "$conductor_job_url"
+    dx tag "$PARENT_JOB_ID" "$analysis_project_url"
 
     mark-success
 }

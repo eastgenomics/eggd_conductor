@@ -82,7 +82,7 @@ Example top level of config:
 - `analysis`: the value should be written as `analysis_1`, where the number is the executable stage in the config (i.e for the first workflow app this would be `analysis_1`, for the second `analysis_2`...). This is used to link the outputs of one workflow / app to subsequent workflows / apps.
 - `per_sample` (boolean): if to run the executable on each sample individually, or as one multi-sample job
 - `process_fastqs` (boolean): if the executable requires fastqs passing
-- `inputs` (dict): this forms the input dictionary passed to the call to dx api to trigger the running of the executable, more details may be found [here](dx-run-url). See below for structure and available inputs.
+- `inputs` (dict): this forms the input dictionary passed to the call to dx api to trigger the running of the executable, more details may be found [here][dx-run-url]. See below for structure and available inputs.
 - `output_dirs` (dict): maps the app / workflow stages to directories in which to store output data. See below for structure and available inputs.
 
 **Optional keys per executable dictionary**:
