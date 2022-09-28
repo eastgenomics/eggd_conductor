@@ -291,7 +291,10 @@ class DXExecute():
         )
 
         # call dx run to start jobs
-        print(f"Calling {params['executable_name']} ({executable}) on sample {sample}")
+        print(
+            f"Calling {params['executable_name']} ({executable}) "
+            f"on sample {sample}"
+            )
 
         if input_dict.keys:
             print(f'Input dict: {PPRINT(input_dict)}')

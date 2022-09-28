@@ -415,8 +415,7 @@ def main():
         # of failing to launch all jobs to be able to terminate all analyses
         open('job_id.log', 'w').close()
 
-        # TODO: check if this is needed anymore and how to handle
-        # passing app specific output dirs (if needed)
+        # save name to params to access later to name job
         params['executable_name'] = exe_names[executable]['name']
 
         if params['per_sample'] is True:
