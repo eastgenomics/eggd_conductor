@@ -352,6 +352,7 @@ class ManageDict():
         if sample:
             # running per sample, assume we only wait on the samples previous
             # job and not all instances of the executable for all samples
+            job_outputs_dict_copy = deepcopy(job_outputs_dict)
             job_outputs_dict = job_outputs_dict[sample]
 
         # check if job depends on previous jobs to hold till complete
@@ -359,14 +360,28 @@ class ManageDict():
         dependent_jobs = []
 
         if dependent_analyses:
-            for id in dependent_analyses:
-                for job in self.search(
-                    id, job_outputs_dict, check_key=True, return_key=False
-                    ):
-                        # find all jobs for every analysis id
-                        # (i.e. all samples job ids for analysis_X)
-                        if job:
-                            dependent_jobs.append(job)
+            for analysis_id in dependent_analyses:
+                # find all jobs for every analysis id
+                # (i.e. all samples job ids for analysis_X)
+                job_ids = self.search(
+                    identifer=analysis_id,
+                    input_dict=job_outputs_dict,
+                    check_key=True,
+                    return_key=False
+                )
+                if job_ids:
+                    for job in job_ids:
+                        dependent_jobs.append(job)
+                else:
+                    # didn't find a job ID for the given analysis_X,
+                    # this is possibly due to the analysis being per
+                    # run and not in the samples job dict => check if
+                    # it is in the main job_outputs_dict keys
+                    job = job_outputs_dict_copy.get(id)
+                    if job:
+                        # found ID in root of jobs dict => found per
+                        # run job to wait on
+                        dependent_jobs.append(job)
 
         print(f'Dependent jobs found: {dependent_jobs}')
 
