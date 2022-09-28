@@ -33,22 +33,30 @@ class DXExecute():
         str
             ID of demultiplexing job
         """
-        print("Starting demultiplexing, holding app until comletion...")
-
         if not self.args.testing:
-            # set output path to parent of sentinel file
-            sentinel_path = dx.describe(self.args.sentinel_file).get('folder')
-            bcl2fastq_out = sentinel_path.replace('/runs', '')
+            if not self.args.bcl2fastq_output:
+                # set output path to parent of sentinel file
+                sentinel_path = dx.describe(self.args.sentinel_file).get('folder')
+                self.args.bcl2fastq_output = sentinel_path.replace('/runs', '')
         else:
-            # running in testing and going to demultiplex -> dump output to
-            # our testing analysis project to not go to semtinel file dir
-            bcl2fastq_out = f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp}'
+            if not self.args.bcl2fastq_output:
+                # running in testing and going to demultiplex -> dump output to
+                # our testing analysis project to not go to semtinel file dir
+                self.args.bcl2fastq_output = (
+                    f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp}'
+                )
 
-        bcl2fastq_project = bcl2fastq_out.split(':')[0]
+        bcl2fastq_project, bcl2fastq_folder = self.args.bcl2fastq_output.split(':')
+
+        print(f'bcl2fastq out: {self.args.bcl2fastq_output}')
+        print(f'bcl2fastq project: {bcl2fastq_project}')
+        print(f'bcl2fastq folder: {bcl2fastq_folder}')
 
         app_id = os.environ.get('BCL2FASTQ_APP_ID')
         inputs = {
-            'upload_sentinel_record': self.args.sentinel_file,
+            'upload_sentinel_record': {
+                "$dnanexus_link": self.args.sentinel_file
+            }
         }
 
         # check no fastqs are already present in the output directory for
@@ -57,28 +65,43 @@ class DXExecute():
         fastqs = list(dx.find_data_objects(
             name="*.fastq*",
             name_mode='glob',
-            folder=bcl2fastq_out
+            project=bcl2fastq_project,
+            folder=bcl2fastq_folder
         ))
 
         assert not fastqs, Slack().send(
             "fastqs already present in directory for bcl2fastq output"
-            f"({bcl2fastq_out})"
+            f"({self.args.bcl2fastq_output})"
         )
 
-        job = dx.bindings.dxapp.DXApp(app_id).run(
-            app_input=inputs,
-            folder=bcl2fastq_out,
-            priority='high'
-        )
+        if app_id.startswith('applet-'):
+            job = dx.bindings.dxapplet.DXApplet(dxid=app_id).run(
+                applet_input=inputs,
+                project=bcl2fastq_project,
+                folder=bcl2fastq_folder,
+                priority='high'
+            )
+        elif app_id.startswith('app-'):
+            job = dx.bindings.dxapp.DXApp(dx_id=app_id).run(
+                app_input=inputs,
+                project=bcl2fastq_project,
+                folder=bcl2fastq_folder,
+                priority='high'
+            )
+        else:
+            raise RuntimeError(
+                f'Provided bcl2fastq app ID does not appear valid: {app_id}')
 
-        dx.bindings.dxjob.DXJob(dxid=job).wait_on_done()
+        print("Starting demultiplexing, holding app until completed...")
+        job_id = job.describe().get('id')
+        dx.bindings.dxjob.DXJob(dxid=job_id).wait_on_done()
 
         print("Demuliplexing completed!")
 
         # copy the demultiplexing stats json into the project root for multiQC
         stats_json = list(dx.bindings.search.find_data_objects(
             project=bcl2fastq_project,
-            folder=f'{bcl2fastq_out}/Data/Intensities/BaseCalls/Stats/',
+            folder=f'{bcl2fastq_folder}/Data/Intensities/BaseCalls/Stats/',
             name="Stats.json"
         ))
 
@@ -427,6 +450,15 @@ class DXManage():
         -------
         dict
             dict of dicts of configs, one per assay
+
+        Raises
+        ------
+        AssertionError
+            Raised when invalid project:path structure defined in app config
+        AssertionError
+            Raised when no config files found at the given path
+        AssertionError
+            Raised when config file has missing assay_code or version field
         """
         config_path = os.environ.get('ASSAY_CONFIG_PATH', '')
 
@@ -559,7 +591,7 @@ class DXManage():
                 dx.bindings.dxproject.DXProject(dxid=project_id).invite(
                     user, access_level, send_email=False
                 )
-                print(f"Granted {access_level} priviledge to user {user}")
+                print(f"Granted {access_level} priviledge to {user}")
 
         return project_id
 
