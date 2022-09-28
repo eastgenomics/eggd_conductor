@@ -182,10 +182,16 @@ class ManageDict():
 
         print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
-        assert len(r1_fastqs) == len(r2_fastqs), Slack().send(
-            f"Mismatched number of FastQs found.\n"
-            f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
-        )
+        # sense check we have R2 fastqs before across all samples (i.e.
+        # checking this isn't single end sequencing) before checking we
+        # have equal numbers for the current sample
+        all_r2_fastqs = [x for x in fastq_details if 'R2_001.fastq' in x[1]]
+
+        if all_r2_fastqs:
+            assert len(r1_fastqs) == len(r2_fastqs), Slack().send(
+                f"Mismatched number of FastQs found.\n"
+                f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
+            )
 
         for stage, inputs in input_dict.items():
             # check each stage in input config for fastqs, format
