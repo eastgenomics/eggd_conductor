@@ -27,7 +27,7 @@ class Slack():
         conductor_job_url = os.environ.get('conductor_job_url')
         channel = self.slack_alert_channel
         message = (
-            f":warning: *Error in eggd_conductor:*\n\n{message}\n\n"
+            f":warning: *Error in eggd_conductor*\n\n{message}\n\n"
             f"eggd_conductor job: {conductor_job_url}"
         )
 

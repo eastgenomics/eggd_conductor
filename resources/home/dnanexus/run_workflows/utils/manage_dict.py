@@ -17,7 +17,7 @@ class ManageDict():
     Methods to handle parsing and populating input and output dictionaries
     """
     def search(
-        self, identifier, input_dict, check_key, return_key) -> Generator:
+        self, identifier, input_dict, check_key, return_key) -> list:
         """
         Searches nested dictionary for given identifier string in either
         the dict keys or values, and returns the key or value of the match.
@@ -62,7 +62,9 @@ class ManageDict():
         return list(set(found))
 
 
-    def replace(self, input_dict, to_replace, replacement, search_key, replace_key):
+    def replace(
+        self, input_dict, to_replace, replacement,
+        search_key, replace_key) -> list:
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
@@ -372,7 +374,8 @@ class ManageDict():
 
 
     def link_inputs_to_outputs(
-            self, job_outputs_dict, input_dict, analysis, per_sample, sample=None) -> dict:
+            self, job_outputs_dict, input_dict, analysis,
+            per_sample, input_filter_dict=None, sample=None) -> dict:
         """
         Check input dict for 'analysis_', these will be for linking outputs of
         previous jobs and stored in the job_outputs_dict to input of next job.
@@ -389,6 +392,9 @@ class ManageDict():
             if the given executable is running per sample or not, if not then
             all job IDs for the linked analysis will be gathered and used
             as input
+        input_filter_dict : dict
+            mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
+            filter sample IDs by
         sample : str, default None
             optional, sample name used to limit searching for previous analyes
 
@@ -495,6 +501,7 @@ class ManageDict():
                     return_key=False
                 )
 
+                # sense check job IDs prev. launched for given analysis ID
                 if not job_ids:
                     raise ValueError((
                         "No job id found for given analysis id: "
@@ -507,12 +514,27 @@ class ManageDict():
                 # for each input, first check if given analysis_X is present
                 # => need to link job IDs to the input. If true, turn that
                 # input into an array and create one dict of input structure
-                # per job for the given analysis_X found
+                # per job for the given analysis_X found.
                 for input_field, link_dict in input_dict.items():
-                    for dx_link, stage_input in link_dict.items():
+                    for _, stage_input in link_dict.items():
                         if not analysis_id in stage_input.values():
                             # analysis id not present as any input
                             continue
+
+                    # filter job outputs to search by sample name patterns
+                    job_outputs_dict_copy = self.filter_job_outputs_dict(
+                        stage=input_field,
+                        outputs_dict=job_outputs_dict,
+                        filter_dict=input_filter_dict
+                    )
+
+                    # gather all job IDs for current analysis ID
+                    job_ids = self.search(
+                        identifier=analysis_id,
+                        input_dict=job_outputs_dict_copy,
+                        check_key=True,
+                        return_key=False
+                    )
 
                     # copy input structure from input dict, turn into an array
                     # input and populate with a link to each job
@@ -584,6 +606,71 @@ class ManageDict():
         PPRINT(output_dict)
 
         return output_dict
+
+
+    def filter_job_outputs_dict(
+            self, stage, outputs_dict, filter_dict) -> dict:
+        """
+        Filter given dict of sample names -> job IDs to only keep job IDs
+        of jobs for those sample(s) matching given pattern(s).
+
+        Used to filter where downstream jobs need to only take the outputs
+        of certain samples as input (i.e. gathering all output bam files but
+        only needing those of a control sample)
+
+        Parameters
+        ----------
+        stage : str
+            stage ID to select patterns from filter_dict by
+        outputs_dict : dict
+            dict of sample IDs -> launched jobs
+        filter_dict : dict
+            mapping of stage_ID.inputs to a list of regex pattern(s) to
+            filter sample IDs by
+
+        Returns
+        -------
+        dict
+            filtered jobs dict
+
+        Raises
+        ------
+        AssertionError
+            Raised when a pattern is given to filter the outputs but
+            no match was found
+        """
+        if not filter_dict:
+            # no filter pattens to apply
+            return outputs_dict
+
+        print(f'\nFiltering job outputs dict by sample name patterns for {stage}')
+        print(f'\nJob outputs dict before filtering:')
+        PPRINT(outputs_dict)
+        print(f'Filter dict:')
+        PPRINT(filter_dict)
+
+        new_outputs = {}
+        stage_match = False
+
+        for filter_stage, filter_patterns in filter_dict.items():
+            if stage == filter_stage:
+                # current stage has filter(s) to apply
+                stage_match = True
+                for pattern in filter_patterns:
+                    for sample, job in outputs_dict.items():
+                        if re.search(pattern, sample):
+                            new_outputs[sample] = job
+
+        if not stage_match:
+            # stage has no filters to apply => just return the outputs dict
+            print(f'No filters to apply for stage: {stage}')
+            return outputs_dict
+        else:
+            # there was a filter for given stage to apply
+            print(f'Job outputs dict after filtering')
+            PPRINT(new_outputs)
+
+            return new_outputs
 
 
     def check_all_inputs(self, input_dict) -> None:

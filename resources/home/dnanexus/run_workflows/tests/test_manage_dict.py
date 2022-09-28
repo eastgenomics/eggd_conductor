@@ -126,6 +126,47 @@ class TestReplaceDict():
             "Replacing level1 keys not correct"
         )
 
+def test_filter_job_outputs_dict():
+    """
+    Test filtering job outputs -> inputs dict by given pattern(s)
+    """
+    # dict of per sample jobs launched as built in app
+    job_outputs_dict = {
+        '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
+            'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2'
+        },
+        'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+            'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
+        },
+        'analysis_2': 'job-GGjgz1j4Bv48yF89GpZ6zkGz'
+    }
+
+    # dict matching section as would be in config defining the stage
+    # input and patterns to filter by
+    filter_dict = {
+        "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": [
+            "Oncospan*"
+        ],
+        "another_stage": [
+            "2207155-22207Z0091*"
+        ]
+    }
+
+    filtered_output = ManageDict().filter_job_outputs_dict(
+        stage='stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file',
+        outputs_dict=job_outputs_dict,
+        filter_dict=filter_dict
+    )
+
+    correct_output = {
+       'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+           'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
+        }
+    }
+
+    assert filtered_output == correct_output, (
+        "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+    )
     def test_replace_all_value1(self):
         """
         Test searching replacing all values containing 'value1'
@@ -219,4 +260,7 @@ if __name__ == '__main__':
     inputs.test_search_dict_array()
 
     replace = TestReplaceDict()
+    replace.test_replace_level1_keys()
+
+    test_filter_job_outputs_dict()
     replace.test_replace_value_from_key()
