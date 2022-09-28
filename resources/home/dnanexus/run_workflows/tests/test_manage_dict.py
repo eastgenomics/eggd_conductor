@@ -136,9 +136,10 @@ def test_filter_job_outputs_dict():
             'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2'
         },
         'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
-            'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'},
-            'analysis_2': 'job-GGjgz1j4Bv48yF89GpZ6zkGz'
-        }
+            'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
+        },
+        'analysis_2': 'job-GGjgz1j4Bv48yF89GpZ6zkGz'
+    }
 
     # dict matching section as would be in config defining the stage
     # input and patterns to filter by
