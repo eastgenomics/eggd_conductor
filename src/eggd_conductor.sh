@@ -17,7 +17,7 @@ _set_environment () {
     Sets tokens to env variables from eggd_conductor config for later
     use
     '''
-    dx download "$EGGD_CONDUCTOR_CONFIG" -o conductor.cfg
+    dx download -f "$EGGD_CONDUCTOR_CONFIG" -o conductor.cfg
 
     # save original env variables to use later
     export PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
@@ -97,11 +97,11 @@ _parse_sentinel_file () {
 
     if [ "$SAMPLESHEET" ]; then
         # samplesheet specified as input arg
-        dx download "$SAMPLESHEET" -o SampleSheet.csv
+        dx download -f "$SAMPLESHEET" -o SampleSheet.csv
         SAMPLESHEET='SampleSheet.csv'
     elif [ "$sentinel_samplesheet" != 'null' ]; then
         # samplesheet found during upload and associated to sentinel file
-        dx download "$sentinel_samplesheet" -o SampleSheet.csv
+        dx download -f "$sentinel_samplesheet" -o SampleSheet.csv
         SAMPLESHEET="SampleSheet.csv"
     else
         # sample sheet missing from sentinel file, most likely due to not being
@@ -111,20 +111,21 @@ _parse_sentinel_file () {
 
         # first tar always named _000.tar.gz, return id of it to download
         local first_tar_id=$(dx find data --path "$sentinel_path" --brief --name "*_000.tar.gz")
-        dx download "$first_tar_id" -o first_tar.tar.gz
+        dx download -f "$first_tar_id" -o first_tar.tar.gz
 
         # unpack tar and find samplesheet
         mkdir ./first_tar_dir
         tar -xzf first_tar.tar.gz -C ./first_tar_dir
         SAMPLESHEET=$(find ./first_tar_dir -regextype posix-extended  -iregex '.*sample[-_ ]?sheet.csv$')
 
-        if [ -z "$SAMPLESHEET" ];
-        then
+        if [ -z "$SAMPLESHEET" ]; then
             # sample sheet missing from root and first tar
             message="Sample sheet missing from runs dir and first tar, exiting now."
             dx-jobutil-report-error "$message"
             _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
             exit 1
+        else
+            mv "$SAMPLESHEET" /home/dnanexus
         fi
     fi
 }
@@ -198,11 +199,11 @@ main () {
     fi
 
     if [ "$SAMPLESHEET" ]; then
-        dx download "$SAMPLESHEET" -o SampleSheet.csv
+        dx download -f "$SAMPLESHEET" -o SampleSheet.csv
     fi
 
     if [ "$RUN_INFO_XML" ]; then
-        dx download "$RUN_INFO_XML" -o RunInfo.xml
+        dx download -f "$RUN_INFO_XML" -o RunInfo.xml
     fi
 
     if [[ "$SENTINEL_FILE" ]]; then
