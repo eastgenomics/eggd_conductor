@@ -121,7 +121,7 @@
       "optional": true,
       "help": "int number samples to limit analyses to run on - for testing use only",
       "group": "testing"
-    }
+    },
     {
       "name": "BCL2FASTQ_JOB_ID",
       "label": "bcl2fastq job id",
