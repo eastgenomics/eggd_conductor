@@ -667,16 +667,11 @@ class ManageDict():
             print(f'No filters to apply for stage: {stage}')
             return outputs_dict
         else:
-            # there was a filter for given stage to apply, sense check
-            # we found a match
-            assert new_outputs, Slack().send(
-                f"no jobs found for {stage} using inputs_filter from config."
-            )
+            # there was a filter for given stage to apply
+            print(f'Job outputs dict after filtering')
+            PPRINT(new_outputs)
 
-        print(f'Job outputs dict after filtering')
-        PPRINT(new_outputs)
-
-        return new_outputs
+            return new_outputs
 
 
     def check_all_inputs(self, input_dict) -> None:
