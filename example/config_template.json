@@ -1,5 +1,7 @@
 {
     "name": "Config for {assay-name}",
+    "assay": "",
+    "assay_code": "",
     "version": "v1.0.0",
     "details": "",
     "demultiplex": true,
