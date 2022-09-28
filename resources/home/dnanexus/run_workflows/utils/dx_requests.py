@@ -524,10 +524,18 @@ class DXManage():
         -------
         dx_project : str
             dx ID of given project if found, else returns `None`
+
+        Raises
+        ------
+        AssertionError
+            Raised when more than one project found for given name
         """
-        dx_projects = list(dx.bindings.search.find_projects(
-            name=project_name, limit=1
-        ))
+        dx_projects = list(dx.bindings.search.find_projects(name=project_name))
+
+        assert len(dx_projects) > 1, (
+            "Found more than one project matching given "
+            f"project name: {project_name}"
+        )
 
         if not dx_projects:
             # found no project, return None and create one in
