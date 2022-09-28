@@ -622,7 +622,7 @@ class ManageDict():
         Parameters
         ----------
         stage : str
-            stage ID to select patterns from flter_dict by
+            stage ID to select patterns from filter_dict by
         outputs_dict : dict
             dict of sample IDs -> launched jobs
         filter_dict : dict
@@ -633,6 +633,12 @@ class ManageDict():
         -------
         dict
             filtered jobs dict
+
+        Raises
+        ------
+        AssertionError
+            Raised when a pattern is given to filter the outputs but
+            no match was found
         """
         if not filter_dict:
             # no filter pattens to apply
