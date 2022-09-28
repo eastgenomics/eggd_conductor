@@ -8,14 +8,6 @@ subsequent jobs.
 
 See readme for full documentation of how to structure the config file and what
 inputs are valid.
-
-
-TODO
-    - slack notifications - DONE
-    - test mode - DONE
-    - log jobs started in case of failing to start some and terminate all - DONE
-    - tag conductor job with link to downstream project jobs and bcl2fastq job
-
 """
 import argparse
 from collections import defaultdict
@@ -70,7 +62,7 @@ def parse_run_info_xml(xml_file) -> str:
     str
         Run ID parsed from file
     """
-    tree = ET.parse('RunInfo.xml')
+    tree = ET.parse(xml_file)
     root = tree.getroot()
     run_attributes = [x.attrib for x in root.findall('Run')]
     run_id = ''
@@ -136,13 +128,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             f"more than one assay found in given sample list: {assay_to_samples}"
         )
 
-    # TODO: remove - just for testing
-    for k, v in assay_to_samples.items():
-        assay_to_samples[k] = v[:2]
-
-
     print(f"Total samples per assay identified: {assay_to_samples}")
-
 
     return assay_to_samples
 
@@ -257,6 +243,10 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
+        '--testing_sample_limit',
+        help='for use when testing only - no. samples to limit running analyses for'
+    )
+    parser.add_argument(
         '--bcl2fastq_id',
         help='id of job from running bcl2fastq (if run)'
     )
@@ -330,6 +320,9 @@ def main():
         assay_code = next(iter(assay_to_samples))
         config = configs[assay_code]
         sample_list = assay_to_samples[assay_code]
+
+    if args.testing_sample_limit:
+        sample_list = sample_list[:int(args.testing_sample_limit)]
 
     if not args.assay_name:
         args.assay_name = config.get('assay')
@@ -422,8 +415,7 @@ def main():
         # of failing to launch all jobs to be able to terminate all analyses
         open('job_id.log', 'w').close()
 
-        # TODO: check if this is needed anymore and how to handle
-        # passing app specific output dirs (if needed)
+        # save name to params to access later to name job
         params['executable_name'] = exe_names[executable]['name']
 
         if params['per_sample'] is True:

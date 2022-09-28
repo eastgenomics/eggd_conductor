@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.manage_dict import ManageDict
+from utils.manage_dict import PPRINT, ManageDict
 from tests import TEST_DATA_DIR
 
 
@@ -16,9 +16,8 @@ class TestSearchDict():
     given pattern against either keys or values, and can return the
     keys or values
     """
-    def __init__(self) -> None:
-        with open(os.path.join(TEST_DATA_DIR, 'test_low_level_config.json')) as fh:
-            self.full_config = json.load(fh)
+    with open(os.path.join(TEST_DATA_DIR, 'test_low_level_config.json')) as fh:
+        full_config = json.load(fh)
 
     def test_search_key_return_key_level1(self) -> None:
         """
@@ -85,7 +84,7 @@ class TestSearchDict():
     def test_search_dict_array(self) -> None:
         """
         Test ManageDict().search() against for key where values are an array
-        of dicts andfreturn each value
+        of dicts and return each value
         """
         output = ManageDict().search(
             identifier='C_array1',
@@ -107,13 +106,12 @@ class TestReplaceDict():
     Tests for ManageDict.replace() that searches a dictionaries keys or values
     for a pattern, and replaces it with another given pattern
     """
-    def __init__(self) -> None:
-        with open(os.path.join(TEST_DATA_DIR, 'test_low_level_config.json')) as fh:
-            self.full_config = json.load(fh)
+    with open(os.path.join(TEST_DATA_DIR, 'test_low_level_config.json')) as fh:
+        full_config = json.load(fh)
 
     def test_replace_level1_keys(self):
         """
-        _summary_
+        Test replacing the first level of keys in the dictionary
         """
         output = ManageDict().replace(
             input_dict=self.full_config,
@@ -168,6 +166,87 @@ def test_filter_job_outputs_dict():
     assert filtered_output == correct_output, (
         "Filtering outputs dict with filter_job_outputs_dict() incorrect"
     )
+    def test_replace_all_value1(self):
+        """
+        Test searching replacing all values containing 'value1'
+        """
+        output = ManageDict().replace(
+            input_dict=self.full_config,
+            to_replace='value1',
+            replacement='test',
+            search_key=False,
+            replace_key=False
+        )
+
+        correct_output = [
+            {
+                'A_level2': {
+                    'A_level3_key1': 'test',
+                    'A_level3_key2': [
+                        'test',
+                        'A_level3_array_value2',
+                        'A_level3_array_value3',
+                        'A_level3_array_value4'
+                    ]
+                }
+            }, {
+                'B_level2': {
+                'B_level3_key1': 'test',
+                'B_level3_key2': 'B_level3_value2',
+                'B_level3_key3': 'B_level3_value3'
+            }}, {'C_level2': [
+                {'C_array1': 'test'},
+                {'C_array1': 'C_array1_value2'},
+                {'C_array1': 'C_array1_value3'}
+            ]}
+        ]
+
+        assert list(output.values()) == correct_output, (
+            "Searching and replacing 'value1' output incorrect"
+        )
+
+    def test_replace_value_from_key(self):
+        """
+        Test replacing all values from keys matching 'B_level3'
+        """
+        output = ManageDict().replace(
+            input_dict=self.full_config,
+            to_replace='B_level3',
+            replacement='test',
+            search_key=True,
+            replace_key=False
+        )
+
+        correct_output = {
+            'A_level1': {
+                'A_level2': {
+                    'A_level3_key1': 'A_level3_value1',
+                    'A_level3_key2': [
+                        'A_level3_array_value1',
+                        'A_level3_array_value2',
+                        'A_level3_array_value3',
+                        'A_level3_array_value4'
+                    ]
+                }
+            },
+            'B_level1': {
+                'B_level2': {
+                    'B_level3_key1': 'test',
+                    'B_level3_key2': 'test',
+                    'B_level3_key3': 'test'}},
+            'C_level1': {
+                'C_level2': [
+                    {'C_array1': 'C_array1_value1'},
+                    {'C_array1': 'C_array1_value2'},
+                    {'C_array1': 'C_array1_value3'}
+                ]
+            }
+        }
+
+        assert output == correct_output, (
+            'Searching keys and replacing values returned wrong output'
+        )
+
 
 
 if __name__ == '__main__':
@@ -183,3 +262,4 @@ if __name__ == '__main__':
     replace.test_replace_level1_keys()
 
     test_filter_job_outputs_dict()
+    replace.test_replace_value_from_key()

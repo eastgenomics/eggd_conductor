@@ -26,17 +26,17 @@
                 "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs": "INPUT-R2"
             },
             "output_dirs": {
-                "stage-G0qpXy0433Gv75XbPJ3xj8jV": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G0qpY1Q433GpzBp958KJYfBK": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G21GYKj4q5J37F0B5ky018QG": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G02ZFz0433GpQB4j9Gvg0b81": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G0KbB6Q433GyV6vbJZKVYV96": "/output/OUT-FOLDER/APP-NAME",
-                "stage-Fy0549Q41zg02Kjg05x69yvK": "/output/OUT-FOLDER/APP-NAME",
-                "stage-Fv6jY9Q4KB7yKfKx8Fq8b7zG": "/output/OUT-FOLDER/APP-NAME",
-                "stage-Fy4j4K041zgF5Z8y0x9KjV55": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G02ZG6Q433GV76v29b6Gggjp": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G9x7pbj41bQx1XXKGKXJxv7K": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G9x7x0Q41bQkpZXgBGzqGqX5": "/output/OUT-FOLDER/APP-NAME"            }
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G0qpY1Q433GpzBp958KJYfBK": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G21GYKj4q5J37F0B5ky018QG": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G02ZFz0433GpQB4j9Gvg0b81": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G0KbB6Q433GyV6vbJZKVYV96": "/OUT-FOLDER/STAGE-NAME",
+                "stage-Fy0549Q41zg02Kjg05x69yvK": "/OUT-FOLDER/STAGE-NAME",
+                "stage-Fv6jY9Q4KB7yKfKx8Fq8b7zG": "/OUT-FOLDER/STAGE-NAME",
+                "stage-Fy4j4K041zgF5Z8y0x9KjV55": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G02ZG6Q433GV76v29b6Gggjp": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G9x7pbj41bQx1XXKGKXJxv7K": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G9x7x0Q41bQkpZXgBGzqGqX5": "/OUT-FOLDER/STAGE-NAME"            }
         },
         "applet-FvyXygj433GbKPPY0QY8ZKQG": {
             "name": "multi_fastqc",
@@ -49,7 +49,7 @@
                 "fastqs": "INPUT-R1-R2"
             },
             "output_dirs": {
-                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/output/OUT-FOLDER/APP-NAME"
+                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/OUT-FOLDER/APP-NAME"
             }
         },
         "workflow-GB12vxQ433GygFZK6pPF75q8": {
@@ -70,8 +70,8 @@
                 }
             },
             "output_dirs": {
-                "stage-G9Z2B8841bQY907z1ygq7K9x": "/output/OUT-FOLDER/APP-NAME",
-                "stage-G9Z2B7Q41bQg2Jy40zVqqGg4": "/output/OUT-FOLDER/APP-NAME"
+                "stage-G9Z2B8841bQY907z1ygq7K9x": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G9Z2B7Q41bQg2Jy40zVqqGg4": "/OUT-FOLDER/STAGE-NAME"
             }
         },
         "applet-Fz93FfQ433Gvf6pKFZYbXZQf": {
@@ -88,14 +88,14 @@
             ],
             "inputs": {
                 "project_for_multiqc": "INPUT-dx_project_name",
-                "ss_for_multiqc": "INPUT-analysis_1-out_dir",
+                "ss_for_multiqc": "INPUT-parent_out_dir",
                 "custom_coverage": true,
                 "eggd_multiqc_config_file": {
                     "$dnanexus_link": "file-G0K191j433Gv6JG63b43z8Gy"
                 }
             },
             "output_dirs": {
-                "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/output/OUT-FOLDER/APP-NAME"
+                "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/OUT-FOLDER/APP-NAME"
             }
         }
     }
