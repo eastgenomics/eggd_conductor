@@ -87,11 +87,19 @@ Example top level of config:
 
 **Optional keys per executable dictionary**:
 
+- `details` (str): not parsed by the app but useful for adding verbosity to the config when reading by humans
+- `url` (str): same as above for `details`, just acts as a reference to GitHub provenance of what is being used for analysis
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the dependent executable to collect the output from
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
 - `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
-- `details` (str): not parsed by the app but useful for adding verbosity to the config when reading by humans
-- `url` (str): same as above for `details`, just acts as a reference to GitHub provenance of what is being used for analysis
+- `inputs_filter` (dict): mapping of stage / app input field and list of pattern(s) to filter input by. This is used when providing the output of one app as input to another, but not all files want to be provided as input (i.e. taking all output bam files of analysis_X jobs, but only wanting to use the one from a control). This should be structured as such:
+```
+"inputs_filter": {
+    "stage-G9Z2B8841bQY907z1ygq7K9x.bam": [
+        "NA12878*"
+    ]
+}
+```
 
 
 Example of per executable config:
