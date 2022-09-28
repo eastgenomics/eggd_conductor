@@ -17,7 +17,7 @@ class ManageDict():
     Methods to handle parsing and populating input and output dictionaries
     """
     def search(
-        self, identifier, input_dict, check_key, return_key) -> Generator:
+        self, identifier, input_dict, check_key, return_key) -> list:
         """
         Searches nested dictionary for given identifier string in either
         the dict keys or values, and returns the key or value of the match.
@@ -62,7 +62,9 @@ class ManageDict():
         return list(set(found))
 
 
-    def replace(self, input_dict, to_replace, replacement, search_key, replace_key):
+    def replace(
+        self, input_dict, to_replace, replacement,
+        search_key, replace_key) -> list:
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
