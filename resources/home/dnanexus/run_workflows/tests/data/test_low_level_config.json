@@ -1,0 +1,27 @@
+{
+    "A_level1": {
+        "A_level2": {
+            "A_level3_key1": "A_level3_value1",
+            "A_level3_key2": [
+                "A_level3_array_value1",
+                "A_level3_array_value2",
+                "A_level3_array_value3",
+                "A_level3_array_value4"
+            ]
+        }
+    },
+    "B_level1": {
+        "B_level2": {
+            "B_level3_key1": "B_level3_value1",
+            "B_level3_key2": "B_level3_value2",
+            "B_level3_key3": "B_level3_value3"
+        }
+    },
+    "C_level1": {
+        "C_level2": [
+            {"C_array1": "C_array1_value1"},
+            {"C_array1": "C_array1_value2"},
+            {"C_array1": "C_array1_value3"}
+        ]
+    }
+}

@@ -1,0 +1,45 @@
+{
+    "name": "Config for {assay-name}",
+    "assay": "",
+    "assay_code": "",
+    "version": "v1.0.0",
+    "details": "",
+    "demultiplex": true,
+    "users": {
+        "": "CONTRIBUTE"
+    },
+    "executables": {
+        "workflow-id": {
+            "name": "",
+            "details": "",
+            "url": "",
+            "analysis": "analysis_1",
+            "per_sample": true,
+            "process_fastqs": true,
+            "inputs": {
+                "stage-id.reads_fastqgzs": "INPUT-R1",
+                "stage-id.reads2_fastqgzs": "INPUT-R2"
+            },
+            "output_dirs": {
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G0qpY1Q433GpzBp958KJYfBK": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G21GYKj4q5J37F0B5ky018QG": "/output/OUT-FOLDER/APP-NAME",
+                "stage-G02ZFz0433GpQB4j9Gvg0b81": "/output/OUT-FOLDER/APP-NAME"
+            }
+        },
+        "applet-FvyXygj433GbKPPY0QY8ZKQG": {
+            "name": "",
+            "details": "",
+            "url": "",
+            "analysis": "analysis_2",
+            "per_sample": false,
+            "process_fastqs": true,
+            "inputs": {
+                "fastqs": "INPUT-R1-R2"
+            },
+            "output_dirs": {
+                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/output/APP-NAME"
+            }
+        }
+    }
+}
