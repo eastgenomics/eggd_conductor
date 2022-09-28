@@ -364,7 +364,7 @@ class ManageDict():
                 # find all jobs for every analysis id
                 # (i.e. all samples job ids for analysis_X)
                 job_ids = self.search(
-                    identifer=analysis_id,
+                    identifier=analysis_id,
                     input_dict=job_outputs_dict,
                     check_key=True,
                     return_key=False
@@ -377,7 +377,7 @@ class ManageDict():
                     # this is possibly due to the analysis being per
                     # run and not in the samples job dict => check if
                     # it is in the main job_outputs_dict keys
-                    job = job_outputs_dict_copy.get(id)
+                    job = job_outputs_dict_copy.get(analysis_id)
                     if job:
                         # found ID in root of jobs dict => found per
                         # run job to wait on
