@@ -513,16 +513,6 @@ class ManageDict():
                 # => need to link job IDs to the input. If true, turn that
                 # input into an array and create one dict of input structure
                 # per job for the given analysis_X found.
-                # example input_dict structure:
-                # {
-                #     "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": {
-                #         "$dnanexus_link": {
-                #             "analysis": "analysis_1",
-                #             "stage": "stage-G9x7x0Q41bQkpZXgBGzqGqX5",
-                #             "field": "somalier_output"
-                #         }
-                #     }
-                # }
                 for input_field, link_dict in input_dict.items():
                     for _, stage_input in link_dict.items():
                         if not analysis_id in stage_input.values():
