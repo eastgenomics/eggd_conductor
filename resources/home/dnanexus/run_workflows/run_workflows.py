@@ -93,7 +93,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     Returns
     -------
     dict
-        dict of assay codes: list of matching samples
+        dict of assay codes : list of matching samples
 
     Raises
     ------
@@ -119,7 +119,10 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         # check all samples have an assay code in one of the configs
         samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
         assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
-            "could not identify assay code for all samples - "
+            f"could not identify assay code for all samples!\n "
+            f"Configs for assay codes found: "
+            f"{', '.join(all_config_assay_codes)}.\n"
+            f"Samples not matching any available config: "
             f"{set(all_samples) - set(samples_w_codes)}"
         )
 
