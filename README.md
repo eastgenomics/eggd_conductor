@@ -96,7 +96,7 @@ Example top level of config:
 ```
 "inputs_filter": {
     "stage-G9Z2B8841bQY907z1ygq7K9x.bam": [
-        "NA12878*"
+        "NA12878.*"
     ]
 }
 ```
