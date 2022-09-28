@@ -188,7 +188,7 @@ main () {
     mark-section "setting up"
     _set_environment
 
-    # our own sample sheet validator and slack bot
+    # our own sample sheet validator
     tar xf validate_sample_sheet_v*.tar.gz
 
     python3 -m pip install -q --no-index --no-deps  packages/*
