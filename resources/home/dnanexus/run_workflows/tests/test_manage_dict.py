@@ -437,8 +437,6 @@ class TestAddFastqs():
             )
 
 
-
-
 class TestAddOtherInputs():
     """
     TODO
@@ -654,7 +652,7 @@ class TestFilterJobOutputsDict():
         'analysis_2': 'job-GGjgz1j4Bv48yF89GpZ6zkGz'
     }
 
-    def test_filter_job_outputs_dict(self):
+    def test_filter_job_outputs_dict_one_pattern(self):
         """
         Test filtering job outputs -> inputs dict by given pattern(s)
         """
@@ -719,25 +717,52 @@ class TestFilterJobOutputsDict():
 
 class TestCheckAllInputs():
     """
-    TODO
+    Tests for final check of populated input dict to check for remaining
+    INPUT- or analysis_ that have not been parsed
     """
+    input_dict_with_unparsed_input = {
+        'stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs': [
+            {'$dnanexus_link': 'file-GGJY8Q04p3z2K7qp1qf5bpkf'},
+            {'$dnanexus_link': 'file-GGJY78j4p3zF10gz1xqv8v95'}
+        ],
+        'stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs': [
+            {'$dnanexus_link': 'file-GGJY8Q04p3z5b57zJ4g5kQx7'},
+            {'$dnanexus_link': 'file-GGJY78Q4p3z5pqB93Yb04gf1'},
+            'INPUT-test'
+        ]
+    }
+
+    input_dict_with_unparsed_analysis = {
+        'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': {
+            '$dnanexus_link': {
+                'analysis': 'analysis_500',
+                'field': 'somalier_output',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
+            }
+        }
+    }
+
+    def test_find_unparsed_input(self):
+        """
+        Test that AssertionError is raised from remaining INPUT-
+        left in input dictionary
+        """
+        with pytest.raises(AssertionError):
+            ManageDict().check_all_inputs(
+                input_dict=self.input_dict_with_unparsed_input
+            )
+
+    def test_find_unparsed_analysis(self):
+        """
+        Test that AssertionError is raised from remaining analysis_
+        left in input dictionary
+        """
+        with pytest.raises(AssertionError):
+            ManageDict().check_all_inputs(
+                input_dict=self.input_dict_with_unparsed_analysis
+            )
 
 
 if __name__ == '__main__':
-
-    # inputs = TestSearchDict()
-
-    # inputs.test_search_key_return_key_level1()
-    # inputs.test_search_key_return_value_level1()
-    # inputs.test_search_key_return_array_values()
-    # inputs.test_search_dict_array()
-
-    # replace = TestReplaceDict()
-    # replace.test_replace_level1_keys()
-
-    # test_filter_job_outputs_dict()
-    # replace.test_replace_value_from_key()
-
-    # TestFilterJobOutputsDict().test_filter_multiple_patterns()
 
     TestAddFastqs().test_adding_per_sample_r1_fastqs()
