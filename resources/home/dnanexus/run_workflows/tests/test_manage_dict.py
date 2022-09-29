@@ -340,7 +340,7 @@ class TestAddFastqs():
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
             fastq_details=self.fastq_details,
-            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32'
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2'
         )
         output_R1_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs']
 
@@ -366,7 +366,7 @@ class TestAddFastqs():
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
             fastq_details=self.fastq_details,
-            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32'
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2'
         )
         PPRINT(output)
         output_R2_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
@@ -389,7 +389,7 @@ class TestAddFastqs():
                 self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
             ),
             fastq_details=self.fastq_details,
-            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32'
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2'
         )
         output_fastqs = output['fastqs']
 
