@@ -161,7 +161,7 @@ class ManageDict():
 
         if sample:
             sample_regex = re.compile(
-                rf'{sample}_[A-za-z0-9]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
+                rf'{sample}[A-za-z0-9\-\_]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
             )
             for fastq in fastq_details:
                 # sample specified => running per sample, if not using
@@ -646,12 +646,6 @@ class ManageDict():
         -------
         dict
             filtered jobs dict
-
-        Raises
-        ------
-        AssertionError
-            Raised when a pattern is given to filter the outputs but
-            no match was found
         """
         if not filter_dict:
             # no filter pattens to apply
@@ -680,7 +674,9 @@ class ManageDict():
             print(f'No filters to apply for stage: {stage}')
             return outputs_dict
         else:
-            # there was a filter for given stage to apply
+            # there was a filter for given stage to apply, if no
+            # matches were found against the given pattern(s) this
+            # will be an empty dict
             print(f'Job outputs dict after filtering')
             PPRINT(new_outputs)
 
