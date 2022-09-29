@@ -161,7 +161,7 @@ class ManageDict():
 
         if sample:
             sample_regex = re.compile(
-                rf'{sample}[A-za-z0-9\-\_]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
+                rf'{sample}_[A-za-z0-9]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
             )
             for fastq in fastq_details:
                 # sample specified => running per sample, if not using
