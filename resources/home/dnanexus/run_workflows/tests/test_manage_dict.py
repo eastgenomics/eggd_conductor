@@ -1,5 +1,7 @@
+from copy import deepcopy
 import json
 import os
+import pytest
 import sys
 
 sys.path.append(os.path.abspath(
@@ -100,6 +102,7 @@ class TestSearchDict():
         assert sorted(output) == correct_output, (
             'Wrong values returned checking array of dict values'
         )
+
 
 class TestReplaceDict():
     """
@@ -210,8 +213,230 @@ class TestReplaceDict():
 
 class TestAddFastqs():
     """
-    TODO
+    Tests for adding fastq file IDs to input dict
     """
+    fastq_details = [
+        ('file-GGJY9604p3zBzjz5Fp66KF0Y',
+        '2207712-22222Z0005-1-BM-MPD-MYE-M-EGG2_S30_L002_R1_001.fastq.gz'),
+        ('file-GGJY9684p3zG6fvf1vqvbqzx',
+        '2207712-22222Z0005-1-BM-MPD-MYE-M-EGG2_S30_L002_R2_001.fastq.gz'),
+        ('file-GGJY96Q4p3z3233Q8v39Fzg2',
+        '2207713-22222Z0074-1-BM-MPD-MYE-M-EGG2_S31_L002_R1_001.fastq.gz'),
+        ('file-GGJY9704p3z250PB1yvZj7Y9',
+        '2207713-22222Z0074-1-BM-MPD-MYE-M-EGG2_S31_L002_R2_001.fastq.gz'),
+        ('file-GGJY9704p3z9P41f80bfQ623',
+        '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L002_R1_001.fastq.gz'),
+        ('file-GGJY9784p3z78j8F1qkp4GZ4',
+        '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L002_R2_001.fastq.gz'),
+        ('file-GGJY97j4p3z250PB1yvZj7YF',
+        'Oncospan-158-2-AA1-BBB-MYE-U-EGG2_S33_L002_R1_001.fastq.gz'),
+        ('file-GGJY9804p3z1X9YZJ4xf5v13',
+        'Oncospan-158-2-AA1-BBB-MYE-U-EGG2_S33_L002_R2_001.fastq.gz')
+    ]
+
+    # minimal test section of config with executables requiring fastqs
+    test_input_dict = {
+        "workflow-GB6J7qQ433Gkf0ZYGbKfF0x6": {
+            "analysis": "analysis_1",
+            "process_fastqs": True,
+            "inputs": {
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs": "INPUT-R1",
+                "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs": "INPUT-R2"
+            }
+        },
+        "applet-FvyXygj433GbKPPY0QY8ZKQG": {
+            "analysis": "analysis_2",
+            "process_fastqs": True,
+            "inputs": {
+                "fastqs": "INPUT-R1-R2"
+            },
+            "output_dirs": {
+                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/OUT-FOLDER/APP-NAME"
+            }
+        }
+    }
+
+    def test_adding_all_r1(self):
+        """
+        Test adding R1 fastqs from all samples as input where INPUT-R1 given
+        """
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
+            ),
+            fastq_details=self.fastq_details
+        )
+        output_R1_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs']
+
+        correct_R1_fastqs = [
+            {'$dnanexus_link': 'file-GGJY9604p3zBzjz5Fp66KF0Y'},
+            {'$dnanexus_link': 'file-GGJY96Q4p3z3233Q8v39Fzg2'},
+            {'$dnanexus_link': 'file-GGJY9704p3z9P41f80bfQ623'},
+            {'$dnanexus_link': 'file-GGJY97j4p3z250PB1yvZj7YF'}
+        ]
+
+        assert output_R1_fastqs == correct_R1_fastqs, (
+            "R1 fastqs not correctly added"
+        )
+
+    def test_adding_all_r2(self):
+        """
+        Test adding R2 fastqs from all samples as input where INPUT-R1 given
+        """
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
+            ),
+            fastq_details=self.fastq_details
+        )
+        output_R1_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
+
+        correct_R2_fastqs = [
+            {'$dnanexus_link': 'file-GGJY9684p3zG6fvf1vqvbqzx'},
+            {'$dnanexus_link': 'file-GGJY9704p3z250PB1yvZj7Y9'},
+            {'$dnanexus_link': 'file-GGJY9784p3z78j8F1qkp4GZ4'},
+            {'$dnanexus_link': 'file-GGJY9804p3z1X9YZJ4xf5v13'}
+        ]
+
+        assert output_R1_fastqs == correct_R2_fastqs, (
+            "R2 fastqs not correctly added"
+        )
+
+    def test_adding_all_r1_and_r2(self):
+        """
+        Test adding R1 and R2 fastqs from all samples as input
+        where INPUT-R1-R2 given
+        """
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
+            ),
+            fastq_details=self.fastq_details
+        )
+        output_fastqs = output['fastqs']
+
+        correct_fastqs = [
+            {'$dnanexus_link': 'file-GGJY9604p3zBzjz5Fp66KF0Y'},
+            {'$dnanexus_link': 'file-GGJY96Q4p3z3233Q8v39Fzg2'},
+            {'$dnanexus_link': 'file-GGJY9704p3z9P41f80bfQ623'},
+            {'$dnanexus_link': 'file-GGJY97j4p3z250PB1yvZj7YF'},
+            {'$dnanexus_link': 'file-GGJY9684p3zG6fvf1vqvbqzx'},
+            {'$dnanexus_link': 'file-GGJY9704p3z250PB1yvZj7Y9'},
+            {'$dnanexus_link': 'file-GGJY9784p3z78j8F1qkp4GZ4'},
+            {'$dnanexus_link': 'file-GGJY9804p3z1X9YZJ4xf5v13'}
+        ]
+
+        assert output_fastqs == correct_fastqs, (
+            "R1-R2 fastqs not correctly added"
+        )
+
+    def test_adding_per_sample_r1_fastqs(self):
+        """
+        Test adding fastqs when a sample defined => fastqs should be for just
+        that sample
+        """
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
+            ),
+            fastq_details=self.fastq_details,
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32'
+        )
+        output_R1_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs']
+
+        correct_R1_fastqs = [
+            {'$dnanexus_link': 'file-GGJY9704p3z9P41f80bfQ623'}
+        ]
+        PPRINT(output)
+        # print(output_R1_fastqs)
+        # print(correct_R1_fastqs)
+
+        assert output_R1_fastqs == correct_R1_fastqs, (
+            "R1 fastqs not correctly added for given sample"
+        )
+
+
+    def test_adding_per_sample_r2_fastqs(self):
+        """
+        Test adding fastqs when a sample defined => fastqs should be for just
+        that sample
+        """
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
+            ),
+            fastq_details=self.fastq_details,
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32'
+        )
+        PPRINT(output)
+        output_R2_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
+
+        correct_R2_fastqs = [
+            {'$dnanexus_link': 'file-GGJY9784p3z78j8F1qkp4GZ4'}
+        ]
+
+        assert output_R2_fastqs == correct_R2_fastqs, (
+            "R2 fastqs not correctly added for given sample"
+        )
+
+    def test_adding_all_r1_and_r2(self):
+        """
+        Test adding R1 and R2 fastqs for given sample as input
+        where INPUT-R1-R2 given
+        """
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
+            ),
+            fastq_details=self.fastq_details,
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32'
+        )
+        output_fastqs = output['fastqs']
+
+        correct_fastqs = [
+            {'$dnanexus_link': 'file-GGJY9704p3z9P41f80bfQ623'},
+            {'$dnanexus_link': 'file-GGJY9784p3z78j8F1qkp4GZ4'}
+        ]
+
+        assert output_fastqs == correct_fastqs, (
+            "R1-R2 fastqs not correctly added for given sample"
+        )
+
+    def test_assert_equal_number_fastqs(self):
+        """
+        Test for assertion being raised where an unequal no. R1 and R2
+        fastqs found
+        """
+        # copy list and remove one fastq to be unequal
+        fastq_details_copy = self.fastq_details.copy()
+        fastq_details_copy.remove(
+            ('file-GGJY9604p3zBzjz5Fp66KF0Y',
+            '2207712-22222Z0005-1-BM-MPD-MYE-M-EGG2_S30_L002_R1_001.fastq.gz')
+        )
+
+        with pytest.raises(AssertionError):
+            ManageDict().add_fastqs(
+                input_dict=deepcopy(
+                    self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
+                ),
+                fastq_details=fastq_details_copy
+            )
+
+    def test_assert_found_fastqs(self):
+        """
+        Test when giving a sample to filter fastqs for if none are found
+        then an AssertionError is raised
+        """
+        with pytest.raises(AssertionError):
+            ManageDict().add_fastqs(
+                input_dict=deepcopy(
+                    self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
+                ),
+                fastq_details=self.fastq_details,
+                sample='test-sample'
+            )
+
+
 
 
 class TestAddOtherInputs():
@@ -412,8 +637,6 @@ class TestPopulateOutputDirConfig():
         )
 
 
-
-
 class TestFilterJobOutputsDict():
     """
     Test for filter_job_outputs_dict() that can filter down the all the
@@ -515,4 +738,6 @@ if __name__ == '__main__':
     # test_filter_job_outputs_dict()
     # replace.test_replace_value_from_key()
 
-    TestFilterJobOutputsDict().test_filter_multiple_patterns()
+    # TestFilterJobOutputsDict().test_filter_multiple_patterns()
+
+    TestAddFastqs().test_adding_per_sample_r1_fastqs()
