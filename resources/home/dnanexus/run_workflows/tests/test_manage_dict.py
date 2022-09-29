@@ -437,12 +437,9 @@ class TestFilterJobOutputsDict():
         """
         # dict matching section as would be in config defining the stage
         # input and patterns to filter by
-        config_filter = {
+        inputs_filter = {
             "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": [
-                "Oncospan*"
-            ],
-            "another_stage": [
-                "2207155-22207Z0091*"
+                "Oncospan.*"
             ]
         }
 
@@ -450,7 +447,7 @@ class TestFilterJobOutputsDict():
         filtered_output = ManageDict().filter_job_outputs_dict(
             stage='stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file',
             outputs_dict=self.job_outputs_dict,
-            filter_dict=config_filter
+            filter_dict=inputs_filter
         )
 
         correct_output = {
@@ -462,6 +459,40 @@ class TestFilterJobOutputsDict():
         assert filtered_output == correct_output, (
             "Filtering outputs dict with filter_job_outputs_dict() incorrect"
         )
+
+    def test_filter_multiple_patterns(self):
+        """
+        Test filtering job inputs by multiple patterns returns correct IDs
+        """
+        # dict matching section as would be in config defining the stage
+        # input and patterns to filter by
+        inputs_filter = {
+            "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": [
+                "Oncospan.*",
+                "2207155-22207Z0091.*"
+            ]
+        }
+
+        # get the jobs for both samples
+        filtered_output = ManageDict().filter_job_outputs_dict(
+            stage='stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file',
+            outputs_dict=self.job_outputs_dict,
+            filter_dict=inputs_filter
+        )
+
+        correct_output = {
+        '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
+            'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2'
+        },
+        'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+            'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
+            }
+        }
+
+        assert filtered_output == correct_output, (
+            "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+        )
+
 
 class TestCheckAllInputs():
     """
@@ -484,4 +515,4 @@ if __name__ == '__main__':
     # test_filter_job_outputs_dict()
     # replace.test_replace_value_from_key()
 
-    TestPopulateOutputDirConfig().test_not_replacing_hard_coded_paths()
+    TestFilterJobOutputsDict().test_filter_multiple_patterns()
