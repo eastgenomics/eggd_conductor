@@ -1,7 +1,6 @@
 from copy import deepcopy
 from pprint import PrettyPrinter
 import re
-from typing import Generator
 
 import dxpy as dx
 from flatten_json import flatten, unflatten_list
