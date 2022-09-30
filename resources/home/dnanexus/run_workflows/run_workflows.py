@@ -342,6 +342,8 @@ def main():
     with open('analysis_project.log', 'w') as fh:
         fh.write(f'{output_project} {args.dx_project_id}\n')
 
+    args.dx_project_name = output_project
+
     # set context to project for running jobs
     dx.set_workspace_id(args.dx_project_id)
 

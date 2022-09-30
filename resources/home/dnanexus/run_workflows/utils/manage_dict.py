@@ -220,8 +220,13 @@ class ManageDict():
             sample=None, sample_prefix=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
-        parsing: workflow output directories, sample name, project id and
-        project name.
+        parsing:
+            - workflow output directories (INPUT-analysis[0-9]{1,2}-out_dir)
+            - sample name (INPUT-SAMPLE-NAME)
+            - sample prefix (INPUT-SAMPLE-PREFIX)
+            - project id (INPUT-dx_project_id)
+            - project name (INPUT-dx_project_name)
+            - parent output directory (INPUT-parent_out_dir)
 
         Parameters
         ----------
@@ -265,10 +270,6 @@ class ManageDict():
         else:
             print(f'Other inputs found to replace: {other_inputs}')
 
-        project_name = dx.api.project_describe(
-            args.dx_project_id,
-            input_params={'fields': {'name': True}}).get('name')
-
         # removing /output/ for now to fit to MultiQC
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
 
@@ -277,7 +278,7 @@ class ManageDict():
             ('INPUT-SAMPLE-NAME', sample),
             ('INPUT-SAMPLE-PREFIX', sample_prefix),
             ('INPUT-dx_project_id', args.dx_project_id),
-            ('INPUT-dx_project_name', project_name),
+            ('INPUT-dx_project_name', args.dx_project_name),
             ('INPUT-parent_out_dir', args.parent_out_dir)
         ]
 
