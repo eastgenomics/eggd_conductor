@@ -1,9 +1,9 @@
+from argparse import Namespace
 from copy import deepcopy
 import json
 import os
 import pytest
 import sys
-
 sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
@@ -439,8 +439,95 @@ class TestAddFastqs():
 
 class TestAddOtherInputs():
     """
-    TODO
+    Tests for add_other_inputs() used to gather up all random INPUT-
+    keys and replace as required
     """
+    # test input dict with all keys handled by add_other_inputs()
+    test_input_dict = {
+        "my_project_name": "INPUT-dx_project_name",
+        "my_project_id": "INPUT-dx_project_id",
+        "all_analysis_output": "INPUT-parent_out_dir",
+        "custom_coverage": True,
+        "eggd_multiqc_config_file": {
+            "$dnanexus_link": "file-G0K191j433Gv6JG63b43z8Gy"
+        },
+        "sample_name_prefix": "INPUT-SAMPLE-PREFIX",
+        "sample_name": "INPUT-SAMPLE-NAME",
+        "output_path": "INPUT-analysis_1-out_dir"
+    }
+
+    # set up argparse namespace with required variables
+    args = Namespace()
+    args.dx_project_id = 'project-12345'
+    args.dx_project_name = 'some_analysis_project'
+    args.parent_out_dir = '/output/some_assay-220930-1200'
+
+    analysis_output_directories = {
+        "analysis_1": "/output/some_assay-220930-1200/my_first_app"
+    }
+
+    # call add_other_inputs() to replace all INPUT-s
+    output = ManageDict().add_other_inputs(
+        input_dict=test_input_dict,
+        args = args,
+        executable_out_dirs=analysis_output_directories,
+        sample='my_sample_with_a_long_name',
+        sample_prefix='my_sample'
+    )
+
+    def test_adding_sample_name(self):
+        """
+        Test for finding INPUT-SAMPLE-NAME and replacing with sample name
+        """
+        assert self.output['sample_name'] == 'my_sample_with_a_long_name', (
+            'INPUT-SAMPLE-NAME not correctly replaced'
+        )
+
+    def test_adding_sample_prefix(self):
+        """
+        Test for finding INPUT-SAMPLE-PREFIX and replacing with sample prefix
+        """
+        assert self.output['sample_name_prefix'] == 'my_sample', (
+            'INPUT-SAMPLE-PREFIX not correctly replaced'
+        )
+
+    def test_adding_project_id(self):
+        """
+        Test for finding INPUT-dx_project_id and replacing with project_id
+        from args Namespace object
+        """
+        assert self.output['my_project_id'] == 'project-12345', (
+            'INPUT-dx_project_id not correctly replaced'
+        )
+
+    def test_adding_project_name(self):
+        """
+        Test for finding INPUT-dx_project_name and replacing with project_name
+        from args Namespace object
+        """
+        assert self.output['my_project_name'] == 'some_analysis_project', (
+            'INPUT-dx_project_name not correctly replaced'
+        )
+
+    def test_adding_parent_out_dir(self):
+        """
+        Test for finding INPUT-parent_out_dir and replacing with parent output
+        directory from args Namespace object
+        """
+        assert self.output['all_analysis_output'] == 'some_assay-220930-1200', (
+            'INPUT-parent_out_dir not correctly replaced'
+        )
+
+    def test_adding_analysis_1_out_dir(self):
+        """
+        Test for finding INPUT-analysis_1_out_dir and replacing with the
+        output path stored in the analysis output directories dictionary
+        """
+        correct_path = '/output/some_assay-220930-1200/my_first_app'
+        assert self.output['output_path'] == correct_path, (
+            'INPUT-analysis_1-out_dir not correctly replaced'
+        )
+
 
 
 class TestGetDependentJobs():
@@ -728,7 +815,7 @@ class TestCheckAllInputs():
         'stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs': [
             {'$dnanexus_link': 'file-GGJY8Q04p3z5b57zJ4g5kQx7'},
             {'$dnanexus_link': 'file-GGJY78Q4p3z5pqB93Yb04gf1'},
-            'INPUT-test'
+            {'$dnanexus_link': 'INPUT-test'}
         ]
     }
 
@@ -765,4 +852,4 @@ class TestCheckAllInputs():
 
 if __name__ == '__main__':
 
-    TestAddFastqs().test_adding_per_sample_r1_fastqs()
+    TestAddOtherInputs().test_adding_sample_name()
