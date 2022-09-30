@@ -2,11 +2,11 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../../')
+    os.path.join(os.path.realpath(__file__), '../../../')
 ))
 
 from tests import TEST_DATA_DIR
-from run_workflows import parse_run_info_xml, parse_sample_sheet
+from run_workflows.run_workflows import parse_run_info_xml, parse_sample_sheet
 
 
 def test_parse_sample_sheet():
