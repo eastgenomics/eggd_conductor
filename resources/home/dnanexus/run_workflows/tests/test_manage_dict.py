@@ -1087,4 +1087,4 @@ class TestCheckAllInputs():
 
 if __name__ == '__main__':
 
-    TestCheckInputClasses().test_file_input_with_array_length_over_one()
+    pass
