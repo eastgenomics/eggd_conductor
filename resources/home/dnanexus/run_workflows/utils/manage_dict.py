@@ -2,7 +2,6 @@ from copy import deepcopy
 from pprint import PrettyPrinter
 import re
 
-import dxpy as dx
 from flatten_json import flatten, unflatten_list
 
 from utils.utils import Slack

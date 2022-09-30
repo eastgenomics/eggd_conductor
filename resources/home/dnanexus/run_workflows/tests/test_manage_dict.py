@@ -8,8 +8,6 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from flatten_json import flatten
-
 from utils.manage_dict import PPRINT, ManageDict
 from tests import TEST_DATA_DIR
 
