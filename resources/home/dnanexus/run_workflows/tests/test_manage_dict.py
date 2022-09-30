@@ -8,6 +8,8 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
+from flatten_json import flatten
+
 from utils.manage_dict import PPRINT, ManageDict
 from tests import TEST_DATA_DIR
 
@@ -529,7 +531,6 @@ class TestAddOtherInputs():
         )
 
 
-
 class TestGetDependentJobs():
     """
     Test for get_dependent_jobs() that gathers up all jobs a downstream
@@ -622,8 +623,137 @@ class TestGetDependentJobs():
 
 class TestLinkInputsToOutputs():
     """
-    TODO
+    Tests for linking the output of a job(s) to the input of another
     """
+    job_outputs = {
+        '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
+            'analysis_1': 'analysis-GGp34p84Bv40x7Kj4bjB55JG'},
+        '2207674-22220Z0059-1-BM-MPD-MYE-M-EGG2': {
+            'analysis_1': 'analysis-GGp34q04Bv4688gq4bYxBJb7'},
+        '2207859-22227Z0029-1-PB-MPD-MYE-F-EGG2': {
+            'analysis_1': 'analysis-GGp34v04Bv44xKp04f5ygGb4'},
+        '2207862-22227Z0035-1-PB-MPD-MYE-M-EGG2': {
+            'analysis_1': 'analysis-GGp34vj4Bv40x7Kj4bjB55Jk'},
+        'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+            'analysis_1': 'analysis-GGp34kQ4Bv4KkyxF4f91V26q'},
+        'analysis_2': 'job-GGp34xQ4Bv4KkyxF4f91V278'
+    }
+
+    input_dict_analysis_1 = {
+        "stage-G9Z2B8841bQY907z1ygq7K9x.input1": {
+            "$dnanexus_link": {
+                "analysis": "analysis_1",
+                "stage": "stage-G9x7x0Q41bQkpZXgBGzqGqX5",
+                "field": "output_bam"
+            }
+        }
+    }
+    input_dict_analysis2 = {
+        "stage-G9Z2B7Q41bQg2Jy40zVqqGg4.input2": {
+            "$dnanexus_link": {
+                "analysis": "analysis_2",
+                "stage": "stage-G0KbB6Q433GyV6vbJZKVYV96",
+                "field": "output_vcf"
+            }
+        }
+    }
+
+    def test_adding_all_analysis_1(self):
+        """
+        Tests for building array for all of analysis_1 jobs and adding
+        as input
+        """
+        output = ManageDict().link_inputs_to_outputs(
+            job_outputs_dict=self.job_outputs,
+            input_dict=deepcopy(self.input_dict_analysis_1),
+            analysis='analysis_2',
+            per_sample=False
+        )
+
+        output_input_dict = sorted(
+            output['stage-G9Z2B8841bQY907z1ygq7K9x.input1'],
+            key=lambda x: x['$dnanexus_link']['analysis'])
+
+        PPRINT(output_input_dict)
+
+        # input dict we expect where analysis_1 outputs for all jobs
+        # is being provided as input and is turned into an array
+        # of $dnanexus_link onjects
+        correct_input = [
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGp34kQ4Bv4KkyxF4f91V26q',
+                     'field': 'output_bam',
+                     'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGp34p84Bv40x7Kj4bjB55JG',
+                'field': 'output_bam',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGp34q04Bv4688gq4bYxBJb7',
+                'field': 'output_bam',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGp34v04Bv44xKp04f5ygGb4',
+                'field': 'output_bam',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGp34vj4Bv40x7Kj4bjB55Jk',
+                'field': 'output_bam',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}}
+        ]
+
+        assert output_input_dict == correct_input, (
+            'job IDs for all analysis_1 jobs not correctly parsed'
+        )
+
+    def test_adding_one_sample_analysis_1(self):
+        """
+        Test for adding analysis_1 job ID for given sample
+        """
+        output = ManageDict().link_inputs_to_outputs(
+            job_outputs_dict=self.job_outputs,
+            input_dict=deepcopy(self.input_dict_analysis_1),
+            analysis='analysis_2',
+            per_sample=True,
+            sample='Oncospan-158-1-AA1-BBB-MYE-U-EGG2'
+        )
+
+        # input dict we expect where analysis_1 outputs for given sample
+        correct_input = {
+            '$dnanexus_link': {
+                'analysis': 'analysis-GGp34kQ4Bv4KkyxF4f91V26q',
+                'field': 'output_bam',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
+            }
+        }
+
+        assert output['stage-G9Z2B8841bQY907z1ygq7K9x.input1'] == correct_input, (
+            'job IDs for single sample analysis_1 jobs not correctly parsed'
+        )
+
+    def test_parse_output_of_per_run_job(self):
+        """
+        Test for parsing out job ID of analysis_2 from job_outputs dict
+        which is a per_run job and analysis_2 is a root key of the dict
+        """
+        output = ManageDict().link_inputs_to_outputs(
+            job_outputs_dict=self.job_outputs,
+            input_dict=deepcopy(self.input_dict_analysis2),
+            analysis='analysis_2',
+            per_sample=False
+        )
+
+        correct_output = {
+            '$dnanexus_link': {
+                'analysis': 'job-GGp34xQ4Bv4KkyxF4f91V278',
+                'field': 'output_vcf',
+                'stage': 'stage-G0KbB6Q433GyV6vbJZKVYV96'
+            }
+        }
+
+        assert output['stage-G9Z2B7Q41bQg2Jy40zVqqGg4.input2'] == correct_output, (
+            'job ID for analysis 2 wrongly parsed as input'
+        )
 
 
 class TestPopulateOutputDirConfig():
@@ -852,4 +982,4 @@ class TestCheckAllInputs():
 
 if __name__ == '__main__':
 
-    TestAddOtherInputs().test_adding_sample_name()
+    pass
