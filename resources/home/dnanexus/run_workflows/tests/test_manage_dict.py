@@ -638,16 +638,16 @@ class TestLinkInputsToOutputs():
     }
 
     input_dict_analysis_1 = {
-        "stage-G9Z2B8841bQY907z1ygq7K9x.input1": {
+        "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": {
             "$dnanexus_link": {
                 "analysis": "analysis_1",
                 "stage": "stage-G9x7x0Q41bQkpZXgBGzqGqX5",
-                "field": "output_bam"
+                "field": "somalier"
             }
         }
     }
-    input_dict_analysis2 = {
-        "stage-G9Z2B7Q41bQg2Jy40zVqqGg4.input2": {
+    input_dict_analysis_2 = {
+        "stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input": {
             "$dnanexus_link": {
                 "analysis": "analysis_2",
                 "stage": "stage-G0KbB6Q433GyV6vbJZKVYV96",
@@ -669,10 +669,8 @@ class TestLinkInputsToOutputs():
         )
 
         output_input_dict = sorted(
-            output['stage-G9Z2B8841bQY907z1ygq7K9x.input1'],
+            output['stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file'],
             key=lambda x: x['$dnanexus_link']['analysis'])
-
-        PPRINT(output_input_dict)
 
         # input dict we expect where analysis_1 outputs for all jobs
         # is being provided as input and is turned into an array
@@ -680,23 +678,23 @@ class TestLinkInputsToOutputs():
         correct_input = [
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34kQ4Bv4KkyxF4f91V26q',
-                     'field': 'output_bam',
+                     'field': 'somalier',
                      'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34p84Bv40x7Kj4bjB55JG',
-                'field': 'output_bam',
+                'field': 'somalier',
                 'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34q04Bv4688gq4bYxBJb7',
-                'field': 'output_bam',
+                'field': 'somalier',
                 'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34v04Bv44xKp04f5ygGb4',
-                'field': 'output_bam',
+                'field': 'somalier',
                 'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34vj4Bv40x7Kj4bjB55Jk',
-                'field': 'output_bam',
+                'field': 'somalier',
                 'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}}
         ]
 
@@ -720,12 +718,12 @@ class TestLinkInputsToOutputs():
         correct_input = {
             '$dnanexus_link': {
                 'analysis': 'analysis-GGp34kQ4Bv4KkyxF4f91V26q',
-                'field': 'output_bam',
+                'field': 'somalier',
                 'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
             }
         }
 
-        assert output['stage-G9Z2B8841bQY907z1ygq7K9x.input1'] == correct_input, (
+        assert output['stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file'] == correct_input, (
             'job IDs for single sample analysis_1 jobs not correctly parsed'
         )
 
@@ -736,20 +734,20 @@ class TestLinkInputsToOutputs():
         """
         output = ManageDict().link_inputs_to_outputs(
             job_outputs_dict=self.job_outputs,
-            input_dict=deepcopy(self.input_dict_analysis2),
+            input_dict=deepcopy(self.input_dict_analysis_2),
             analysis='analysis_2',
             per_sample=False
         )
 
-        correct_output = {
+        correct_output = [{
             '$dnanexus_link': {
                 'analysis': 'job-GGp34xQ4Bv4KkyxF4f91V278',
                 'field': 'output_vcf',
                 'stage': 'stage-G0KbB6Q433GyV6vbJZKVYV96'
             }
-        }
+        }]
 
-        assert output['stage-G9Z2B7Q41bQg2Jy40zVqqGg4.input2'] == correct_output, (
+        assert output['stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input'] == correct_output, (
             'job ID for analysis 2 wrongly parsed as input'
         )
 
@@ -930,6 +928,115 @@ class TestFilterJobOutputsDict():
         )
 
 
+class TestCheckInputClasses():
+    """
+    Tests for checking classes of input in input dict to ensure they are
+    correct against what the app / workflow expects
+    """
+    # mapping of inputs -> class from DXManage.get_input_classes()
+    input_classes = {
+        'applet-Fz93FfQ433Gvf6pKFZYbXZQf': {
+            'custom_coverage': 'boolean',
+            'eggd_multiqc_config_file': 'file',
+            'ms_for_multiqc': 'string',
+            'project_for_multiqc': 'string',
+            'single_folder': 'boolean',
+            'ss_for_multiqc': 'string'
+        },
+        'workflow-GB12vxQ433GygFZK6pPF75q8': {
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': 'int',
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': 'int',
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': 'file',
+            'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': 'string',
+            'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': 'array:file'
+            }
+        }
+
+    # dict with input that expected to be an array but is a single dict
+    test_input_dict1 = {
+        'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': {
+            '$dnanexus_link': {
+                'analysis': 'analysis-GGqJBYQ4Bv44xxK04b4k7G12',
+                'field': 'somalier_output',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
+            }
+        }
+    }
+
+    # dict that expects to be a single file but is a list with one item
+    test_input_dict2 = {
+        'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': [{
+            '$dnanexus_link': {
+                'analysis': 'analysis-GGqJBYQ4Bv44xxK04b4k7G12',
+                'field': 'somalier_output',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
+            }
+        }]
+    }
+
+    # dict that expects to be a single file but is a list with one item
+    test_input_dict3 = {
+        'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': [
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGqJBYQ4Bv44xxK04b4k7G12',
+                'field': 'somalier_output',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
+            }},
+            {'$dnanexus_link': {
+                'analysis': 'analysis-GGqJBYQ4Bv44xxK04b4k7G12',
+                'field': 'somalier_output',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'
+            }}
+        ]
+    }
+
+    def test_array_input_with_single_dict_given(self):
+        """
+        Test when an input expects to be an array and a single dict is given
+        if this is correctly changed to a list
+        """
+        output = ManageDict().check_input_classes(
+            input_dict=self.test_input_dict1,
+            input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
+        )
+
+        input_type = type(
+            output['stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file']
+        )
+
+        assert input_type == list, (
+            'array:file input not converted to a list as expected'
+        )
+
+    def test_file_input_with_array_length_one_given(self):
+        """
+        Test when a list with one input given to an input that expects to be
+        a single file that it is correctly set to a dict
+        """
+        output = ManageDict().check_input_classes(
+            input_dict=self.test_input_dict2,
+            input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
+        )
+
+        input_type = type(
+            output['stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input'])
+
+        assert input_type == dict, (
+            "Input type not correctly set to dict"
+        )
+
+    def test_file_input_with_array_length_over_one(self):
+        """
+        Test that when an input that expects a file type is given
+        an array with more than one item, as RuntimeError is raised
+        """
+        with pytest.raises(RuntimeError):
+            ManageDict().check_input_classes(
+                input_dict=self.test_input_dict3,
+                input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
+            )
+
+
 class TestCheckAllInputs():
     """
     Tests for final check of populated input dict to check for remaining
@@ -980,4 +1087,4 @@ class TestCheckAllInputs():
 
 if __name__ == '__main__':
 
-    pass
+    TestCheckInputClasses().test_file_input_with_array_length_over_one()
