@@ -388,8 +388,8 @@ class ManageDict():
 
 
     def link_inputs_to_outputs(
-            self, job_outputs_dict, input_dict, analysis,
-            per_sample, input_filter_dict=None, sample=None) -> dict:
+            self, job_outputs_dict, input_dict, analysis, per_sample,
+            input_filter_dict=None, sample=None) -> dict:
         """
         Check input dict for 'analysis_', these will be for linking outputs of
         previous jobs and stored in the job_outputs_dict to input of next job.
@@ -398,10 +398,8 @@ class ManageDict():
         ----------
         job_outputs_dict : dict
             dictionary of previous job outputs to search
-        input_dict : dict
-            dict of input parameters for calling workflow / app
         analysis : str
-            given analysis to check input dict of
+            given analysis_X to check input dict of
         per_sample : bool
             if the given executable is running per sample or not, if not then
             all job IDs for the linked analysis will be gathered and used
@@ -565,21 +563,7 @@ class ManageDict():
                         )
                         input_dict[input_field].append(stage_input_tmp)
 
-        # check if any of the stage inputs are a list of length 1 =>
-        # can just be that dnanexus_link dict, if the app inputs expects to be
-        # a single file and not array:file it would break
-        input_dict_copy = deepcopy(input_dict)
-        for stage, inputs in input_dict.items():
-            if isinstance(inputs, list):
-                if len(inputs) == 1:
-                    inputs = inputs[0]
-
-            input_dict_copy[stage] = inputs
-
-        print("Input dictionary after parsing inputs to outputs")
-        PPRINT(input_dict_copy)
-
-        return input_dict_copy
+        return input_dict
 
 
     def populate_output_dir_config(
@@ -692,6 +676,55 @@ class ManageDict():
             PPRINT(new_outputs)
 
             return new_outputs
+
+
+    def check_input_classes(self, input_dict, input_classes) -> dict:
+        """
+        Check populated input dict to ensure that the types match what
+        the app / workflow expect (i.e if input is array:file that a
+        list is given)
+
+        Parameters
+        ----------
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+        input_classes : dict
+            mapping of current executable inputs -> expected types
+
+        Returns
+        -------
+        dict
+            input dict with classes correctly set (if required)
+        """
+        input_dict_copy = deepcopy(input_dict)
+
+        for input_field, configured_input in input_dict.items():
+            expected_class = input_classes.get(input_field)
+            if not expected_class in ['file', 'array:file']:
+                # we only care about single files and arrays as they are the
+                # only ones likely to be wrongly formatted
+                continue
+
+            if expected_class == 'array:file' and isinstance(configured_input, dict):
+                # we expect a list and have a dict (i.e. only one file
+                # being passed) => turn it into a list
+                configured_input = [configured_input]
+
+            if expected_class == 'file' and isinstance(configured_input, list):
+                # input wants to be a single file and we have ended up with a
+                # list, if its just one then use it, if more then something
+                # has gone wrong and we are sad
+                if len(configured_input) == 1:
+                    configured_input = configured_input[0]
+                else:
+                    raise RuntimeError((
+                        "Input expects to be a single file but multiple "
+                        f"files were found and provided.\nInput field: "
+                        f"{input_field}\nInput found: {configured_input}"
+                    ))
+            input_dict_copy[input_field] = configured_input
+
+        return input_dict_copy
 
 
     def check_all_inputs(self, input_dict) -> None:

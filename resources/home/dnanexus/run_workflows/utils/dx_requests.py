@@ -124,7 +124,8 @@ class DXExecute():
         return job
 
 
-    def call_dx_run(self, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
+    def call_dx_run(
+        self, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
         """
         Call workflow / app with populated input and output dicts
 
@@ -208,8 +209,8 @@ class DXExecute():
 
 
     def call_per_sample(
-        self, executable, exe_names, params, sample, config, out_folder,
-        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+        self, executable, exe_names, input_classes, params, sample, config,
+        out_folder, job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -221,6 +222,8 @@ class DXExecute():
             human readable name of dx executable (workflow-, app- or applet-)
         exe_names : dict
             mapping of executable IDs to human readable names
+        input_classes : dict
+            mapping of executable inputs -> expected types
         params : dict
             dictionary of parameters specified in config for running analysis
         sample : str, default None
@@ -299,6 +302,12 @@ class DXExecute():
             sample=sample
         )
 
+        # check input types correctly set in input dict
+        input_dict = ManageDict().check_input_classes(
+            input_dict=input_dict,
+            input_classes=input_classes[executable]
+        )
+
         # check that all INPUT- have been parsed in config
         ManageDict().check_all_inputs(input_dict)
 
@@ -341,8 +350,8 @@ class DXExecute():
 
 
     def call_per_run(
-        self, executable, exe_names, params, config, out_folder,
-        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+        self, executable, exe_names, input_classes, params, config,
+        out_folder, job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populates input and output dicts from config for given workflow,
         returns dx job id and stores in dict to map workflow -> dx job id.
@@ -353,6 +362,8 @@ class DXExecute():
             human readable name of dx executable (workflow-, app- or applet-)
         exe_names : dict
             mapping of executable IDs to human readable names
+        input_classes : dict
+            mapping of executable inputs -> expected types
         params : dict
             dictionary of parameters specified in config for running analysis
         config : dict
@@ -397,6 +408,12 @@ class DXExecute():
             analysis=params["analysis"],
             input_filter_dict=input_filter_dict,
             per_sample=False
+        )
+
+        # check input types correctly set in input dict
+        input_dict = ManageDict().check_input_classes(
+            input_dict=input_dict,
+            input_classes=input_classes[executable]
         )
 
         # find all jobs for previous analyses if next job depends on them
@@ -773,5 +790,29 @@ class DXManage():
                 if app_name.startswith('app-'):
                     app_name = app_name.replace('app-', '')
                 mapping[exe] = {'name': app_name}
+
+        return mapping
+
+
+    def get_input_classes(self, executables) -> dict:
+        """
+        Get classes of all inputs for each app / workflow stage, used
+        when building out input dict to ensure correct type set
+
+        Parameters
+        ----------
+        executables : list
+            list of executables to get names for (workflow-, app-, applet-)
+
+        Returns
+        -------
+        dict
+            mapping of exectuable / stage to outputs with types
+        """
+        mapping = defaultdict(dict)
+        for exe in executables:
+            describe = dx.describe(exe)
+            for input in describe['inputSpec']:
+                mapping[exe][input['name']] = input['class']
 
         return mapping

@@ -399,6 +399,10 @@ def main():
     print('Executable names identified:')
     PPRINT(exe_names)
 
+    # build mapping of executables input fields => required types (i.e.
+    # file, array:file, boolean), used to correctly build input dict
+    input_classes = dx_manage.get_input_classes(config['executables'].keys())
+
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
     job_outputs_dict = {}
@@ -438,6 +442,7 @@ def main():
                 job_outputs_dict = dx_execute.call_per_sample(
                     executable,
                     exe_names=exe_names,
+                    input_classes=input_classes,
                     params=params,
                     sample=sample,
                     config=config,
@@ -453,6 +458,7 @@ def main():
             job_outputs_dict = dx_execute.call_per_run(
                 executable=executable,
                 exe_names=exe_names,
+                input_classes=input_classes,
                 params=params,
                 config=config,
                 out_folder=parent_out_dir,
