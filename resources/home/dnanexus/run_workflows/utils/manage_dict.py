@@ -407,11 +407,11 @@ class ManageDict():
             if the given executable is running per sample or not, if not then
             all job IDs for the linked analysis will be gathered and used
             as input
-        input_filter_dict : dict
-            mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
+        input_filter_dict : dict, default None
+            (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
             filter sample IDs by
         sample : str, default None
-            optional, sample name used to limit searching for previous analyes
+            (optional) sample name used to limit searching for previous analyes
 
         Returns
         -------
@@ -495,10 +495,10 @@ class ManageDict():
                     ))
 
                 # replace analysis id with given job id in input dict
-                self.replace(
+                input_dict = self.replace(
                     input_dict=input_dict,
                     to_replace=analysis_id,
-                    replacementg=job_id[0],
+                    replacement=job_id[0],
                     search_key=False,
                     replace_key=False
                 )
@@ -566,10 +566,21 @@ class ManageDict():
                         )
                         input_dict[input_field].append(stage_input_tmp)
 
-        print("Input dictionary after parsing inputs to outputs")
-        PPRINT(input_dict)
+        # check if any of the stage inputs are a list of length 1 =>
+        # can just be that dnanexus_link dict, if the app inputs expects to be
+        # a single file and not array:file it would break
+        input_dict_copy = deepcopy(input_dict)
+        for stage, inputs in input_dict.items():
+            if isinstance(inputs, list):
+                if len(inputs) == 1:
+                    inputs = inputs[0]
 
-        return input_dict
+            input_dict_copy[stage] = inputs
+
+        print("Input dictionary after parsing inputs to outputs")
+        PPRINT(input_dict_copy)
+
+        return input_dict_copy
 
 
     def populate_output_dir_config(
