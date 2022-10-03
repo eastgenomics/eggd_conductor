@@ -216,7 +216,7 @@ main () {
     conductor_job_url+="/monitor/job/${PARENT_JOB_ID/job-/}"
     export conductor_job_url
 
-    message="eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
+    message=":gear: eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
     message+="${conductor_job_url}"
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
