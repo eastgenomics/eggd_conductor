@@ -2,11 +2,6 @@
 # eggd_conductor
 
 
-## TODO
-#  - checking for valid inputs (i.e. fastqs w/ sample sheet/sample names etc)
-#
-##
-
 set -exo pipefail
 
 _set_environment () {
