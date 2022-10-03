@@ -460,7 +460,7 @@ class DXManage():
         self.args = args
 
 
-    def get_json_configs(self) -> list:
+    def get_json_configs(self) -> dict:
         """
         Query path in DNAnexus for json config files fo each assay, returning
         highest version available for each assay code.
