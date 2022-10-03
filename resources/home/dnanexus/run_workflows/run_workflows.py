@@ -402,6 +402,8 @@ def main():
     # build mapping of executables input fields => required types (i.e.
     # file, array:file, boolean), used to correctly build input dict
     input_classes = dx_manage.get_input_classes(config['executables'].keys())
+    print('Executable input classes found:')
+    PPRINT(input_classes)
 
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
