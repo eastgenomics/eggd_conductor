@@ -390,8 +390,10 @@ def main():
     else:
         # not demultiplexing or given fastqs, exit as we aren't handling
         # this for now
-        print('No fastqs passed or demultiplexing specified. Exiting now')
-        sys.exit()
+        raise RuntimeError(
+            Slack().send(
+                'No fastqs passed or demultiplexing specified. Exiting now'
+        ))
 
 
     # build a dict mapping executable names to human readable names
