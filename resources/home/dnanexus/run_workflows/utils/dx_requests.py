@@ -553,15 +553,18 @@ class DXManage():
         """
         dx_projects = list(dx.bindings.search.find_projects(name=project_name))
 
-        assert len(dx_projects) > 1, (
-            "Found more than one project matching given "
-            f"project name: {project_name}"
-        )
+        print('Found the following DNAnexus projects:')
+        PPRINT(dx_projects)
 
         if not dx_projects:
             # found no project, return None and create one in
             # get_or_create_dx_project()
             return None
+
+        assert len(dx_projects) > 1, Slack().send(
+            "Found more than one project matching given "
+            f"project name: {project_name}"
+        )
 
         return dx_projects[0]['id']
 
