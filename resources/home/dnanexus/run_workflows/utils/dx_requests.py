@@ -82,7 +82,7 @@ class DXExecute():
                 priority='high'
             )
         elif app_id.startswith('app-'):
-            job = dx.bindings.dxapp.DXApp(dx_id=app_id).run(
+            job = dx.bindings.dxapp.DXApp(dxid=app_id).run(
                 app_input=inputs,
                 project=bcl2fastq_project,
                 folder=bcl2fastq_folder,
