@@ -36,7 +36,8 @@ class DXExecute():
         if not self.args.testing:
             if not self.args.bcl2fastq_output:
                 # set output path to parent of sentinel file
-                sentinel_path = dx.describe(self.args.sentinel_file).get('folder')
+                out = dx.describe(self.args.sentinel_file)
+                sentinel_path = f"{out.get('project')}:{out.get('folder')}"
                 self.args.bcl2fastq_output = sentinel_path.replace('/runs', '')
         else:
             if not self.args.bcl2fastq_output:
@@ -113,13 +114,9 @@ class DXExecute():
             if not dx.PROJECT_CONTEXT_ID == bcl2fastq_project:
                 file.clone(dx.PROJECT_CONTEXT_ID, folder='')
             else:
-                # bcl2fastq output in the analysis project
-                # can't clone within the same project
-                print(
-                    'Warning: bcl2fastq output appears to be in the same '
-                    'project as analysis, the Stats.json can not be cloned '
-                    'within the same project. Continuing without...'
-                )
+                # bcl2fastq output in the analysis project => need to move
+                # instead of cloning (this is most likely just for testing)
+                file.move(folder='/')
 
         return job
 
