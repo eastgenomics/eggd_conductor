@@ -96,9 +96,16 @@ class DXExecute():
             raise RuntimeError(
                 f'Provided bcl2fastq app ID does not appear valid: {app_id}')
 
-        print("Starting demultiplexing, holding app until completed...")
         job_id = job.describe().get('id')
-        dx.bindings.dxjob.DXJob(dxid=job_id).wait_on_done()
+        job_handle = dx.bindings.dxjob.DXJob(dxid=job_id)
+
+        # tag demultiplexing job so we easily know it was launched by conductor
+        job_handle.add_tags(tags=[
+            f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
+        ])
+        
+        print("Starting demultiplexing, holding app until completed...")
+        job_handle.wait_on_done()
 
         print("Demuliplexing completed!")
 
@@ -111,8 +118,8 @@ class DXExecute():
 
         if stats_json:
             file = dx.DXFile(
-                dxid=stats_json['id'],
-                project=bcl2fastq_project
+                dxid=stats_json[0]['id'],
+                project=stats_json[0]['project']
             )
             if not dx.PROJECT_CONTEXT_ID == bcl2fastq_project:
                 file.clone(dx.PROJECT_CONTEXT_ID, folder='')
