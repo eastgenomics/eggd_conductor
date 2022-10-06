@@ -71,8 +71,11 @@ class DXExecute():
         ))
 
         assert not fastqs, Slack().send(
-            "fastqs already present in directory for bcl2fastq output"
-            f"({self.args.bcl2fastq_output})"
+            "FastQs already present in output directory for bcl2fastq: "
+            f"(`{self.args.bcl2fastq_output}`).\n\nExiting now to not "
+            f"potentianlly pollute a previous demultiplex job output. \n\n"
+            "Please either move the sentinel file or set the bcl2fastq "
+            "output directory with `-BCL2FASTQ_OUT`"
         )
 
         if app_id.startswith('applet-'):
