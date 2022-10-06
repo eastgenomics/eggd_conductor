@@ -43,7 +43,7 @@ class DXExecute():
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to semtinel file dir
                 self.args.bcl2fastq_output = (
-                    f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp}'
+                    f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp()}'
                 )
 
         bcl2fastq_project, bcl2fastq_folder = self.args.bcl2fastq_output.split(':')
