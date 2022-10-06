@@ -121,8 +121,9 @@ class DXExecute():
                 dxid=stats_json[0]['id'],
                 project=stats_json[0]['project']
             )
-            if not dx.PROJECT_CONTEXT_ID == bcl2fastq_project:
-                file.clone(dx.PROJECT_CONTEXT_ID, folder='')
+
+            if not os.environ.get('PROJECT_ID') == bcl2fastq_project:
+                file.clone(project=dx.PROJECT_CONTEXT_ID, folder='')
             else:
                 # bcl2fastq output in the analysis project => need to move
                 # instead of cloning (this is most likely just for testing)
