@@ -128,6 +128,10 @@ class DXExecute():
                 # instead of cloning (this is most likely just for testing)
                 file.move(folder='/')
 
+        if self.args.testing:
+            with open('testing_job_id.log', 'a') as fh:
+                fh.write(f'{job_id} ')
+
         return job
 
 
