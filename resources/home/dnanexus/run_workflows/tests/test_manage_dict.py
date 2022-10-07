@@ -281,7 +281,7 @@ class TestAddFastqs():
 
     def test_adding_all_r2(self):
         """
-        Test adding R2 fastqs from all samples as input where INPUT-R1 given
+        Test adding R2 fastqs from all samples as input where INPUT-R2 given
         """
         output = ManageDict().add_fastqs(
             input_dict=deepcopy(
@@ -289,7 +289,7 @@ class TestAddFastqs():
             ),
             fastq_details=self.fastq_details
         )
-        output_R1_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
+        output_R2_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
 
         correct_R2_fastqs = [
             {'$dnanexus_link': 'file-GGJY9684p3zG6fvf1vqvbqzx'},
@@ -298,7 +298,7 @@ class TestAddFastqs():
             {'$dnanexus_link': 'file-GGJY9804p3z1X9YZJ4xf5v13'}
         ]
 
-        assert output_R1_fastqs == correct_R2_fastqs, (
+        assert output_R2_fastqs == correct_R2_fastqs, (
             "R2 fastqs not correctly added"
         )
 
