@@ -222,9 +222,6 @@ class Jira():
             Slack().send(message=message, exit_fail=False)
 
 
-        
-
-
 def time_stamp() -> str:
     """
     Returns string of date & time formatted as YYMMDD_HHMM
