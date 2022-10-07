@@ -362,7 +362,7 @@ class ManageDict():
         dependent_jobs : list
             list of dependent jobs found
         """
-        # get jobs in root of job outputs dict => those run per run
+        # get jobs in root of job outputs dict => just per run jobs
         per_run_jobs = {
             k: v for k, v in job_outputs_dict.items()
             if k.startswith('analysis_')
