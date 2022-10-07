@@ -133,7 +133,7 @@ class DXExecute():
             with open('testing_job_id.log', 'a') as fh:
                 fh.write(f'{job_id} ')
 
-        return job
+        return job_id
 
 
     def call_dx_run(
@@ -543,7 +543,7 @@ class DXManage():
         return all_configs
 
 
-    def find_dx_project(self, project_name) -> Union[None, str]:
+    def find_dx_project(self, project_name) -> str:
         """
         Check if project already exists in DNAnexus with given name,
         returns project ID if present and None if not found.
@@ -581,7 +581,7 @@ class DXManage():
         return dx_projects[0]['id']
 
 
-    def get_or_create_dx_project(self, config):
+    def get_or_create_dx_project(self, config) -> str:
         """
         Create new project in DNAnexus if one with given name doesn't
         already exist.
@@ -823,6 +823,19 @@ class DXManage():
         -------
         dict
             mapping of exectuable / stage to outputs with types
+            {
+                'applet-FvyXygj433GbKPPY0QY8ZKQG': {
+                    'adapters_txt': 'file',
+                    'contaminants_txt': 'file',
+                    'nogroup': 'boolean'
+            },
+                'workflow-GB12vxQ433GygFZK6pPF75q8': {
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': 'int',
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': 'int',
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': 'file',
+                    'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': 'string'
+            },
+            ......
         """
         mapping = defaultdict(dict)
         for exe in executables:

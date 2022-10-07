@@ -62,7 +62,7 @@ class ManageDict():
 
     def replace(
         self, input_dict, to_replace, replacement,
-        search_key, replace_key) -> list:
+        search_key, replace_key) -> dict:
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
@@ -325,7 +325,7 @@ class ManageDict():
         return input_dict
 
 
-    def get_dependent_jobs(self, params, job_outputs_dict, sample=None):
+    def get_dependent_jobs(self, params, job_outputs_dict, sample=None) -> list:
         """
         If app / workflow depends on previous job(s) completing these will be
         passed with depends_on = [analysis_1, analysis_2...].
@@ -695,6 +695,12 @@ class ManageDict():
         -------
         dict
             input dict with classes correctly set (if required)
+        
+        Raises
+        ------
+        RuntimeError
+            Raised when an input should be a single file but multiple have
+            been found to provide and array built
         """
         input_dict_copy = deepcopy(input_dict)
 

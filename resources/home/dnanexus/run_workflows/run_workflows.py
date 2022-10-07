@@ -35,6 +35,11 @@ def parse_sample_sheet(samplesheet) -> list:
     -------
     list
         list of samplenames
+    
+    Raises
+    ------
+    AssertionError
+        Raised when no samples parsed from samplesheet
     """
     sheet = pd.read_csv(samplesheet, header=None)
     column = sheet[0].tolist()
