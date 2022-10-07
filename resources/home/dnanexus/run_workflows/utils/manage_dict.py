@@ -334,6 +334,20 @@ class ManageDict():
         analysis_2 depends on analysis_1 finishing, get the dx id of the job
         to pass to current analysis).
 
+        Example job_outputs_dict:
+
+            {
+                '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
+                    'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2',
+                    'analysis_3': 'job-GGjgyX04Bv44Vz151GGzFKgP'
+                },
+                'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+                    'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb',
+                    'analysis_3': 'job-GGp69xQ4Bv45bk0y4kyVqvJ1'
+                },
+                'analysis_2': 'job-GGjgz1j4Bv48yF89GpZ6zkGz'
+            }
+
         Parameters
         ----------
         params : dict
@@ -348,10 +362,15 @@ class ManageDict():
         dependent_jobs : list
             list of dependent jobs found
         """
+        # get jobs in root of job outputs dict => those run per run
+        per_run_jobs = {
+            k: v for k, v in job_outputs_dict.items()
+            if k.startswith('analysis_')
+        }
+
         if sample:
             # running per sample, assume we only wait on the samples previous
-            # job and not all instances of the executable for all samples
-            job_outputs_dict_copy = deepcopy(job_outputs_dict)
+            # job and not all instances of the given executable for all samples
             job_outputs_dict = job_outputs_dict[sample]
 
         # check if job depends on previous jobs to hold till complete
@@ -376,10 +395,9 @@ class ManageDict():
                     # this is possibly due to the analysis being per
                     # run and not in the samples job dict => check if
                     # it is in the main job_outputs_dict keys
-                    job = job_outputs_dict_copy.get(analysis_id)
+                    job = per_run_jobs.get(analysis_id)
                     if job:
-                        # found ID in root of jobs dict => found per
-                        # run job to wait on
+                        # found ID in per run jobs dict => wait on completing
                         dependent_jobs.append(job)
 
         print(f'Dependent jobs found: {dependent_jobs}')
