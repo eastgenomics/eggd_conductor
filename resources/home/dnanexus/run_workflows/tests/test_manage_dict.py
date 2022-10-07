@@ -593,7 +593,6 @@ class TestGetDependentJobs():
             'Failed to get analysis_1 dependent jobs'
         )
 
-
     def test_per_run_get_all_jobs(self):
         """
         Test for a per run job that depends on all upstream jobs and
@@ -616,6 +615,41 @@ class TestGetDependentJobs():
 
         assert sorted(jobs) == all_jobs, (
             'Failed to get all dependent jobs'
+        )
+
+    def test_absent_analysis_does_not_raise_error(self):
+        """
+        Test that when an analysis_ value is given that is not present
+        in the job outputs dict, it does not raise an error and just
+        returns an empty list
+        """
+        params = {"depends_on": ["analysis_5"]}
+
+        jobs = ManageDict().get_dependent_jobs(
+            params=params,
+            job_outputs_dict=self.job_outputs_dict
+        )
+
+        assert jobs == [], (
+            "Getting dependent jobs for absent analyis_ did not return an empty list"
+        )
+
+    def test_absent_analysis_does_not_raise_error_per_sample(self):
+        """
+        Test that when an analysis_ value is given that is not present
+        in the job outputs dict when searching for a given sample, it
+        does not raise an error and just returns an empty list
+        """
+        params = {"depends_on": ["analysis_5"]}
+
+        jobs = ManageDict().get_dependent_jobs(
+            params=params,
+            job_outputs_dict=self.job_outputs_dict,
+            sample="2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2"
+        )
+
+        assert jobs == [], (
+            "Getting dependent jobs for absent analyis_ did not return an empty list"
         )
 
 
