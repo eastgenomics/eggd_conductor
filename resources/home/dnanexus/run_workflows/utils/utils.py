@@ -14,9 +14,9 @@ class Slack():
         self.slack_alert_channel = os.getenv("SLACK_ALERT_CHANNEL")
 
 
-    def send(self, message):
+    def send(self, message) -> None:
         """
-        Send alert to Slack
+        Send alert to Slack to know something has failed
 
         Parameters
         ----------
