@@ -345,7 +345,9 @@ def main():
     output_project = dx.bindings.dxproject.DXProject(
         dxid=args.dx_project_id).describe().get('name')
     with open('analysis_project.log', 'w') as fh:
-        fh.write(f'{output_project} {args.dx_project_id}\n')
+        fh.write(
+            f'{args.dx_project_id} {args.assay_name} {config.get("version")}\n'
+        )
 
     args.dx_project_name = output_project
 
