@@ -46,8 +46,8 @@ class ManageDict():
             else:
                 to_check = value
 
-            if isinstance(to_check, bool) or not to_check:
-                # to_check is True, False or None
+            if isinstance(to_check, (bool, int, float)) or not to_check:
+                # to_check is True, False, a number or None
                 continue
 
             match = re.search(rf'[^|]*{identifier}[^|]*', to_check)
@@ -609,6 +609,8 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
+        print(f"Populating output dict for {executable}, dict before:")
+
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
                 # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
