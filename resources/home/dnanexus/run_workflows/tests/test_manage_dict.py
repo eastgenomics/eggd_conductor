@@ -453,8 +453,11 @@ class TestAddOtherInputs():
         },
         "sample_name_prefix": "INPUT-SAMPLE-PREFIX",
         "sample_name": "INPUT-SAMPLE-NAME",
-        "output_path": "INPUT-analysis_1-out_dir"
-    }
+        "output_path": "INPUT-analysis_1-out_dir",
+        "run_sample_sheet": {
+            "$dnanexus_link": "INPUT-SAMPLESHEET"
+        },
+}
 
     # set up argparse namespace with required variables
     args = Namespace()
@@ -465,6 +468,11 @@ class TestAddOtherInputs():
     analysis_output_directories = {
         "analysis_1": "/output/some_assay-220930-1200/my_first_app"
     }
+
+    # set samplesheet file ID as env variable as set in eggd_conductor.sh
+    os.environ['SAMPLESHEET'] = (
+        "{'$dnanexus_link': 'file-GGxPVxQ4X7kbkFBx7b913b0G'}"
+    )
 
     # call add_other_inputs() to replace all INPUT-s
     output = ManageDict().add_other_inputs(
@@ -527,6 +535,20 @@ class TestAddOtherInputs():
         assert self.output['output_path'] == correct_path, (
             'INPUT-analysis_1-out_dir not correctly replaced'
         )
+    
+    def test_adding_samplesheet(self):
+        """
+        Test for finding and replacing INPUT-SAMPLESHEET from SAMPLESHEET
+        environment variable which will be the dnanexus file ID
+        """
+        correct_samplesheet = {
+            '$dnanexus_link': 'file-GGxPVxQ4X7kbkFBx7b913b0G'
+        }
+
+        assert self.output['run_sample_sheet'] == correct_samplesheet, (
+            'Samplesheet not correctly parsed to input dict'
+        )
+
 
 
 class TestGetDependentJobs():
