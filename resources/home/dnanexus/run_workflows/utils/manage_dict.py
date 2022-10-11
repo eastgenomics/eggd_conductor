@@ -106,7 +106,7 @@ class ManageDict():
             # track if we found a match and already key added to output dict
             added_key = False
 
-            if not isinstance(replacing, bool) and replacing:
+            if isinstance(replacing, str) and replacing:
                 for match in matches:
                     if not match in replacing:
                         continue
