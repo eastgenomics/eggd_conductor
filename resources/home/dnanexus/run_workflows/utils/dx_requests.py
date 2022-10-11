@@ -5,7 +5,6 @@ import json
 import os
 from pprint import PrettyPrinter
 import re
-from typing import Union
 
 import dxpy as dx
 
