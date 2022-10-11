@@ -808,7 +808,7 @@ class ManageDict():
 
         assert not unparsed_inputs, Slack().send(
             f"unparsed `INPUT-` still in config, please check readme for "
-            f"valid input parameters. \nInput dict:\n```{input_dict}```"
+            f"valid input parameters. \nUnparsed input(s): `{unparsed_inputs}`"
         )
 
         unparsed_inputs = self.search(
@@ -816,5 +816,5 @@ class ManageDict():
 
         assert not unparsed_inputs, Slack().send(
             f"unparsed `analysis-` still in config, please check readme for "
-            f"valid input parameters. \nInput dict:\n```{input_dict}```"
+            f"valid input parameters. \nUnparsed analyses: `{unparsed_inputs}`"
         )
