@@ -970,19 +970,52 @@ class TestCheckInputClasses():
     # mapping of inputs -> class from DXManage.get_input_classes()
     input_classes = {
         'applet-Fz93FfQ433Gvf6pKFZYbXZQf': {
-            'custom_coverage': 'boolean',
-            'eggd_multiqc_config_file': 'file',
-            'ms_for_multiqc': 'string',
-            'project_for_multiqc': 'string',
-            'single_folder': 'boolean',
-            'ss_for_multiqc': 'string'
+            'custom_coverage':  {
+                'class': 'boolean',
+                'optional': False
+            },
+            'eggd_multiqc_config_file':  {
+                'class': 'file',
+                'optional': False
+            },
+            'ms_for_multiqc':  {
+                'class': 'string',
+                'optional': True
+            },
+            'project_for_multiqc':  {
+                'class': 'string',
+                'optional': False
+            },
+            'single_folder': {
+                'class': 'boolean',
+                'optional': False
+            },
+            'ss_for_multiqc': {
+                'class': 'string',
+                'optional': False
+            }
         },
         'workflow-GB12vxQ433GygFZK6pPF75q8': {
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': 'int',
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': 'int',
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': 'file',
-            'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': 'string',
-            'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': 'array:file'
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': {
+                'class': 'int',
+                'optional': False
+            },
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': {
+                'class': 'int',
+                'optional': False
+            },
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': {
+                'class': 'file',
+                'optional': False
+            },
+            'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': {
+                'class': 'string',
+                'optional': False
+            },
+            'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': {
+                'class': 'array:file',
+                'optional': False
+            }
             }
         }
 
