@@ -157,6 +157,12 @@
     "allProjects":"CONTRIBUTE",
     "project": "CONTRIBUTE"
   },
+  "developers":[
+    "org-emee_1"
+  ],
+  "authorizedUsers": [
+    "org-emee_1"
+  ],
   "priority": "high",
   "regionalOptions": {
     "aws:eu-central-1": {

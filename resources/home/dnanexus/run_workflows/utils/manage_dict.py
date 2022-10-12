@@ -1,9 +1,7 @@
 from copy import deepcopy
 from pprint import PrettyPrinter
 import re
-from typing import Generator
 
-import dxpy as dx
 from flatten_json import flatten, unflatten_list
 
 from utils.utils import Slack
@@ -48,8 +46,8 @@ class ManageDict():
             else:
                 to_check = value
 
-            if isinstance(to_check, bool) or not to_check:
-                # to_check is True, False or None
+            if isinstance(to_check, (bool, int, float)) or not to_check:
+                # to_check is True, False, a number or None
                 continue
 
             match = re.search(rf'[^|]*{identifier}[^|]*', to_check)
@@ -64,7 +62,7 @@ class ManageDict():
 
     def replace(
         self, input_dict, to_replace, replacement,
-        search_key, replace_key) -> list:
+        search_key, replace_key) -> dict:
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
@@ -108,7 +106,7 @@ class ManageDict():
             # track if we found a match and already key added to output dict
             added_key = False
 
-            if not isinstance(replacing, bool) and replacing:
+            if isinstance(replacing, str) and replacing:
                 for match in matches:
                     if not match in replacing:
                         continue
@@ -221,8 +219,13 @@ class ManageDict():
             sample=None, sample_prefix=None) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
-        parsing: workflow output directories, sample name, project id and
-        project name.
+        parsing:
+            - workflow output directories (INPUT-analysis[0-9]{1,2}-out_dir)
+            - sample name (INPUT-SAMPLE-NAME)
+            - sample prefix (INPUT-SAMPLE-PREFIX)
+            - project id (INPUT-dx_project_id)
+            - project name (INPUT-dx_project_name)
+            - parent output directory (INPUT-parent_out_dir)
 
         Parameters
         ----------
@@ -266,10 +269,6 @@ class ManageDict():
         else:
             print(f'Other inputs found to replace: {other_inputs}')
 
-        project_name = dx.api.project_describe(
-            args.dx_project_id,
-            input_params={'fields': {'name': True}}).get('name')
-
         # removing /output/ for now to fit to MultiQC
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
 
@@ -278,7 +277,7 @@ class ManageDict():
             ('INPUT-SAMPLE-NAME', sample),
             ('INPUT-SAMPLE-PREFIX', sample_prefix),
             ('INPUT-dx_project_id', args.dx_project_id),
-            ('INPUT-dx_project_name', project_name),
+            ('INPUT-dx_project_name', args.dx_project_name),
             ('INPUT-parent_out_dir', args.parent_out_dir)
         ]
 
@@ -326,7 +325,7 @@ class ManageDict():
         return input_dict
 
 
-    def get_dependent_jobs(self, params, job_outputs_dict, sample=None):
+    def get_dependent_jobs(self, params, job_outputs_dict, sample=None) -> list:
         """
         If app / workflow depends on previous job(s) completing these will be
         passed with depends_on = [analysis_1, analysis_2...].
@@ -334,6 +333,20 @@ class ManageDict():
         Get all job ids for given analysis to pass to dx run (i.e. if
         analysis_2 depends on analysis_1 finishing, get the dx id of the job
         to pass to current analysis).
+
+        Example job_outputs_dict:
+
+            {
+                '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
+                    'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2',
+                    'analysis_3': 'job-GGjgyX04Bv44Vz151GGzFKgP'
+                },
+                'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+                    'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb',
+                    'analysis_3': 'job-GGp69xQ4Bv45bk0y4kyVqvJ1'
+                },
+                'analysis_2': 'job-GGjgz1j4Bv48yF89GpZ6zkGz'
+            }
 
         Parameters
         ----------
@@ -349,9 +362,15 @@ class ManageDict():
         dependent_jobs : list
             list of dependent jobs found
         """
+        # get jobs in root of job outputs dict => just per run jobs
+        per_run_jobs = {
+            k: v for k, v in job_outputs_dict.items()
+            if k.startswith('analysis_')
+        }
+
         if sample:
             # running per sample, assume we only wait on the samples previous
-            # job and not all instances of the executable for all samples
+            # job and not all instances of the given executable for all samples
             job_outputs_dict = job_outputs_dict[sample]
 
         # check if job depends on previous jobs to hold till complete
@@ -359,14 +378,27 @@ class ManageDict():
         dependent_jobs = []
 
         if dependent_analyses:
-            for id in dependent_analyses:
-                for job in self.search(
-                    id, job_outputs_dict, check_key=True, return_key=False
-                    ):
-                        # find all jobs for every analysis id
-                        # (i.e. all samples job ids for analysis_X)
-                        if job:
-                            dependent_jobs.append(job)
+            for analysis_id in dependent_analyses:
+                # find all jobs for every analysis id
+                # (i.e. all samples job ids for analysis_X)
+                job_ids = self.search(
+                    identifier=analysis_id,
+                    input_dict=job_outputs_dict,
+                    check_key=True,
+                    return_key=False
+                )
+                if job_ids:
+                    for job in job_ids:
+                        dependent_jobs.append(job)
+                else:
+                    # didn't find a job ID for the given analysis_X,
+                    # this is possibly due to the analysis being per
+                    # run and not in the samples job dict => check if
+                    # it is in the main job_outputs_dict keys
+                    job = per_run_jobs.get(analysis_id)
+                    if job:
+                        # found ID in per run jobs dict => wait on completing
+                        dependent_jobs.append(job)
 
         print(f'Dependent jobs found: {dependent_jobs}')
 
@@ -374,8 +406,8 @@ class ManageDict():
 
 
     def link_inputs_to_outputs(
-            self, job_outputs_dict, input_dict, analysis,
-            per_sample, input_filter_dict=None, sample=None) -> dict:
+            self, job_outputs_dict, input_dict, analysis, per_sample,
+            input_filter_dict=None, sample=None) -> dict:
         """
         Check input dict for 'analysis_', these will be for linking outputs of
         previous jobs and stored in the job_outputs_dict to input of next job.
@@ -384,19 +416,17 @@ class ManageDict():
         ----------
         job_outputs_dict : dict
             dictionary of previous job outputs to search
-        input_dict : dict
-            dict of input parameters for calling workflow / app
         analysis : str
-            given analysis to check input dict of
+            given analysis_X to check input dict of
         per_sample : bool
             if the given executable is running per sample or not, if not then
             all job IDs for the linked analysis will be gathered and used
             as input
-        input_filter_dict : dict
-            mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
+        input_filter_dict : dict, default None
+            (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
             filter sample IDs by
         sample : str, default None
-            optional, sample name used to limit searching for previous analyes
+            (optional) sample name used to limit searching for previous analyes
 
         Returns
         -------
@@ -480,10 +510,10 @@ class ManageDict():
                     ))
 
                 # replace analysis id with given job id in input dict
-                self.replace(
+                input_dict = self.replace(
                     input_dict=input_dict,
                     to_replace=analysis_id,
-                    replacementg=job_id[0],
+                    replacement=job_id[0],
                     search_key=False,
                     replace_key=False
                 )
@@ -516,43 +546,46 @@ class ManageDict():
                 # input into an array and create one dict of input structure
                 # per job for the given analysis_X found.
                 for input_field, link_dict in input_dict.items():
+                    if not isinstance(link_dict, dict):
+                        # input is not a dnanexus file or output link
+                        continue
                     for _, stage_input in link_dict.items():
+                        if not isinstance(stage_input, dict):
+                            # input is not a previous output format
+                            continue
                         if not analysis_id in stage_input.values():
                             # analysis id not present as any input
                             continue
 
-                    # filter job outputs to search by sample name patterns
-                    job_outputs_dict_copy = self.filter_job_outputs_dict(
-                        stage=input_field,
-                        outputs_dict=job_outputs_dict,
-                        filter_dict=input_filter_dict
-                    )
-
-                    # gather all job IDs for current analysis ID
-                    job_ids = self.search(
-                        identifier=analysis_id,
-                        input_dict=job_outputs_dict_copy,
-                        check_key=True,
-                        return_key=False
-                    )
-
-                    # copy input structure from input dict, turn into an array
-                    # input and populate with a link to each job
-                    stage_input_template = deepcopy(link_dict)
-                    input_dict[input_field] = []
-                    for job in job_ids:
-                        stage_input_tmp = deepcopy(stage_input_template)
-                        stage_input_tmp = self.replace(
-                            input_dict=stage_input_tmp,
-                            to_replace=analysis_id,
-                            replacement=job,
-                            search_key=False,
-                            replace_key=False
+                        # filter job outputs to search by sample name patterns
+                        job_outputs_dict_copy = self.filter_job_outputs_dict(
+                            stage=input_field,
+                            outputs_dict=job_outputs_dict,
+                            filter_dict=input_filter_dict
                         )
-                        input_dict[input_field].append(stage_input_tmp)
 
-        print("Input dictionary after parsing inputs to outputs")
-        PPRINT(input_dict)
+                        # gather all job IDs for current analysis ID
+                        job_ids = self.search(
+                            identifier=analysis_id,
+                            input_dict=job_outputs_dict_copy,
+                            check_key=True,
+                            return_key=False
+                        )
+
+                        # copy input structure from input dict, turn into an array
+                        # input and populate with a link to each job
+                        stage_input_template = deepcopy(link_dict)
+                        input_dict[input_field] = []
+                        for job in job_ids:
+                            stage_input_tmp = deepcopy(stage_input_template)
+                            stage_input_tmp = self.replace(
+                                input_dict=stage_input_tmp,
+                                to_replace=analysis_id,
+                                replacement=job,
+                                search_key=False,
+                                replace_key=False
+                            )
+                            input_dict[input_field].append(stage_input_tmp)
 
         return input_dict
 
@@ -582,6 +615,8 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
+        print(f"Populating output dict for {executable}, dict before:")
+
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
                 # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
@@ -632,12 +667,6 @@ class ManageDict():
         -------
         dict
             filtered jobs dict
-
-        Raises
-        ------
-        AssertionError
-            Raised when a pattern is given to filter the outputs but
-            no match was found
         """
         if not filter_dict:
             # no filter pattens to apply
@@ -666,11 +695,95 @@ class ManageDict():
             print(f'No filters to apply for stage: {stage}')
             return outputs_dict
         else:
-            # there was a filter for given stage to apply
+            # there was a filter for given stage to apply, if no
+            # matches were found against the given pattern(s) this
+            # will be an empty dict
             print(f'Job outputs dict after filtering')
             PPRINT(new_outputs)
 
             return new_outputs
+
+
+    def check_input_classes(self, input_dict, input_classes) -> dict:
+        """
+        Check populated input dict to ensure that the types match what
+        the app / workflow expect (i.e if input is array:file that a
+        list is given)
+
+        Parameters
+        ----------
+        executable : str
+            dx ID of executable
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+        input_classes : dict
+            mapping of current executable inputs -> expected types
+
+        Returns
+        -------
+        dict
+            input dict with classes correctly set (if required)
+        
+        Raises
+        ------
+        RuntimeError
+            Raised when an input should be a single file but multiple have
+            been found to provide and array built
+        RuntimeError
+            Raised when an input is non-optional and an empty list has been
+            passed
+        """
+        print("Checking input classes are valid")
+        PPRINT(input_dict)
+        input_dict_copy = deepcopy(input_dict)
+
+        print(input_classes)
+
+
+        for input_field, configured_input in input_dict.items():
+            print(input_field)
+            print(configured_input)
+            input_details = input_classes.get(input_field)
+            expected_class = input_details.get('class')
+            optional = input_details.get('optional')
+
+            if not expected_class in ['file', 'array:file']:
+                # we only care about single files and arrays as they are the
+                # only ones likely to be wrongly formatted
+                continue
+
+            if expected_class == 'array:file' and isinstance(configured_input, dict):
+                # we expect a list and have a dict (i.e. only one file
+                # being passed) => turn it into a list
+                configured_input = [configured_input]
+
+            if expected_class == 'file' and isinstance(configured_input, list):
+                # input wants to be a single file and we have a list
+                # if its just one => then use it
+                # if its empty => could still be okay if input is optional,
+                #   drop the input if so, else raise error
+                # if more then something has gone wrong and we are sad
+                if len(configured_input) == 0:
+                    if optional:
+                        input_dict_copy.pop(input_field)
+                        continue
+                    else:
+                        raise RuntimeError(
+                            "Non-optional input found and no input has been "
+                            "provided or parsed as input.\nInput field: "
+                            f"{input_field}\nInput found: {configured_input}"
+                        )
+                if len(configured_input) == 1:
+                    configured_input = configured_input[0]
+                else:
+                    raise RuntimeError((
+                        "Input expects to be a single file but multiple "
+                        f"files were found and provided.\nInput field: "
+                        f"{input_field}\nInput found: {configured_input}"
+                    ))
+            input_dict_copy[input_field] = configured_input
+
+        return input_dict_copy
 
 
     def check_all_inputs(self, input_dict) -> None:
@@ -695,7 +808,7 @@ class ManageDict():
 
         assert not unparsed_inputs, Slack().send(
             f"unparsed `INPUT-` still in config, please check readme for "
-            f"valid input parameters. \nInput dict:\n```{input_dict}```"
+            f"valid input parameters. \nUnparsed input(s): `{unparsed_inputs}`"
         )
 
         unparsed_inputs = self.search(
@@ -703,5 +816,5 @@ class ManageDict():
 
         assert not unparsed_inputs, Slack().send(
             f"unparsed `analysis-` still in config, please check readme for "
-            f"valid input parameters. \nInput dict:\n```{input_dict}```"
+            f"valid input parameters. \nUnparsed analyses: `{unparsed_inputs}`"
         )

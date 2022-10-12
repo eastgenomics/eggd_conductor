@@ -11,7 +11,7 @@ Automating analysis for given samples from a config file definition. This can ei
 
 The app may be run in 2 ways:
 
-- from a sentinel file uploaded by dx-streamiung-upload
+- from a sentinel file uploaded by dx-streaming-upload
 - from a set of fastqs, if starting from fastqs other inputs are required:
   - a samplesheet (`-SAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
   - a `RunInfo.xml` file (`-RUN_INFO_XML`) to parse the run ID from or the run ID as a string (`-RUN_ID`)

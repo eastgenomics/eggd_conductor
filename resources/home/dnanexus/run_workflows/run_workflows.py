@@ -35,6 +35,11 @@ def parse_sample_sheet(samplesheet) -> list:
     -------
     list
         list of samplenames
+    
+    Raises
+    ------
+    AssertionError
+        Raised when no samples parsed from samplesheet
     """
     sheet = pd.read_csv(samplesheet, header=None)
     column = sheet[0].tolist()
@@ -340,7 +345,11 @@ def main():
     output_project = dx.bindings.dxproject.DXProject(
         dxid=args.dx_project_id).describe().get('name')
     with open('analysis_project.log', 'w') as fh:
-        fh.write(f'{output_project} {args.dx_project_id}\n')
+        fh.write(
+            f'{args.dx_project_id} {args.assay_name} {config.get("version")}\n'
+        )
+
+    args.dx_project_name = output_project
 
     # set context to project for running jobs
     dx.set_workspace_id(args.dx_project_id)
@@ -388,14 +397,22 @@ def main():
     else:
         # not demultiplexing or given fastqs, exit as we aren't handling
         # this for now
-        print('No fastqs passed or demultiplexing specified. Exiting now')
-        sys.exit()
+        raise RuntimeError(
+            Slack().send(
+                'No fastqs passed or demultiplexing specified. Exiting now'
+        ))
 
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())
     print('Executable names identified:')
     PPRINT(exe_names)
+
+    # build mapping of executables input fields => required types (i.e.
+    # file, array:file, boolean), used to correctly build input dict
+    input_classes = dx_manage.get_input_classes(config['executables'].keys())
+    print('Executable input classes found:')
+    PPRINT(input_classes)
 
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
@@ -436,6 +453,7 @@ def main():
                 job_outputs_dict = dx_execute.call_per_sample(
                     executable,
                     exe_names=exe_names,
+                    input_classes=input_classes,
                     params=params,
                     sample=sample,
                     config=config,
@@ -451,6 +469,7 @@ def main():
             job_outputs_dict = dx_execute.call_per_run(
                 executable=executable,
                 exe_names=exe_names,
+                input_classes=input_classes,
                 params=params,
                 config=config,
                 out_folder=parent_out_dir,

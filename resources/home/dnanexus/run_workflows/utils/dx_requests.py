@@ -5,7 +5,6 @@ import json
 import os
 from pprint import PrettyPrinter
 import re
-from typing import Union
 
 import dxpy as dx
 
@@ -36,14 +35,15 @@ class DXExecute():
         if not self.args.testing:
             if not self.args.bcl2fastq_output:
                 # set output path to parent of sentinel file
-                sentinel_path = dx.describe(self.args.sentinel_file).get('folder')
+                out = dx.describe(self.args.sentinel_file)
+                sentinel_path = f"{out.get('project')}:{out.get('folder')}"
                 self.args.bcl2fastq_output = sentinel_path.replace('/runs', '')
         else:
             if not self.args.bcl2fastq_output:
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to semtinel file dir
                 self.args.bcl2fastq_output = (
-                    f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp}'
+                    f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp()}'
                 )
 
         bcl2fastq_project, bcl2fastq_folder = self.args.bcl2fastq_output.split(':')
@@ -70,8 +70,11 @@ class DXExecute():
         ))
 
         assert not fastqs, Slack().send(
-            "fastqs already present in directory for bcl2fastq output"
-            f"({self.args.bcl2fastq_output})"
+            "FastQs already present in output directory for bcl2fastq: "
+            f"(`{self.args.bcl2fastq_output}`).\n\nExiting now to not "
+            f"potentially pollute a previous demultiplex job output. \n\n"
+            "Please either move the sentinel file or set the bcl2fastq "
+            "output directory with `-BCL2FASTQ_OUT`"
         )
 
         if app_id.startswith('applet-'):
@@ -82,7 +85,7 @@ class DXExecute():
                 priority='high'
             )
         elif app_id.startswith('app-'):
-            job = dx.bindings.dxapp.DXApp(dx_id=app_id).run(
+            job = dx.bindings.dxapp.DXApp(dxid=app_id).run(
                 app_input=inputs,
                 project=bcl2fastq_project,
                 folder=bcl2fastq_folder,
@@ -92,9 +95,16 @@ class DXExecute():
             raise RuntimeError(
                 f'Provided bcl2fastq app ID does not appear valid: {app_id}')
 
-        print("Starting demultiplexing, holding app until completed...")
         job_id = job.describe().get('id')
-        dx.bindings.dxjob.DXJob(dxid=job_id).wait_on_done()
+        job_handle = dx.bindings.dxjob.DXJob(dxid=job_id)
+
+        # tag demultiplexing job so we easily know it was launched by conductor
+        job_handle.add_tags(tags=[
+            f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
+        ])
+        
+        print("Starting demultiplexing, holding app until completed...")
+        job_handle.wait_on_done()
 
         print("Demuliplexing completed!")
 
@@ -107,24 +117,26 @@ class DXExecute():
 
         if stats_json:
             file = dx.DXFile(
-                dxid=stats_json['id'],
-                project=bcl2fastq_project
+                dxid=stats_json[0]['id'],
+                project=stats_json[0]['project']
             )
-            if not dx.PROJECT_CONTEXT_ID == bcl2fastq_project:
-                file.clone(dx.PROJECT_CONTEXT_ID, folder='')
+
+            if not os.environ.get('PROJECT_ID') == bcl2fastq_project:
+                file.clone(project=dx.PROJECT_CONTEXT_ID, folder='')
             else:
-                # bcl2fastq output in the analysis project
-                # can't clone within the same project
-                print(
-                    'Warning: bcl2fastq output appears to be in the same '
-                    'project as analysis, the Stats.json can not be cloned '
-                    'within the same project. Continuing without...'
-                )
+                # bcl2fastq output in the analysis project => need to move
+                # instead of cloning (this is most likely just for testing)
+                file.move(folder='/')
 
-        return job
+        if self.args.testing:
+            with open('testing_job_id.log', 'a') as fh:
+                fh.write(f'{job_id} ')
+
+        return job_id
 
 
-    def call_dx_run(self, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
+    def call_dx_run(
+        self, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
         """
         Call workflow / app with populated input and output dicts
 
@@ -208,8 +220,8 @@ class DXExecute():
 
 
     def call_per_sample(
-        self, executable, exe_names, params, sample, config, out_folder,
-        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+        self, executable, exe_names, input_classes, params, sample, config,
+        out_folder, job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -221,6 +233,8 @@ class DXExecute():
             human readable name of dx executable (workflow-, app- or applet-)
         exe_names : dict
             mapping of executable IDs to human readable names
+        input_classes : dict
+            mapping of executable inputs -> expected types
         params : dict
             dictionary of parameters specified in config for running analysis
         sample : str, default None
@@ -299,6 +313,12 @@ class DXExecute():
             sample=sample
         )
 
+        # check input types correctly set in input dict
+        input_dict = ManageDict().check_input_classes(
+            input_dict=input_dict,
+            input_classes=input_classes[executable]
+        )
+
         # check that all INPUT- have been parsed in config
         ManageDict().check_all_inputs(input_dict)
 
@@ -341,8 +361,8 @@ class DXExecute():
 
 
     def call_per_run(
-        self, executable, exe_names, params, config, out_folder,
-        job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+        self, executable, exe_names, input_classes, params, config,
+        out_folder, job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
         """
         Populates input and output dicts from config for given workflow,
         returns dx job id and stores in dict to map workflow -> dx job id.
@@ -353,6 +373,8 @@ class DXExecute():
             human readable name of dx executable (workflow-, app- or applet-)
         exe_names : dict
             mapping of executable IDs to human readable names
+        input_classes : dict
+            mapping of executable inputs -> expected types
         params : dict
             dictionary of parameters specified in config for running analysis
         config : dict
@@ -399,6 +421,12 @@ class DXExecute():
             per_sample=False
         )
 
+        # check input types correctly set in input dict
+        input_dict = ManageDict().check_input_classes(
+            input_dict=input_dict,
+            input_classes=input_classes[executable]
+        )
+
         # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
             dependent_jobs = ManageDict().get_dependent_jobs(
@@ -443,7 +471,7 @@ class DXManage():
         self.args = args
 
 
-    def get_json_configs(self) -> list:
+    def get_json_configs(self) -> dict:
         """
         Query path in DNAnexus for json config files fo each assay, returning
         highest version available for each assay code.
@@ -514,7 +542,7 @@ class DXManage():
         return all_configs
 
 
-    def find_dx_project(self, project_name) -> Union[None, str]:
+    def find_dx_project(self, project_name) -> str:
         """
         Check if project already exists in DNAnexus with given name,
         returns project ID if present and None if not found.
@@ -536,20 +564,23 @@ class DXManage():
         """
         dx_projects = list(dx.bindings.search.find_projects(name=project_name))
 
-        assert len(dx_projects) > 1, (
-            "Found more than one project matching given "
-            f"project name: {project_name}"
-        )
+        print('Found the following DNAnexus projects:')
+        PPRINT(dx_projects)
 
         if not dx_projects:
             # found no project, return None and create one in
             # get_or_create_dx_project()
             return None
 
+        assert len(dx_projects) > 1, Slack().send(
+            "Found more than one project matching given "
+            f"project name: {project_name}"
+        )
+
         return dx_projects[0]['id']
 
 
-    def get_or_create_dx_project(self, config):
+    def get_or_create_dx_project(self, config) -> str:
         """
         Create new project in DNAnexus if one with given name doesn't
         already exist.
@@ -773,5 +804,66 @@ class DXManage():
                 if app_name.startswith('app-'):
                     app_name = app_name.replace('app-', '')
                 mapping[exe] = {'name': app_name}
+
+        return mapping
+
+
+    def get_input_classes(self, executables) -> dict:
+        """
+        Get classes of all inputs for each app / workflow stage, used
+        when building out input dict to ensure correct type set
+
+        Parameters
+        ----------
+        executables : list
+            list of executables to get names for (workflow-, app-, applet-)
+
+        Returns
+        -------
+        dict
+            mapping of exectuable / stage to outputs with types
+            {
+                'applet-FvyXygj433GbKPPY0QY8ZKQG': {
+                    'adapters_txt': {
+                        'class': 'file',
+                        'optional': False
+                    },
+                    'contaminants_txt': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'nogroup': {
+                        'class': 'boolean',
+                        'optional': False
+                    }
+            },
+                'workflow-GB12vxQ433GygFZK6pPF75q8': {
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': {
+                        'class': 'string',
+                        'optional': True
+                    }
+            },
+            ......
+        """
+        mapping = defaultdict(dict)
+        for exe in executables:
+            describe = dx.describe(exe)
+            for input in describe['inputSpec']:
+                mapping[exe][input['name']] = defaultdict(dict)
+                mapping[exe][input['name']]['class'] = input['class']
+                mapping[exe][input['name']]['optional'] = input.get(
+                    'optional', False)
 
         return mapping
