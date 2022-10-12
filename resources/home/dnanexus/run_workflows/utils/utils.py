@@ -16,7 +16,7 @@ class Slack():
         self.slack_alert_channel = os.getenv("SLACK_ALERT_CHANNEL")
 
 
-    def send(self, message) -> None:
+    def send(self, message, exit_fail=True) -> None:
         """
         Send alert to Slack to know something has failed
 
@@ -26,8 +26,7 @@ class Slack():
             message to send to Slack
         exit_fail : bool
             if the alert is being sent when exiting and to create the
-            slack_fail_sent.log file. If false, this will be for an alert
-
+            slack_fail_sent.log file. If false, this will be for an alert only.
         """
         conductor_job_url = os.environ.get('conductor_job_url')
         channel = self.slack_alert_channel
@@ -57,7 +56,7 @@ class Slack():
             print(f"Error in sending post request for slack notification: {err}")
 
         if exit_fail:
-            # write file to know in bash script an alert already sent
+            # write file to know in bash script a fail alert already sent
             open('slack_fail_sent.log', 'w').close()
 
 
@@ -140,7 +139,11 @@ class Jira():
             # didn't find a ticket -> either a typo in the name or ticket
             # has not yet been raised / forgotten about, send an alert and
             # continue with things since linking to Jira is non-essential
-            message = ""
+            message = (
+                "Error linking analysis to Jira - no Jira ticket found for "
+                f"the current sequencing run ({run_id}). Continuing with "
+                "analysis without linking to Jira."
+            )
             Slack().send(message=message, exit_fail=False)
             return None
 
@@ -165,10 +168,22 @@ class Jira():
         comment : str
             comment to add to Jira ticket
         """
-        print("Finding Jira ticket to add comment to")
-        tickets = self.get_all_tickets()
-        ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
-        print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
+        try:
+            # put whole thing in a try execept to not cause analysis to stop
+            # if there's an issue with Jira, just send an alert to slack
+            print("Finding Jira ticket to add comment to")
+            tickets = self.get_all_tickets()
+            ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
+            print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
+        except Exception as error:
+            Slack().send(
+                message=(
+                    f"Error finding Jira ticket for given run ({run_id}).\n"
+                    "Continuing analysis without linking to Jira ticket."
+                )
+            )
+            return
+
 
         if not ticket_id:
             # no ticket found or more than one ticket found, Slack alert
@@ -184,17 +199,13 @@ class Jira():
             "body": {
                 "type": "doc",
                 "version": 1,
-                "content": [
-                {
+                "content": [{
                     "type": "paragraph",
-                    "content": [
-                    {
+                    "content": [{
                         "text": f"{comment}",
                         "type": "text"
-                    }
-                    ]
-                }
-                ]
+                    }]
+                }]
             },
             "properties": [{
                 "key": "sd.public.comment",
