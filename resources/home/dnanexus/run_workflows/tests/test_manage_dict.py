@@ -281,7 +281,7 @@ class TestAddFastqs():
 
     def test_adding_all_r2(self):
         """
-        Test adding R2 fastqs from all samples as input where INPUT-R1 given
+        Test adding R2 fastqs from all samples as input where INPUT-R2 given
         """
         output = ManageDict().add_fastqs(
             input_dict=deepcopy(
@@ -289,7 +289,7 @@ class TestAddFastqs():
             ),
             fastq_details=self.fastq_details
         )
-        output_R1_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
+        output_R2_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
 
         correct_R2_fastqs = [
             {'$dnanexus_link': 'file-GGJY9684p3zG6fvf1vqvbqzx'},
@@ -298,7 +298,7 @@ class TestAddFastqs():
             {'$dnanexus_link': 'file-GGJY9804p3z1X9YZJ4xf5v13'}
         ]
 
-        assert output_R1_fastqs == correct_R2_fastqs, (
+        assert output_R2_fastqs == correct_R2_fastqs, (
             "R2 fastqs not correctly added"
         )
 
@@ -593,7 +593,6 @@ class TestGetDependentJobs():
             'Failed to get analysis_1 dependent jobs'
         )
 
-
     def test_per_run_get_all_jobs(self):
         """
         Test for a per run job that depends on all upstream jobs and
@@ -616,6 +615,41 @@ class TestGetDependentJobs():
 
         assert sorted(jobs) == all_jobs, (
             'Failed to get all dependent jobs'
+        )
+
+    def test_absent_analysis_does_not_raise_error(self):
+        """
+        Test that when an analysis_ value is given that is not present
+        in the job outputs dict, it does not raise an error and just
+        returns an empty list
+        """
+        params = {"depends_on": ["analysis_5"]}
+
+        jobs = ManageDict().get_dependent_jobs(
+            params=params,
+            job_outputs_dict=self.job_outputs_dict
+        )
+
+        assert jobs == [], (
+            "Getting dependent jobs for absent analyis_ did not return an empty list"
+        )
+
+    def test_absent_analysis_does_not_raise_error_per_sample(self):
+        """
+        Test that when an analysis_ value is given that is not present
+        in the job outputs dict when searching for a given sample, it
+        does not raise an error and just returns an empty list
+        """
+        params = {"depends_on": ["analysis_5"]}
+
+        jobs = ManageDict().get_dependent_jobs(
+            params=params,
+            job_outputs_dict=self.job_outputs_dict,
+            sample="2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2"
+        )
+
+        assert jobs == [], (
+            "Getting dependent jobs for absent analyis_ did not return an empty list"
         )
 
 
@@ -936,19 +970,52 @@ class TestCheckInputClasses():
     # mapping of inputs -> class from DXManage.get_input_classes()
     input_classes = {
         'applet-Fz93FfQ433Gvf6pKFZYbXZQf': {
-            'custom_coverage': 'boolean',
-            'eggd_multiqc_config_file': 'file',
-            'ms_for_multiqc': 'string',
-            'project_for_multiqc': 'string',
-            'single_folder': 'boolean',
-            'ss_for_multiqc': 'string'
+            'custom_coverage':  {
+                'class': 'boolean',
+                'optional': False
+            },
+            'eggd_multiqc_config_file':  {
+                'class': 'file',
+                'optional': False
+            },
+            'ms_for_multiqc':  {
+                'class': 'string',
+                'optional': True
+            },
+            'project_for_multiqc':  {
+                'class': 'string',
+                'optional': False
+            },
+            'single_folder': {
+                'class': 'boolean',
+                'optional': False
+            },
+            'ss_for_multiqc': {
+                'class': 'string',
+                'optional': False
+            }
         },
         'workflow-GB12vxQ433GygFZK6pPF75q8': {
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': 'int',
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': 'int',
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': 'file',
-            'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': 'string',
-            'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': 'array:file'
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': {
+                'class': 'int',
+                'optional': False
+            },
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': {
+                'class': 'int',
+                'optional': False
+            },
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': {
+                'class': 'file',
+                'optional': False
+            },
+            'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': {
+                'class': 'string',
+                'optional': False
+            },
+            'stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file': {
+                'class': 'array:file',
+                'optional': False
+            }
             }
         }
 

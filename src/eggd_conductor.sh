@@ -291,13 +291,14 @@ main () {
         _testing_clean_up
     fi
 
-    read -r project_name project_id < analysis_project.log
+    read -r project_id assay version < analysis_project.log
     total_jobs=$(cat total_jobs.log)
 
     analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
 
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
-    message+="*${RUN_ID}*%0AAnalysis project: ${analysis_project_url}"
+    message+="*${RUN_ID}*%0AConfig used: *${assay}* (v${version})%0A"
+    message+="Analysis project: ${analysis_project_url}"
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 

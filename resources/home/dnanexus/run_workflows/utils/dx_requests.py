@@ -5,7 +5,6 @@ import json
 import os
 from pprint import PrettyPrinter
 import re
-from typing import Union
 
 import dxpy as dx
 
@@ -73,7 +72,7 @@ class DXExecute():
         assert not fastqs, Slack().send(
             "FastQs already present in output directory for bcl2fastq: "
             f"(`{self.args.bcl2fastq_output}`).\n\nExiting now to not "
-            f"potentianlly pollute a previous demultiplex job output. \n\n"
+            f"potentially pollute a previous demultiplex job output. \n\n"
             "Please either move the sentinel file or set the bcl2fastq "
             "output directory with `-BCL2FASTQ_OUT`"
         )
@@ -825,15 +824,36 @@ class DXManage():
             mapping of exectuable / stage to outputs with types
             {
                 'applet-FvyXygj433GbKPPY0QY8ZKQG': {
-                    'adapters_txt': 'file',
-                    'contaminants_txt': 'file',
-                    'nogroup': 'boolean'
+                    'adapters_txt': {
+                        'class': 'file',
+                        'optional': False
+                    },
+                    'contaminants_txt': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'nogroup': {
+                        'class': 'boolean',
+                        'optional': False
+                    }
             },
                 'workflow-GB12vxQ433GygFZK6pPF75q8': {
-                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': 'int',
-                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': 'int',
-                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': 'file',
-                    'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': 'string'
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': {
+                        'class': 'string',
+                        'optional': True
+                    }
             },
             ......
         """
@@ -841,6 +861,9 @@ class DXManage():
         for exe in executables:
             describe = dx.describe(exe)
             for input in describe['inputSpec']:
-                mapping[exe][input['name']] = input['class']
+                mapping[exe][input['name']] = defaultdict(dict)
+                mapping[exe][input['name']]['class'] = input['class']
+                mapping[exe][input['name']]['optional'] = input.get(
+                    'optional', False)
 
         return mapping
