@@ -76,7 +76,9 @@ _parse_sentinel_file () {
     to extract sample ids from
 
     Globals
-        SAMPLESHEET : samplesheet parsed from sentinel file / upload tars
+        SAMPLESHEET : file ID of samplesheet parsed from sentinel
+            file / upload tars, set as global to be picked up in
+            run_workflows.py if INPUT-SAMPLESHEET is set
 
     Arguments
         None
@@ -93,11 +95,10 @@ _parse_sentinel_file () {
     if [ "$SAMPLESHEET" ]; then
         # samplesheet specified as input arg
         dx download -f "$SAMPLESHEET" -o SampleSheet.csv
-        SAMPLESHEET='SampleSheet.csv'
     elif [ "$sentinel_samplesheet" != 'null' ]; then
         # samplesheet found during upload and associated to sentinel file
         dx download -f "$sentinel_samplesheet" -o SampleSheet.csv
-        SAMPLESHEET="SampleSheet.csv"
+        SAMPLESHEET="$sentinel_samplesheet"
     else
         # sample sheet missing from sentinel file, most likely due to not being
         # named correctly, download the first tar, unpack and try to find it
@@ -120,6 +121,9 @@ _parse_sentinel_file () {
             _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
             exit 1
         else
+            # upload back to project in same dir as sentinel file to be able
+            # to get file ID for passing as input for INPUT-SAMPLESHEET
+            SAMPLESHEET=$(dx upload "$SAMPLESHEET" --path "$sentinel_path")
             mv "$SAMPLESHEET" /home/dnanexus
         fi
     fi
@@ -210,6 +214,8 @@ main () {
         mark-section "running manually from provided FastQ files"
         _parse_fastqs
     fi
+
+    export SAMPLESHEET
 
     # send a message to logs so we know something is starting
     conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"

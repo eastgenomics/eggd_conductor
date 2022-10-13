@@ -1,5 +1,6 @@
 from copy import deepcopy
 from pprint import PrettyPrinter
+import os
 import re
 
 from flatten_json import flatten, unflatten_list
@@ -226,6 +227,7 @@ class ManageDict():
             - project id (INPUT-dx_project_id)
             - project name (INPUT-dx_project_name)
             - parent output directory (INPUT-parent_out_dir)
+            - samplesheet (INPUT-SAMPLESHEET)
 
         Parameters
         ----------
@@ -272,13 +274,23 @@ class ManageDict():
         # removing /output/ for now to fit to MultiQC
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
 
+        samplesheet = ""
+        if os.environ.get('SAMPLESHEET'):
+            # get just the ID of samplesheet in case of being formatted as
+            # {'$dnanexus_link': 'file_id'}
+            match = re.search('file-[\d\w]*', os.environ.get('SAMPLESHEET'))
+            if match:
+                samplesheet = match.group()
+
+
         # mapping of potential user defined keys and variables to replace with
         to_replace = [
             ('INPUT-SAMPLE-NAME', sample),
             ('INPUT-SAMPLE-PREFIX', sample_prefix),
             ('INPUT-dx_project_id', args.dx_project_id),
             ('INPUT-dx_project_name', args.dx_project_name),
-            ('INPUT-parent_out_dir', args.parent_out_dir)
+            ('INPUT-parent_out_dir', args.parent_out_dir),
+            ('INPUT-SAMPLESHEET', samplesheet)
         ]
 
         for pair in to_replace:
