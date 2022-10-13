@@ -144,6 +144,7 @@ Currently, the available placeholder inputs include the following:
 - `INPUT-R1`: indicates to pass 1 or more R1 fastq files as input
 - `INPUT-R2`: indicates to pass 1 or more R2 fastq files as input
 - `INPUT-R1-R2`: indicates to pass all R1 AND R2 fastq files as input
+- `INPUT-UPLOAD_TARS`: provide upload tars associated to sentinel record as an input
 - `INPUT-SAMPLE-PREFIX`: if to pass string input of sample name prefix split on `'sample_name_delimeter'` if specified in config
 - `INPUT-SAMPLE-NAME`: if to pass string input of sample name
 - `INPUT-SAMPLESHEET`: passes the samplesheet associated to the sentinel file (or provided with `-iSAMPLESHEET`) as an input, must be structured in the `inputs` section of the config as: `{"$dnanexus_link": "INPUT-SAMPLESHEET"}`
