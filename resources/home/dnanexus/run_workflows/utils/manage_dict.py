@@ -231,13 +231,9 @@ class ManageDict():
         input_dict : dict
             dict of input parameters for calling workflow / app
         """
-        input_dict = self.replace(
-            input_dict=input_dict,
-            to_replace='INPUT-UPLOAD_TARS',
-            replacement=upload_tars,
-            search_key=False,
-            replace_key=False
-        )
+        for input, value in input_dict.items():
+            if value == 'INPUT-UPLOAD_TARS':
+                input_dict[input] = upload_tars
 
         return input_dict
 

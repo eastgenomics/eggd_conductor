@@ -185,7 +185,7 @@ class DXExecute():
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
                 app_input=input_dict,
                 project=self.args.dx_project_id,
-                folder=output_dict[executable],
+                folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
                 name=job_name
@@ -194,7 +194,7 @@ class DXExecute():
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
                 applet_input=input_dict,
                 project=self.args.dx_project_id,
-                folder=output_dict[executable],
+                folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
                 name=job_name
