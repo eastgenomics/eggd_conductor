@@ -94,9 +94,14 @@ class Jira():
         return http
 
 
-    def get_all_tickets(self) -> list:
+    def get_all_tickets(self, run_id) -> list:
         """
         Get all tickets from given queue URL endpoint
+
+        Parameters
+        ----------
+        run_id : str
+            ID of current run
 
         Returns
         -------
@@ -111,9 +116,20 @@ class Jira():
                 url=f"{self.queue_url}/issue?start={start}",
                 headers=self.headers,
                 auth=self.auth
-            ).json()
+            )
 
             print(response)
+
+            if not response.ok:
+                self.send_slack_alert(
+                    f"Error querying Jira for tickets for current run `{run_id}`"
+                    f"\nAPI endpoint: {self.queue_url}/issue?start={start}\n"
+                    f"Status code: *{response.status_code}*\n"
+                    f"Error:```{response.content.decode()}```\n"
+                    "Continuing analysis without linking to Jira ticket."
+                )
+            else:
+                response = response.json()
 
             if response['size'] == 0:
                 break
@@ -209,7 +225,7 @@ class Jira():
         url : str
             any url to add to message after comment
         """
-        if not any(([self.queue_url, self.issue_url, self.token, self.email])):
+        if not any([self.queue_url, self.issue_url, self.token, self.email]):
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
             print(
@@ -235,6 +251,7 @@ class Jira():
             self.send_slack_alert(
                 "Unable to query Jira - one or more variables "
                 f"not defined in the config\n{variables}"
+                "Continuing analysis without linking to Jira ticket."
             )
             return
 
@@ -242,7 +259,7 @@ class Jira():
             # put whole thing in a try execept to not cause analysis to stop
             # if there's an issue with Jira, just send an alert to slack
             print("Finding Jira ticket to add comment to")
-            tickets = self.get_all_tickets()
+            tickets = self.get_all_tickets(run_id=run_id)
             ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
             print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
         except:
