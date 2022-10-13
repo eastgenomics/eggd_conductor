@@ -229,7 +229,7 @@ The following describe default app input behaviour:
 
 ## Jira Integration
 
-At run time, a Jira service desk may be queried for sequencing run tickets used to track progress of runs, and links to the analysis run automatically added as an internal comment. This requires the following variables adding to `eggd_conductor.config` file:
+At run time, a Jira service desk may be queried for sequencing run tickets used to track progress of runs, and links to the analysis jobs automatically added as an internal comment. This requires the following variables adding to `eggd_conductor.config` file:
 
 - `JIRA_EMAIL` : Jira email address of user account to use for connecting to Jira
 - `JIRA_TOKEN` : Jira auth token of above user account
