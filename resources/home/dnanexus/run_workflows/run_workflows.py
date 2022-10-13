@@ -377,10 +377,8 @@ def main():
     # add comment to Jira ticket for run to link to this eggd_conductor job
     Jira().add_comment(
         run_id=args.run_id,
-        comment=(
-            "This run was processed automatically by eggd_conductor: "
-            f"{os.environ.get('conductor_job_url')}"
-        )
+        comment="This run was processed automatically by eggd_conductor: ",
+        url=f"http://{os.environ.get('conductor_job_url')}"
     )
 
     if args.bcl2fastq_id:
@@ -404,15 +402,6 @@ def main():
         # demultiplex set to true in config => run bcl2fastq app
         job_id = dx_execute.demultiplex()
         fastq_details = dx_manage.get_bcl2fastq_details(job_id)
-
-        # add comment to Jira ticket for run to link demultiplexing
-        Jira().add_comment(
-            run_id=args.run_id,
-            comment=(
-                "Demultiplexing job automatically run by eggd_conductor: "
-                f"{job_id}"
-            )
-        )
     else:
         # not demultiplexing or given fastqs, exit as we aren't handling
         # this for now
@@ -518,8 +507,11 @@ def main():
     Jira().add_comment(
         run_id=args.run_id,
         comment=(
-            "All jobs sucessfully launched by eggd_conductor. Analysis "
-            "project: platform.dnanexus.com/projects/"
+            "All jobs sucessfully launched by eggd_conductor. "
+            f"\nAnalysis project: "
+        ),
+        url=(
+            "http://platform.dnanexus.com/projects/"
             f"{args.dx_project_id.replace('project-', '')}/monitor/"
         )
     )
