@@ -381,13 +381,14 @@ def main():
             "and re-run"
         )
 
+    fastq_details = []
+
     if args.bcl2fastq_id:
         # previous bcl2fastq job specified to use fastqs from
         fastq_details = dx_manage.get_bcl2fastq_details(args.bcl2fastq_id)
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
-        fastq_details = []
         for fastq_id in args.fastqs:
             fastq_name = dx.api.file_describe(
                 fastq_id, input_params={'fields': {'name': True}}
