@@ -92,6 +92,9 @@ _parse_sentinel_file () {
         RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
+    # set file ID of sentinel record to env to pick up in run_workflows.py
+    export SENTINEL_FILE_ID="$sentinel_id"
+
     if [ "$SAMPLESHEET" ]; then
         # samplesheet specified as input arg
         dx download -f "$SAMPLESHEET" -o SampleSheet.csv

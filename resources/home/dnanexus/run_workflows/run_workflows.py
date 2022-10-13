@@ -11,6 +11,8 @@ inputs are valid.
 """
 import argparse
 from collections import defaultdict
+from re import search
+import re
 from xml.etree import ElementTree as ET
 import json
 import sys
@@ -19,6 +21,7 @@ import dxpy as dx
 import pandas as pd
 
 from utils.dx_requests import PPRINT, DXExecute, DXManage
+from utils.manage_dict import ManageDict
 from utils.utils import Slack, time_stamp
 
 
@@ -117,7 +120,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
 
     for code in all_config_assay_codes:
         for sample in all_samples:
-            if code in sample:
+            if code.upper() in sample.upper():
                 assay_to_samples[code].append(sample)
 
     if not testing:
@@ -364,6 +367,11 @@ def main():
     dx_execute = DXExecute(args)
     dx_manage = DXManage(args)
 
+    # get upload tars from sentinel file
+    upload_tars = dx_manage.get_upload_tars()
+    if upload_tars:
+        args.upload_tars = upload_tars
+
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
     # it is launched correctly
@@ -394,6 +402,14 @@ def main():
         # demultiplex set to true in config => run bcl2fastq app
         job_id = dx_execute.demultiplex()
         fastq_details = dx_manage.get_bcl2fastq_details(job_id)
+    elif ManageDict().search(
+            identifier='INPUT-UPLOAD_TARS',
+            input_dict=config,
+            check_key=False,
+            return_key=False
+        ):
+        # an app / workflow takes upload tars as an input => valid start point
+        pass
     else:
         # not demultiplexing or given fastqs, exit as we aren't handling
         # this for now
@@ -401,7 +417,6 @@ def main():
             Slack().send(
                 'No fastqs passed or demultiplexing specified. Exiting now'
         ))
-
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())

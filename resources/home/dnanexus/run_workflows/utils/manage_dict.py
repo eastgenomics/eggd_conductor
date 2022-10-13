@@ -1,3 +1,4 @@
+from argparse import Namespace
 from copy import deepcopy
 from pprint import PrettyPrinter
 import os
@@ -211,6 +212,32 @@ class ManageDict():
                 r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
                 r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
                 input_dict[stage] = r1_r2_input
+
+        return input_dict
+
+
+    def add_upload_tars(self, input_dict, upload_tars) -> dict:
+        """
+        Add list of upload tars parsed from sentinel record as input
+        as defined by INPUT-UPLOAD_TARS
+
+        Parameters
+        ----------
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+
+        Returns
+        -------
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+        """
+        input_dict = self.replace(
+            input_dict=input_dict,
+            to_replace='INPUT-UPLOAD_TARS',
+            replacement=upload_tars,
+            search_key=False,
+            replace_key=False
+        )
 
         return input_dict
 
