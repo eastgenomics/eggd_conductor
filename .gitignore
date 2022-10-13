@@ -2,3 +2,4 @@ test_configs/*
 *.pyc
 *ipynb
 *.log
+*.cfg
