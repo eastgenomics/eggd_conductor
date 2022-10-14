@@ -1,4 +1,3 @@
-from argparse import Namespace
 from copy import deepcopy
 from pprint import PrettyPrinter
 import os
