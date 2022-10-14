@@ -361,13 +361,12 @@ def main():
     parent_out_dir = f"/output/{args.assay_name}-{run_time}"
     args.parent_out_dir = parent_out_dir
 
+    # get upload tars from sentinel file, abuse argparse Namespace object
+    # again to make it simpler to pass through to DXExecute / DXManage
+    args.upload_tars = DXManage(args).get_upload_tars()
+
     dx_execute = DXExecute(args)
     dx_manage = DXManage(args)
-
-    # get upload tars from sentinel file
-    upload_tars = dx_manage.get_upload_tars()
-    if upload_tars:
-        args.upload_tars = upload_tars
 
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
