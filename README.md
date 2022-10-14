@@ -228,6 +228,29 @@ The following describe default app input behaviour:
 -  `BCL2FASTQ_OUT` (optional): Path to store bcl2fastq output, if not given will default parent of sentinel file. Should be in the format project:path
 
 
+## Jira Integration
+
+At run time, a Jira service desk may be queried for sequencing run tickets used to track progress of runs, and links to the analysis jobs automatically added as an internal comment. This requires the following variables adding to `eggd_conductor.config` file:
+
+- `JIRA_EMAIL` : Jira email address of user account to use for connecting to Jira
+- `JIRA_TOKEN` : Jira auth token of above user account
+- `JIRA_QUEUE_URL` : Jira API endpoint to query for tickets, this will be in the format: `https://{domain}.atlassian.net/rest/servicedeskapi/servicedesk/{desk_number}/queue/{queue_number}` (e.g. https://cuhbioinformatics.atlassian.net/rest/servicedeskapi/servicedesk/1/queue/12)
+- `JIRA_ISSUE_URL` : Jira API endpoint for posting comments to, this will be in the format: `https://{domain}.atlassian.net/rest/api/3/issue` (e.g. https://cuhbioinformatics.atlassian.net/rest/api/3/issue)
+
+If none are given in the config it is assumed that Jira is not to be queried and the app will continue without.
+If one or more are missing / invalid, or any error occurs connecting and / or querying Jira, a Slack alert will be sent with the error. This alert is non-blocking and analysis will still continue without continuing attempting to connect to Jira.
+
+Example comment added at begining of processing to link to eggd_conductor job:
+```
+This run was processed automatically by eggd_conductor: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/job/GJ3ykQ84Bv42ZP8J5zjz6qBb
+```
+
+Example comment added at end of successfully launching all jobs with link to analysis project:
+```
+All jobs sucessfully launched by eggd_conductor. 
+Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
+```
+
 
 ## Dependencies
 
