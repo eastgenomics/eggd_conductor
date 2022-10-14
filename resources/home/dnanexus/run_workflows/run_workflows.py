@@ -13,13 +13,14 @@ import argparse
 from collections import defaultdict
 from xml.etree import ElementTree as ET
 import json
+import os
 
 import dxpy as dx
 import pandas as pd
 
 from utils.dx_requests import PPRINT, DXExecute, DXManage
 from utils.manage_dict import ManageDict
-from utils.utils import Slack, time_stamp
+from utils.utils import Jira, Slack, time_stamp
 
 
 def parse_sample_sheet(samplesheet) -> list:
@@ -376,6 +377,13 @@ def main():
             f"per_sample key missing from {executable} in config, check config"
             "and re-run"
         )
+    
+    # add comment to Jira ticket for run to link to this eggd_conductor job
+    Jira().add_comment(
+        run_id=args.run_id,
+        comment="This run was processed automatically by eggd_conductor: ",
+        url=f"http://{os.environ.get('conductor_job_url')}"
+    )
 
     fastq_details = []
 
@@ -506,6 +514,19 @@ def main():
         fh.write(str(total_jobs))
 
     print("Completed calling jobs")
+
+    # add comment to Jira ticket for run to link to analysis project
+    Jira().add_comment(
+        run_id=args.run_id,
+        comment=(
+            "All jobs sucessfully launched by eggd_conductor. "
+            f"\nAnalysis project: "
+        ),
+        url=(
+            "http://platform.dnanexus.com/projects/"
+            f"{args.dx_project_id.replace('project-', '')}/monitor/"
+        )
+    )
 
 
 if __name__ == "__main__":
