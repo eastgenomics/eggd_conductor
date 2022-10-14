@@ -11,11 +11,8 @@ inputs are valid.
 """
 import argparse
 from collections import defaultdict
-from re import search
-import re
 from xml.etree import ElementTree as ET
 import json
-import sys
 
 import dxpy as dx
 import pandas as pd
