@@ -92,6 +92,9 @@ _parse_sentinel_file () {
         RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
+    # set file ID of sentinel record to env to pick up in run_workflows.py
+    export SENTINEL_FILE_ID="$sentinel_id"
+
     if [ "$SAMPLESHEET" ]; then
         # samplesheet specified as input arg
         dx download -f "$SAMPLESHEET" -o SampleSheet.csv
@@ -277,7 +280,7 @@ main () {
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
         if [ -s analysis_project.log ]; then
             # analysis project was created, add to alert
-            read -r project_name project_id < analysis_project.log
+            read -r project_id _ _ < analysis_project.log
             message+="%0AAnalysis project: "
             message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
         fi

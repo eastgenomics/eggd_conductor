@@ -14,12 +14,12 @@ from collections import defaultdict
 from xml.etree import ElementTree as ET
 import json
 import os
-import sys
 
 import dxpy as dx
 import pandas as pd
 
 from utils.dx_requests import PPRINT, DXExecute, DXManage
+from utils.manage_dict import ManageDict
 from utils.utils import Jira, Slack, time_stamp
 
 
@@ -118,7 +118,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
 
     for code in all_config_assay_codes:
         for sample in all_samples:
-            if code in sample:
+            if code.upper() in sample.upper():
                 assay_to_samples[code].append(sample)
 
     if not testing:
@@ -362,6 +362,10 @@ def main():
     parent_out_dir = f"/output/{args.assay_name}-{run_time}"
     args.parent_out_dir = parent_out_dir
 
+    # get upload tars from sentinel file, abuse argparse Namespace object
+    # again to make it simpler to pass through to DXExecute / DXManage
+    args.upload_tars = DXManage(args).get_upload_tars()
+
     dx_execute = DXExecute(args)
     dx_manage = DXManage(args)
 
@@ -381,13 +385,14 @@ def main():
         url=f"http://{os.environ.get('conductor_job_url')}"
     )
 
+    fastq_details = []
+
     if args.bcl2fastq_id:
         # previous bcl2fastq job specified to use fastqs from
         fastq_details = dx_manage.get_bcl2fastq_details(args.bcl2fastq_id)
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
-        fastq_details = []
         for fastq_id in args.fastqs:
             fastq_name = dx.api.file_describe(
                 fastq_id, input_params={'fields': {'name': True}}
@@ -402,6 +407,14 @@ def main():
         # demultiplex set to true in config => run bcl2fastq app
         job_id = dx_execute.demultiplex()
         fastq_details = dx_manage.get_bcl2fastq_details(job_id)
+    elif ManageDict().search(
+            identifier='INPUT-UPLOAD_TARS',
+            input_dict=config,
+            check_key=False,
+            return_key=False
+        ):
+        # an app / workflow takes upload tars as an input => valid start point
+        pass
     else:
         # not demultiplexing or given fastqs, exit as we aren't handling
         # this for now
@@ -409,7 +422,6 @@ def main():
             Slack().send(
                 'No fastqs passed or demultiplexing specified. Exiting now'
         ))
-
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())

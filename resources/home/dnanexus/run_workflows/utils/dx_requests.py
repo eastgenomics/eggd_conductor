@@ -1,3 +1,4 @@
+from argparse import Namespace
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
@@ -184,7 +185,7 @@ class DXExecute():
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
                 app_input=input_dict,
                 project=self.args.dx_project_id,
-                folder=output_dict[executable],
+                folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
                 name=job_name
@@ -193,7 +194,7 @@ class DXExecute():
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
                 applet_input=input_dict,
                 project=self.args.dx_project_id,
-                folder=output_dict[executable],
+                folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
                 name=job_name
@@ -401,6 +402,13 @@ class DXExecute():
 
         if params["process_fastqs"] is True:
             input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
+        
+        # add upload tars as input if INPUT-UPLOAD_TARS present
+        if self.args.upload_tars:
+            input_dict = ManageDict().add_upload_tars(
+                input_dict=input_dict,
+                upload_tars=self.args.upload_tars
+            )
 
         # handle other inputs defined in config to add to inputs
         input_dict = ManageDict().add_other_inputs(
@@ -537,7 +545,7 @@ class DXManage():
             # add config to dict if not already present or newer one found
             all_configs[assay_code] = current_config
 
-        print(f"Found config files for assays: {', '.join(all_configs.keys())}")
+        print(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
 
         return all_configs
 
@@ -730,6 +738,35 @@ class DXManage():
         print(''.join([f'\t{x}\n' for x in fastq_details]))
 
         return fastq_details
+
+
+    def get_upload_tars(self) -> list:
+        """
+        Get list of upload tar file IDs from given sentinel file,
+        and return formatted as a list of $dnanexus_link dicts
+
+        Returns
+        -------
+        list
+            list of file ids formated as {"$dnanexus_link": file-xxx}
+        """
+        sentinel_id = os.environ.get('SENTINEL_FILE_ID')
+
+        if not sentinel_id:
+            # sentinel file not provided as input -> can't get tars
+            return None
+
+        details = dx.bindings.dxrecord.DXRecord(
+            dxid=sentinel_id).describe(incl_details=True)
+        
+        upload_tars = details['details']['tar_file_ids']
+
+        # format in required format for a dx input
+        upload_tars = [
+            {"$dnanexus_link": x} for x in upload_tars
+        ]
+
+        return upload_tars
 
 
     def get_executable_names(self, executables) -> dict:

@@ -215,6 +215,28 @@ class ManageDict():
         return input_dict
 
 
+    def add_upload_tars(self, input_dict, upload_tars) -> dict:
+        """
+        Add list of upload tars parsed from sentinel record as input
+        as defined by INPUT-UPLOAD_TARS
+
+        Parameters
+        ----------
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+
+        Returns
+        -------
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+        """
+        for input, value in input_dict.items():
+            if value == 'INPUT-UPLOAD_TARS':
+                input_dict[input] = upload_tars
+
+        return input_dict
+
+
     def add_other_inputs(
             self, input_dict, args, executable_out_dirs,
             sample=None, sample_prefix=None) -> dict:

@@ -437,6 +437,45 @@ class TestAddFastqs():
             )
 
 
+class TestAddUploadTars():
+    """
+    Tests for adding upload tars to input dict
+    """
+    input_dict = {
+        "TSO500_ruo": {
+            "$dnanexus_link": "file-Fz4X61Q44Bv44FyfJX1jJPj6"
+        },
+        "samplesheet": {
+            "$dnanexus_link": "INPUT-SAMPLESHEET"
+        },
+        "input_files": "INPUT-UPLOAD_TARS"
+    }
+
+    # formatted as returned from DXManage.get_upload_tars
+    upload_tars = [
+        {'$dnanexus_link': 'file-GGyq26j4X7kXxJ0fG5PF08jy'},
+        {'$dnanexus_link': 'file-GGyq6y84X7kYPFVBG89bBBF7'},
+        {'$dnanexus_link': 'file-GGyq94j4X7kp6xB0GGx3q864'},
+        {'$dnanexus_link': 'file-GGyqFPQ4X7kqFx1bG6596qqQ'},
+        {'$dnanexus_link': 'file-GGyqK2j4X7kzzFfbGKBk8Xgp'},
+        {'$dnanexus_link': 'file-GGyqXp04X7kb7zV99ZYV3k9b'},
+        {'$dnanexus_link': 'file-GGyqgF84X7kY0fjZBk6jb68P'}
+    ]
+
+    parsed_dict = ManageDict().add_upload_tars(
+        input_dict=input_dict,
+        upload_tars=upload_tars
+    )
+
+    def test_adding_upload_tars(self):
+        """
+        Test that INPUT-UPLOAD_TARS is replaced by the list of file IDs
+        """
+        assert self.parsed_dict.get("input_files") == self.upload_tars, (
+            "Upload tars not correctly added to input dict"
+        )
+
+
 class TestAddOtherInputs():
     """
     Tests for add_other_inputs() used to gather up all random INPUT-
@@ -548,7 +587,6 @@ class TestAddOtherInputs():
         assert self.output['run_sample_sheet'] == correct_samplesheet, (
             'Samplesheet not correctly parsed to input dict'
         )
-
 
 
 class TestGetDependentJobs():
