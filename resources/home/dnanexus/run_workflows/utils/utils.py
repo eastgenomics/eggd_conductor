@@ -1,5 +1,8 @@
+"""
+Random utility functions including those for sending Slack messages
+and searching Jira for sequencing run tickets.
+"""
 from datetime import datetime
-from inspect import trace
 import json
 import os
 import requests
@@ -136,11 +139,11 @@ class Jira():
 
             response_data.extend(response['values'])
             start += 50
-        
+
         print(f"Found {len(response_data)} tickets")
 
         return response_data
-    
+
 
     def get_run_ticket_id(self, run_id, tickets) -> str:
         """
@@ -185,7 +188,7 @@ class Jira():
                 f"\n{run_ticket}"
             )
             return None
-        
+
         return run_ticket[0]
 
 
@@ -262,7 +265,7 @@ class Jira():
             tickets = self.get_all_tickets(run_id=run_id)
             ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
             print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
-        except:
+        except Exception:
             self.send_slack_alert(
                 f"Error finding Jira ticket for given run (`{run_id}`).\n"
                 f"Continuing analysis without linking to Jira ticket.\n"
@@ -274,7 +277,7 @@ class Jira():
             # no ticket found or more than one ticket found, Slack alert
             # will have been sent in get_run_ticket_id()
             return
-        
+
         comment_url = f"{self.issue_url}/{ticket_id}/comment"
 
         payload = json.dumps({
@@ -287,7 +290,7 @@ class Jira():
                     {
                         "text": f"{comment}",
                         "type": "text"
-                    }, 
+                    },
                     {
                         "text": f"{url}",
                         "type": "text",
@@ -318,7 +321,7 @@ class Jira():
 
         if not response.status_code == 201:
             # some kind of error occurred adding Jira comment =>
-            # send a non-exiting Slack alert 
+            # send a non-exiting Slack alert
             self.send_slack_alert(
                 f"failed to add comment to Jira ticket ({ticket_id})\n\n"
                 f"Status code: {response.status_code}\n\n"

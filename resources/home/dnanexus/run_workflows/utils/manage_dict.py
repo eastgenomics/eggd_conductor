@@ -1,3 +1,8 @@
+"""
+Functions related to populating and formatting input and output
+dictionaries for passing to dx run.
+"""
+
 from copy import deepcopy
 from pprint import PrettyPrinter
 import os

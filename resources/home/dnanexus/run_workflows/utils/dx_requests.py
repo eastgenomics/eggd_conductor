@@ -1,4 +1,7 @@
-from argparse import Namespace
+"""
+Functions related to querying and managing objects in DNAnexus, as well
+as running jobs.
+"""
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
