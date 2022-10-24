@@ -103,7 +103,7 @@ class DXExecute():
         job_handle.add_tags(tags=[
             f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
         ])
-        
+
         print("Starting demultiplexing, holding app until completed...")
         job_handle.wait_on_done()
 
@@ -122,8 +122,8 @@ class DXExecute():
                 project=stats_json[0]['project']
             )
 
-            if not os.environ.get('PROJECT_ID') == bcl2fastq_project:
-                file.clone(project=dx.PROJECT_CONTEXT_ID, folder='')
+            if not self.args.dx_project_id == bcl2fastq_project:
+                file.clone(project=self.args.dx_project_id, folder='')
             else:
                 # bcl2fastq output in the analysis project => need to move
                 # instead of cloning (this is most likely just for testing)
