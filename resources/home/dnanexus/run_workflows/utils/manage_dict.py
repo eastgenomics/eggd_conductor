@@ -230,9 +230,9 @@ class ManageDict():
         input_dict : dict
             dict of input parameters for calling workflow / app
         """
-        for input, value in input_dict.items():
+        for app_input, value in input_dict.items():
             if value == 'INPUT-UPLOAD_TARS':
-                input_dict[input] = upload_tars
+                input_dict[app_input] = upload_tars
 
         return input_dict
 
@@ -300,7 +300,7 @@ class ManageDict():
         if os.environ.get('SAMPLESHEET'):
             # get just the ID of samplesheet in case of being formatted as
             # {'$dnanexus_link': 'file_id'}
-            match = re.search('file-[\d\w]*', os.environ.get('SAMPLESHEET'))
+            match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET'))
             if match:
                 samplesheet = match.group()
 
@@ -707,9 +707,9 @@ class ManageDict():
             return outputs_dict
 
         print(f'\nFiltering job outputs dict by sample name patterns for {stage}')
-        print(f'\nJob outputs dict before filtering:')
+        print('\nJob outputs dict before filtering:')
         PPRINT(outputs_dict)
-        print(f'Filter dict:')
+        print('Filter dict:')
         PPRINT(filter_dict)
 
         new_outputs = {}
@@ -732,7 +732,7 @@ class ManageDict():
             # there was a filter for given stage to apply, if no
             # matches were found against the given pattern(s) this
             # will be an empty dict
-            print(f'Job outputs dict after filtering')
+            print('Job outputs dict after filtering')
             PPRINT(new_outputs)
 
             return new_outputs
@@ -757,7 +757,7 @@ class ManageDict():
         -------
         dict
             input dict with classes correctly set (if required)
-        
+
         Raises
         ------
         RuntimeError

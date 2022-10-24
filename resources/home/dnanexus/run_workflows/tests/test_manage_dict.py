@@ -574,7 +574,7 @@ class TestAddOtherInputs():
         assert self.output['output_path'] == correct_path, (
             'INPUT-analysis_1-out_dir not correctly replaced'
         )
-    
+
     def test_adding_samplesheet(self):
         """
         Test for finding and replacing INPUT-SAMPLESHEET from SAMPLESHEET
@@ -909,8 +909,10 @@ class TestPopulateOutputDirConfig():
         )
 
         correct_output = {
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4': '/output/myAssay_timestamp/eggd_somalier_relate2multiqc_v1.0.1',
-            'stage-G9Z2B8841bQY907z1ygq7K9x': '/output/myAssay_timestamp/eggd_somalier_relate_v1.0.3'
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4':
+            '/output/myAssay_timestamp/eggd_somalier_relate2multiqc_v1.0.1',
+            'stage-G9Z2B8841bQY907z1ygq7K9x':
+            '/output/myAssay_timestamp/eggd_somalier_relate_v1.0.3'
         }
 
         assert output_dict == correct_output, (
