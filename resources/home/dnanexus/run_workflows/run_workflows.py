@@ -36,7 +36,7 @@ def parse_sample_sheet(samplesheet) -> list:
     -------
     list
         list of samplenames
-    
+
     Raises
     ------
     AssertionError
@@ -377,7 +377,7 @@ def main():
             f"per_sample key missing from {executable} in config, check config"
             "and re-run"
         )
-    
+
     # add comment to Jira ticket for run to link to this eggd_conductor job
     Jira().add_comment(
         run_id=args.run_id,
@@ -450,7 +450,7 @@ def main():
         print(
             f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
-        print(f"Params parsed from config before modifying:")
+        print("Params parsed from config before modifying:")
         PPRINT(params)
 
         # log file of all jobs run for current executable, used in case
@@ -520,7 +520,7 @@ def main():
         run_id=args.run_id,
         comment=(
             "All jobs sucessfully launched by eggd_conductor. "
-            f"\nAnalysis project: "
+            "\nAnalysis project: "
         ),
         url=(
             "http://platform.dnanexus.com/projects/"
