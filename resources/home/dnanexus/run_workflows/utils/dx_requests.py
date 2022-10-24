@@ -580,7 +580,7 @@ class DXManage():
             # get_or_create_dx_project()
             return None
 
-        assert len(dx_projects) > 1, Slack().send(
+        assert len(dx_projects) == 1, Slack().send(
             "Found more than one project matching given "
             f"project name: {project_name}"
         )
