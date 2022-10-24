@@ -379,7 +379,7 @@ class TestAddFastqs():
             "R2 fastqs not correctly added for given sample"
         )
 
-    def test_adding_all_r1_and_r2(self):
+    def test_adding_all_r1_and_r2_for_one_sample(self):
         """
         Test adding R1 and R2 fastqs for given sample as input
         where INPUT-R1-R2 given
