@@ -75,7 +75,7 @@ class DXExecute():
 
         assert not fastqs, Slack().send(
             "FastQs already present in output directory for bcl2fastq: "
-            f"(`{self.args.bcl2fastq_output}`).\n\nExiting now to not "
+            f"`{self.args.bcl2fastq_output}`.\n\nExiting now to not "
             f"potentially pollute a previous demultiplex job output. \n\n"
             "Please either move the sentinel file or set the bcl2fastq "
             "output directory with `-BCL2FASTQ_OUT`"
@@ -126,7 +126,7 @@ class DXExecute():
             )
 
             if not self.args.dx_project_id == bcl2fastq_project:
-                file.clone(project=self.args.dx_project_id, folder='')
+                file.clone(project=self.args.dx_project_id, folder='/')
             else:
                 # bcl2fastq output in the analysis project => need to move
                 # instead of cloning (this is most likely just for testing)
