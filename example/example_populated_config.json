@@ -81,6 +81,7 @@
             "analysis": "analysis_4",
             "per_sample": false,
             "process_fastqs": false,
+            "extra_args": {"priority": "high"},
             "depends_on": [
                 "analysis_1",
                 "analysis_2",

@@ -140,7 +140,8 @@ class DXExecute():
 
 
     def call_dx_run(
-        self, executable, job_name, input_dict, output_dict, prev_jobs) -> str:
+        self, executable, job_name, input_dict,
+        output_dict, prev_jobs, extra_args) -> str:
         """
         Call workflow / app with populated input and output dicts
 
@@ -159,6 +160,9 @@ class DXExecute():
             dict of output directory paths for each app
         prev_jobs : list
             list of job ids to wait for completion before starting
+        extra_args : dict
+            mapping of any additional arguments to pass to underlying dx
+            API call, parsed from extra_args field in config file
 
         Returns
         -------
@@ -182,7 +186,8 @@ class DXExecute():
                 stage_folders=output_dict,
                 rerun_stages=['*'],
                 depends_on=prev_jobs,
-                name=job_name
+                name=job_name,
+                extra_args=extra_args
             )
         elif 'app-' in executable:
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
@@ -191,7 +196,8 @@ class DXExecute():
                 folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
-                name=job_name
+                name=job_name,
+                extra_args=extra_args
             )
         elif 'applet-' in executable:
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
@@ -200,7 +206,8 @@ class DXExecute():
                 folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
-                name=job_name
+                name=job_name,
+                extra_args=extra_args
             )
         else:
             # doesn't appear to be valid workflow or app
@@ -265,6 +272,8 @@ class DXExecute():
         config_copy = deepcopy(config)
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
+
+        extra_args = params.get("extra_args", {})
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
@@ -351,7 +360,8 @@ class DXExecute():
             job_name=job_name,
             input_dict=input_dict,
             output_dict=output_dict,
-            prev_jobs=dependent_jobs
+            prev_jobs=dependent_jobs,
+            extra_args=extra_args
         )
 
         if sample not in job_outputs_dict.keys():
@@ -402,6 +412,8 @@ class DXExecute():
         # select input and output dict from config for current workflow / app
         input_dict = config['executables'][executable]['inputs']
         output_dict = config['executables'][executable]['output_dirs']
+
+        extra_args = params.get("extra_args", {})
 
         if params["process_fastqs"] is True:
             input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
@@ -465,7 +477,8 @@ class DXExecute():
             job_name=params['executable_name'],
             input_dict=input_dict,
             output_dict=output_dict,
-            prev_jobs=dependent_jobs
+            prev_jobs=dependent_jobs,
+            extra_args=extra_args
         )
 
         # map workflow id to created dx job id
