@@ -42,7 +42,7 @@ def parse_sample_sheet(samplesheet) -> list:
     AssertionError
         Raised when no samples parsed from samplesheet
     """
-    sheet = pd.read_csv(samplesheet, header=None)
+    sheet = pd.read_csv(samplesheet, header=None, usecols=[0])
     column = sheet[0].tolist()
     sample_list = column[column.index('Sample_ID') + 1:]
 

@@ -92,6 +92,7 @@ Example top level of config:
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the dependent executable to collect the output from
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
 - `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
+- `extra_args` (dict): mapping of [additional paramaters][dx-run-parameters] to pass to underlying API call for running dx analysis (i.e priority, cost_limit, instance_type)
 - `inputs_filter` (dict): mapping of stage / app input field and list of pattern(s) to filter input by. This is used when providing the output of one app as input to another, but not all files want to be provided as input (i.e. taking all output bam files of analysis_X jobs, but only wanting to use the one from a control). This should be structured as such:
 ```
 "inputs_filter": {
@@ -267,3 +268,4 @@ The following release `.tar.gz` are required to be included in `/resources/home/
 [bcl2fastq-url]: https://github.com/eastgenomics/eggd_bcl2fastq
 
 [project-permissions]: https://documentation.dnanexus.com/developer/api/data-containers/project-permissions-and-sharing
+[dx-run-parameters]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
