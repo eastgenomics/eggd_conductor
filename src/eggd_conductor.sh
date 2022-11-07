@@ -218,7 +218,7 @@ main () {
         _parse_fastqs
     fi
 
-    export SAMPLESHEET
+    export SAMPLESHEET_ID=$SAMPLESHEET
 
     # send a message to logs so we know something is starting
     conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"

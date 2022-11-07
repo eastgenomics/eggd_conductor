@@ -302,13 +302,12 @@ class ManageDict():
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
 
         samplesheet = ""
-        if os.environ.get('SAMPLESHEET'):
+        if os.environ.get('SAMPLESHEET_ID'):
             # get just the ID of samplesheet in case of being formatted as
             # {'$dnanexus_link': 'file_id'}
-            match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET'))
+            match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID'))
             if match:
                 samplesheet = match.group()
-
 
         # mapping of potential user defined keys and variables to replace with
         to_replace = [
