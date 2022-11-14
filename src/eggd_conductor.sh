@@ -233,7 +233,7 @@ main () {
     mark-section "Building input arguments"
 
     optional_args=""
-    if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ASSAY_CONFIG "; fi
+    if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ${ASSAY_CONFIG} "; fi
     if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
