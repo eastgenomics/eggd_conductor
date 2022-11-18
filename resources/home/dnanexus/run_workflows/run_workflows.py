@@ -20,7 +20,7 @@ import pandas as pd
 
 from utils.dx_requests import PPRINT, DXExecute, DXManage
 from utils.manage_dict import ManageDict
-from utils.utils import Jira, Slack, time_stamp
+from utils.utils import Jira, Slack, log, time_stamp
 
 
 def parse_sample_sheet(samplesheet) -> list:
@@ -77,7 +77,7 @@ def parse_run_info_xml(xml_file) -> str:
         # should always be present
         run_id = run_attributes[0].get('Id')
 
-    print(f'Parsed run ID {run_id} from RunInfo.xml')
+    log.info(f'Parsed run ID {run_id} from RunInfo.xml')
 
     return run_id
 
@@ -113,8 +113,8 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     all_config_assay_codes = [x.get('assay_code') for x in configs.values()]
     assay_to_samples = defaultdict(list)
 
-    print(f'All assay codes: {all_config_assay_codes}')
-    print(f'All samples: {all_samples}')
+    log.info(f'All assay codes: {all_config_assay_codes}')
+    log.info(f'All samples: {all_samples}')
 
     for code in all_config_assay_codes:
         for sample in all_samples:
@@ -139,7 +139,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             f"more than one assay found in given sample list: {assay_to_samples}"
         )
 
-    print(f"Total samples per assay identified: {assay_to_samples}")
+    log.info(f"Total samples per assay identified: {assay_to_samples}")
 
     return assay_to_samples
 
@@ -425,14 +425,14 @@ def main():
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())
-    print('Executable names identified:')
-    PPRINT(exe_names)
+    log.info('Executable names identified:')
+    log.info(PPRINT(exe_names))
 
     # build mapping of executables input fields => required types (i.e.
     # file, array:file, boolean), used to correctly build input dict
     input_classes = dx_manage.get_input_classes(config['executables'].keys())
-    print('Executable input classes found:')
-    PPRINT(input_classes)
+    log.info('Executable input classes found:')
+    log.info(PPRINT(input_classes))
 
     # dict to add all stage output names and file ids for every sample to,
     # used to pass correct file ids to subsequent worklow/app calls
@@ -447,11 +447,11 @@ def main():
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
-        print(
+        log.info(
             f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
-        print("Params parsed from config before modifying:")
-        PPRINT(params)
+        log.info("Params parsed from config before modifying:")
+        log.info(PPRINT(params))
 
         # log file of all jobs run for current executable, used in case
         # of failing to launch all jobs to be able to terminate all analyses
@@ -462,11 +462,11 @@ def main():
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
-            print(f'\nCalling {params["executable_name"]} per sample')
+            log.info(f'\nCalling {params["executable_name"]} per sample')
 
             # loop over samples and call app / workflow
             for idx, sample in enumerate(sample_list):
-                print(
+                log.info(
                     f'\n\nStarting analysis for {sample} - '
                     f'({idx}/{len(sample_list)})'
                 )
@@ -505,7 +505,7 @@ def main():
                 f"False ({params['per_sample']}). \n\nPlease check the config."
             )
 
-        print(
+        log.info(
             f'\n\nAll jobs for {params.get("name")} ({executable}) '
             f'launched successfully!\n\n'
         )
@@ -513,7 +513,7 @@ def main():
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(total_jobs))
 
-    print("Completed calling jobs")
+    log.info("Completed calling jobs")
 
     # add comment to Jira ticket for run to link to analysis project
     Jira().add_comment(
