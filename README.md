@@ -26,7 +26,7 @@ The app is built to rely on 2 config files:
 - a config file to store auth tokens and app variables
 - an assay specific config file that specifies all aspects of calling the required workflows and apps for a given assay
 
-### eggd_conductor config
+### eggd_conductor app config
 
 This currently must contain the following:
 
@@ -38,7 +38,7 @@ This currently must contain the following:
 - `SLACK_ALERT_CHANNEL`: Slack channel to send any alerts of fails to
 
 
-### Low level / assay config file
+### Assay config file
 
 The assay config file for the conductor app is designed to be written as a JSON file, with each workflow or apps defined as an executable. For each workflow/app, there are several required and optional keys to add, with a required structure. An example empty template and populated config file may be found [here](example/config_template.json) and [here](example/example_populated_config.json) respectively.
 
@@ -55,8 +55,9 @@ As the config file is a JSON, several fields may be added to enhance readability
 - `users` (dict): DNAnexus users to add to output project and access level to be granted, valid permission levels may be found [here]( project-permissions).
 - `executables` (dict): each key should be the workflow or app id, with it's value being a dictionary (see below for example)
 
-**Optional keys in top level of config include**:
+**Optional keys in top level of assay config include**:
 
+- `demultiplex_app_id` (str): ID of demultiplex app / applet to use, if provided this will override the one set in the app config
 - `sample_name_regex` (list): list of regex patterns to use for performing samplesheet validation on sample names with
 
 Example top level of config:
@@ -67,6 +68,7 @@ Example top level of config:
     "version": "v1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
     "demultiplex": true,
+    "demultiplex_app_id": "app-GGz8qkQ4JQY6YfBBB46QGZvP",
     "users": {
         "org-emee_1": "CONTRIBUTE"
     },
