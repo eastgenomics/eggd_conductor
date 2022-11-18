@@ -27,9 +27,14 @@ class DXExecute():
         self.args = args
 
 
-    def demultiplex(self) -> str:
+    def demultiplex(self, app_id) -> str:
         """
         Run demultiplexing app, hold until app completes
+
+        Parameters
+        ----------
+        app_id : str
+            ID of demultiplexing app / applet to run
 
         Returns
         -------
@@ -56,7 +61,6 @@ class DXExecute():
         log.info(f'bcl2fastq project: {bcl2fastq_project}')
         log.info(f'bcl2fastq folder: {bcl2fastq_folder}')
 
-        app_id = os.environ.get('BCL2FASTQ_APP_ID')
         inputs = {
             'upload_sentinel_record': {
                 "$dnanexus_link": self.args.sentinel_file

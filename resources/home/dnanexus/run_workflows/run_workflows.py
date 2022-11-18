@@ -405,7 +405,13 @@ def main():
     elif config.get('demultiplex'):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run bcl2fastq app
-        job_id = dx_execute.demultiplex()
+        demultiplex_app_id = config.get('demultiplex_app_id')
+        if not demultiplex_app_id:
+            # ID for demultiplex app not in assay config, use default from
+            # app config
+            demultiplex_app_id = os.environ.get('BCL2FASTQ_APP_ID')
+
+        job_id = dx_execute.demultiplex(demultiplex_app_id)
         fastq_details = dx_manage.get_bcl2fastq_details(job_id)
     elif ManageDict().search(
             identifier='INPUT-UPLOAD_TARS',
