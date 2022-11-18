@@ -13,7 +13,7 @@ import re
 import dxpy as dx
 
 from utils.manage_dict import ManageDict
-from utils.utils import Slack, time_stamp, log
+from utils.utils import Slack, log, time_stamp
 
 
 PPRINT = PrettyPrinter(indent=1).pprint

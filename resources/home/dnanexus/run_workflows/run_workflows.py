@@ -20,7 +20,7 @@ import pandas as pd
 
 from utils.dx_requests import PPRINT, DXExecute, DXManage
 from utils.manage_dict import ManageDict
-from utils.utils import Jira, Slack, time_stamp, log
+from utils.utils import Jira, Slack, log, time_stamp
 
 
 def parse_sample_sheet(samplesheet) -> list:
