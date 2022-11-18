@@ -13,7 +13,7 @@ import re
 import dxpy as dx
 
 from utils.manage_dict import ManageDict
-from utils.utils import Slack, time_stamp
+from utils.utils import Slack, time_stamp, log
 
 
 PPRINT = PrettyPrinter(indent=1).pprint
@@ -52,9 +52,9 @@ class DXExecute():
 
         bcl2fastq_project, bcl2fastq_folder = self.args.bcl2fastq_output.split(':')
 
-        print(f'bcl2fastq out: {self.args.bcl2fastq_output}')
-        print(f'bcl2fastq project: {bcl2fastq_project}')
-        print(f'bcl2fastq folder: {bcl2fastq_folder}')
+        log.info(f'bcl2fastq out: {self.args.bcl2fastq_output}')
+        log.info(f'bcl2fastq project: {bcl2fastq_project}')
+        log.info(f'bcl2fastq folder: {bcl2fastq_folder}')
 
         app_id = os.environ.get('BCL2FASTQ_APP_ID')
         inputs = {
@@ -107,10 +107,10 @@ class DXExecute():
             f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
         ])
 
-        print("Starting demultiplexing, holding app until completed...")
+        log.info("Starting demultiplexing, holding app until completed...")
         job_handle.wait_on_done()
 
-        print("Demuliplexing completed!")
+        log.info("Demuliplexing completed!")
 
         # copy the demultiplexing stats json into the project root for multiQC
         stats_json = list(dx.bindings.search.find_data_objects(
@@ -174,8 +174,8 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
-        print(f"Populated input dict for: {executable}")
-        PPRINT(input_dict)
+        log.info(f"Populated input dict for: {executable}")
+        log.info(PPRINT(input_dict))
 
         if 'workflow-' in executable:
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
@@ -218,7 +218,7 @@ class DXExecute():
         job_details = job_handle.describe()
         job_id = job_details.get('id')
 
-        print(f'Started analysis in project {self.args.dx_project_id}, job: {job_id}')
+        log.info(f'Started analysis in project {self.args.dx_project_id}, job: {job_id}')
 
         with open('job_id.log', 'a') as fh:
             fh.write(f'{job_id} ')
@@ -302,7 +302,7 @@ class DXExecute():
             if delim in sample:
                 sample_prefix = sample.split(delim)[0]
             else:
-                print((
+                log.error((
                     f'Specified delimeter ({delim}) is not in sample name '
                     f'({sample}), ignoring and continuing...'
                 ))
@@ -347,13 +347,13 @@ class DXExecute():
         )
 
         # call dx run to start jobs
-        print(
+        log.info(
             f"Calling {params['executable_name']} ({executable}) "
             f"on sample {sample}"
             )
 
         if input_dict.keys:
-            print(f'Input dict: {PPRINT(input_dict)}')
+            log.info(f'Input dict: {log.info(PPRINT(input_dict))}')
 
         job_id = self.call_dx_run(
             executable=executable,
@@ -471,7 +471,7 @@ class DXExecute():
         )
 
         # passing all samples to workflow
-        print(f'Calling {params["name"]} for all samples')
+        log.info(f'Calling {params["name"]} for all samples')
         job_id = self.call_dx_run(
             executable=executable,
             job_name=params['executable_name'],
@@ -561,7 +561,7 @@ class DXManage():
             # add config to dict if not already present or newer one found
             all_configs[assay_code] = current_config
 
-        print(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
+        log.info(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
 
         return all_configs
 
@@ -588,8 +588,8 @@ class DXManage():
         """
         dx_projects = list(dx.bindings.search.find_projects(name=project_name))
 
-        print('Found the following DNAnexus projects:')
-        PPRINT(dx_projects)
+        log.info('Found the following DNAnexus projects:')
+        log.info(PPRINT(dx_projects))
 
         if not dx_projects:
             # found no project, return None and create one in
@@ -645,11 +645,11 @@ class DXManage():
                     f"from {os.environ.get('PARENT_JOB_ID')}"
                 )
             )
-            print(
+            log.info(
                 f'Created new project for output: {output_project} ({project_id})'
             )
         else:
-            print(f'Using existing found project: {output_project} ({project_id})')
+            log.info(f'Using existing found project: {output_project} ({project_id})')
 
         users = config.get('users')
         if users:
@@ -658,7 +658,7 @@ class DXManage():
                 dx.bindings.dxproject.DXProject(dxid=project_id).invite(
                     user, access_level, send_email=False
                 )
-                print(f"Granted {access_level} priviledge to {user}")
+                log.info(f"Granted {access_level} priviledge to {user}")
 
         return project_id
 
@@ -701,12 +701,12 @@ class DXManage():
                         'folder': dx_folder, "parents": True
                     }
                 )
-                print(f'Created output folder: {dx_folder}')
+                log.info(f'Created output folder: {dx_folder}')
                 return dx_folder
             else:
                 # folder already exists, increase _i suffix on folder name
                 # and check again
-                print(f'{dx_folder} already exists, incrementing suffix integer')
+                log.info(f'{dx_folder} already exists, incrementing suffix integer')
                 continue
 
         # got to end of loop, highly unlikely we would ever run this many in a
@@ -731,7 +731,7 @@ class DXManage():
         fastq_ids : list
             list of tuples with fastq file IDs and file name
         """
-        print(f"Getting fastqs from given bcl2fastq job: {job_id}")
+        log.info(f"Getting fastqs from given bcl2fastq job: {job_id}")
         bcl2fastq_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
         bcl2fastq_project = bcl2fastq_job['project']
         bcl2fastq_folder = bcl2fastq_job['folder']
@@ -750,8 +750,8 @@ class DXManage():
             x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
-        print(f'Fastqs parsed from bcl2fastq job {job_id}')
-        print(''.join([f'\t{x}\n' for x in fastq_details]))
+        log.info(f'Fastqs parsed from bcl2fastq job {job_id}':)
+        log.info(PPRINT(fastq_details))
 
         return fastq_details
 
@@ -814,7 +814,7 @@ class DXManage():
                 }
             }
         """
-        print(f'Getting names for all executables: {executables}')
+        log.info(f'Getting names for all executables: {executables}')
         mapping = defaultdict(dict)
 
         # sense check everything is a valid dx executable

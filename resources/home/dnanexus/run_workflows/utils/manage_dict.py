@@ -10,7 +10,7 @@ import re
 
 from flatten_json import flatten, unflatten_list
 
-from utils.utils import Slack
+from utils.utils import Slack, log
 
 
 PPRINT = PrettyPrinter(indent=1).pprint
@@ -186,7 +186,7 @@ class ManageDict():
         r1_fastqs = sorted([x for x in sample_fastqs if 'R1_001.fastq' in x[1]])
         r2_fastqs = sorted([x for x in sample_fastqs if 'R2_001.fastq' in x[1]])
 
-        print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
+        log.info(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
         # sense check we have R2 fastqs before across all samples (i.e.
         # checking this isn't single end sequencing) before checking we
@@ -281,9 +281,9 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
-        print('Adding other inputs')
-        print('Input dict passed to check:')
-        PPRINT(input_dict)
+        log.info('Adding other inputs')
+        log.info('Input dict passed to check:')
+        log.info(PPRINT(input_dict))
 
         # first checking if any INPUT- in dict to fill
         other_inputs = self.search(
@@ -296,7 +296,7 @@ class ManageDict():
         if not other_inputs:
             return input_dict
         else:
-            print(f'Other inputs found to replace: {other_inputs}')
+            log.info(f'Other inputs found to replace: {other_inputs}')
 
         # removing /output/ for now to fit to MultiQC
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
@@ -334,7 +334,7 @@ class ManageDict():
         out_dirs = [re.search(regex, x) for x in other_inputs]
         out_dirs = [x.group(0) for x in out_dirs if x]
 
-        print(f'Out dirs found to replace: {out_dirs}')
+        log.info(f'Out dirs found to replace: {out_dirs}')
 
         for dir in out_dirs:
             # find the output directory for the given analysis
@@ -357,8 +357,8 @@ class ManageDict():
                 replace_key=False
             )
 
-        print('Input dict after adding other inputs:')
-        PPRINT(input_dict)
+        log.info('Input dict after adding other inputs:')
+        log.info(PPRINT(input_dict))
 
         return input_dict
 
@@ -438,7 +438,7 @@ class ManageDict():
                         # found ID in per run jobs dict => wait on completing
                         dependent_jobs.append(job)
 
-        print(f'Dependent jobs found: {dependent_jobs}')
+        log.info(f'Dependent jobs found: {dependent_jobs}')
 
         return dependent_jobs
 
@@ -482,9 +482,9 @@ class ManageDict():
         ValueError
             No job id found for given analysis stage from `job_outputs_dict`
         """
-        print("Searching input dict for inputs to link to outputs")
-        print("Input dict before:")
-        PPRINT(input_dict)
+        log.info("Searching input dict for inputs to link to outputs")
+        log.info("Input dict before:")
+        log.info(PPRINT(input_dict))
 
         if analysis == "analysis_1":
             # first analysis => no previous outputs to link to inputs
@@ -501,8 +501,8 @@ class ManageDict():
                     'input) that should have been parsed earlier. Check '
                     f'config and try again. Input dict given: {input_dict}'
                 ))
-            print(f"Output dict for sample {sample}:")
-            PPRINT(job_outputs_dict)
+            log.info(f"Output dict for sample {sample}:")
+            log.info(PPRINT(job_outputs_dict))
 
         # check if input dict has any analysis_X => need to link a previous job
         all_analysis_ids = self.search(
@@ -512,10 +512,10 @@ class ManageDict():
             return_key=False
         )
 
-        print(f"Found analyses to replace: {all_analysis_ids}")
+        log.info(f"Found analyses to replace: {all_analysis_ids}")
 
-        print("Input dictionary before modifying")
-        PPRINT(input_dict)
+        log.info("Input dictionary before modifying")
+        log.info(PPRINT(input_dict))
 
         if not all_analysis_ids:
             # no inputs found to replace
@@ -559,8 +559,8 @@ class ManageDict():
                 # current executable is running on all samples => need to
                 # gather all previous jobs for all samples and build input
                 # array structure
-                print("Job outputs dict to search")
-                PPRINT(job_outputs_dict)
+                log.info("Job outputs dict to search")
+                log.info(PPRINT(job_outputs_dict))
 
                 job_ids = self.search(
                     identifier=analysis_id,
@@ -577,7 +577,7 @@ class ManageDict():
                         "same analysis as a previous job in the config"
                     ))
 
-                print(f"Found job IDs to link as inputs: {job_ids}")
+                log.info(f"Found job IDs to link as inputs: {job_ids}")
 
                 # for each input, first check if given analysis_X is present
                 # => need to link job IDs to the input. If true, turn that
@@ -653,7 +653,7 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
-        print(f"Populating output dict for {executable}, dict before:")
+        log.info(f"Populating output dict for {executable}, dict before:")
 
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
@@ -675,8 +675,8 @@ class ManageDict():
 
             output_dict[stage] = dir
 
-        print(f'Output dict for {executable}:')
-        PPRINT(output_dict)
+        log.info(f'Output dict for {executable}:')
+        log.info(PPRINT(output_dict))
 
         return output_dict
 
@@ -710,11 +710,11 @@ class ManageDict():
             # no filter pattens to apply
             return outputs_dict
 
-        print(f'\nFiltering job outputs dict by sample name patterns for {stage}')
-        print('\nJob outputs dict before filtering:')
-        PPRINT(outputs_dict)
-        print('Filter dict:')
-        PPRINT(filter_dict)
+        log.info(f'\nFiltering job outputs dict by sample name patterns for {stage}')
+        log.info('\nJob outputs dict before filtering:')
+        log.info(PPRINT(outputs_dict))
+        log.info('Filter dict:')
+        log.info(PPRINT(filter_dict))
 
         new_outputs = {}
         stage_match = False
@@ -730,14 +730,14 @@ class ManageDict():
 
         if not stage_match:
             # stage has no filters to apply => just return the outputs dict
-            print(f'No filters to apply for stage: {stage}')
+            log.info(f'No filters to apply for stage: {stage}')
             return outputs_dict
         else:
             # there was a filter for given stage to apply, if no
             # matches were found against the given pattern(s) this
             # will be an empty dict
-            print('Job outputs dict after filtering')
-            PPRINT(new_outputs)
+            log.info('Job outputs dict after filtering')
+            log.info(PPRINT(new_outputs))
 
             return new_outputs
 
@@ -771,16 +771,16 @@ class ManageDict():
             Raised when an input is non-optional and an empty list has been
             passed
         """
-        print("Checking input classes are valid")
-        PPRINT(input_dict)
+        log.info("Checking input classes are valid")
+        log.info(PPRINT(input_dict))
         input_dict_copy = deepcopy(input_dict)
 
-        print(input_classes)
+        log.info(input_classes)
 
 
         for input_field, configured_input in input_dict.items():
-            print(input_field)
-            print(configured_input)
+            log.info(input_field)
+            log.info(configured_input)
             input_details = input_classes.get(input_field)
             expected_class = input_details.get('class')
             optional = input_details.get('optional')

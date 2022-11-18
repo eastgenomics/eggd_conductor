@@ -11,6 +11,9 @@ from requests.auth import HTTPBasicAuth
 import traceback
 from urllib3.util import Retry
 
+from utils.dx_log import dx_log
+
+log = dx_log()
 
 class Slack():
     """
@@ -40,7 +43,7 @@ class Slack():
             f"eggd_conductor job: {conductor_job_url}"
         )
 
-        print(f"Sending message to Slack channel {channel}\n\n{message}")
+        log.info(f"Sending message to Slack channel {channel}\n\n{message}")
 
         http = requests.Session()
         retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
@@ -56,9 +59,9 @@ class Slack():
 
             if not response['ok']:
                 # error in sending slack notification
-                print(f"Error in sending slack notification: {response.get('error')}")
+                log.error(f"Error in sending slack notification: {response.get('error')}")
         except Exception as err:
-            print(f"Error in sending post request for slack notification: {err}")
+            log.error(f"Error in sending post request for slack notification: {err}")
 
         if exit_fail:
             # write file to know in bash script a fail alert already sent
@@ -110,7 +113,7 @@ class Jira():
         -------
         list : list of all tickets with details for given queue
         """
-        print(f"Getting all Jira tickets from endpoint: {self.queue_url}")
+        log.info(f"Getting all Jira tickets from endpoint: {self.queue_url}")
         start = 0
         response_data = []
 
@@ -121,7 +124,7 @@ class Jira():
                 auth=self.auth
             )
 
-            print(response)
+            log.info(response)
 
             if not response.ok:
                 self.send_slack_alert(
@@ -140,7 +143,7 @@ class Jira():
             response_data.extend(response['values'])
             start += 50
 
-        print(f"Found {len(response_data)} tickets")
+        log.info(f"Found {len(response_data)} tickets")
 
         return response_data
 
@@ -162,11 +165,11 @@ class Jira():
         str
             ticket ID
         """
-        print("Filtering Jira tickets for current run")
+        log.info("Filtering Jira tickets for current run")
         run_ticket = list(set([
             x['id'] for x in tickets if run_id in x['fields']['summary']
         ]))
-        print(f"Run ticket(s) found: {run_ticket}")
+        log.info(f"Run ticket(s) found: {run_ticket}")
 
         if not run_ticket:
             # didn't find a ticket -> either a typo in the name or ticket
@@ -209,7 +212,7 @@ class Jira():
                 exit_fail=False
             )
         else:
-            print(
+            log.info(
                 "Slack notification for fail with Jira already sent, "
                 f"won't send current error: {message}"
             )
@@ -231,7 +234,7 @@ class Jira():
         if not any([self.queue_url, self.issue_url, self.token, self.email]):
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
-            print(
+            log.info(
                 "No required Jira variables set in config, continuinung "
                 "without using Jira"
             )
@@ -261,10 +264,10 @@ class Jira():
         try:
             # put whole thing in a try execept to not cause analysis to stop
             # if there's an issue with Jira, just send an alert to slack
-            print("Finding Jira ticket to add comment to")
+            log.info("Finding Jira ticket to add comment to")
             tickets = self.get_all_tickets(run_id=run_id)
             ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
-            print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
+            log.info(f"Found Jira ticket ID {ticket_id} for run {run_id}")
         except Exception:
             self.send_slack_alert(
                 f"Error finding Jira ticket for given run (`{run_id}`).\n"
