@@ -96,9 +96,13 @@ _parse_sentinel_file () {
     if [[ "$tags" =~ "suppress-automation" ]]; then
         # sentinel file has been tagged to not run automated analysis
         # send Slack alert and exit without error
-        local message="Sentinel file for run ${RUN_ID} tagged with 'suppress-automation' and will not be processed."
+        local message=":warning: eggd_conductor: Sentinel file for run *${RUN_ID}* "
+        message+="tagged with \`suppress-automation\` and will not be processed.%0A"
+        message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+
         _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
-        dx tag "$PARENT_JOB_ID" "Analysis not run due to sentinel file being tagged 'suppress-automation'"
+        dx tag "$PARENT_JOB_ID" "Automated analysis not run due to sentinel file being tagged 'suppress-automation'"
         mark-success
         exit 0
     fi
