@@ -102,7 +102,8 @@ _parse_sentinel_file () {
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
 
         _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
-        dx tag "$PARENT_JOB_ID" "Automated analysis not run due to sentinel file being tagged 'suppress-automation'"
+        tag="Automated analysis not run due to sentinel file being tagged 'suppress-automation'"
+        dx tag "$PARENT_JOB_ID" "$tag"
         mark-success
         exit 0
     fi
