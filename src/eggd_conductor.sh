@@ -92,6 +92,17 @@ _parse_sentinel_file () {
         RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
+    tags=$(jq -r '.tags | .[]' <<< "$sentinel_details")
+    if [[ "$tags" =~ "suppress-automation" ]]; then
+        # sentinel file has been tagged to not run automated analysis
+        # send Slack alert and exit without error
+        local message="Sentinel file for run ${RUN_ID} tagged with 'suppress-automation' and will not be processed."
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+        dx tag "$PARENT_JOB_ID" "Analysis not run due to sentinel file being tagged 'suppress-automation'"
+        mark-success
+        exit 0
+    fi
+
     # set file ID of sentinel record to env to pick up in run_workflows.py
     export SENTINEL_FILE_ID="$sentinel_id"
 
