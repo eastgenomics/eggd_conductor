@@ -98,6 +98,7 @@ _parse_sentinel_file () {
         # send Slack alert and exit without error
         local message=":warning: eggd_conductor: Sentinel file for run *${RUN_ID}* "
         message+="tagged with \`suppress-automation\` and will not be processed.%0A"
+        message+="To run analysis, remove the tag and relaunch this job.%0A"
         message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
 
