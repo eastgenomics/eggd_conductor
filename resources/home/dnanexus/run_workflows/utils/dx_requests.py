@@ -27,19 +27,33 @@ class DXExecute():
         self.args = args
 
 
-    def demultiplex(self, app_id) -> str:
+    def demultiplex(self, app_id=None, app_name=None, config=None) -> str:
         """
-        Run demultiplexing app, hold until app completes
+        Run demultiplexing app, holds until app completes.
+
+        Either an app name, app ID or applet ID may be specified as input 
 
         Parameters
         ----------
         app_id : str
             ID of demultiplexing app / applet to run
+        app_name : str
+            app- name of demultiplex app to run 
+        config : dict
+            optional config values for demultiplex app
 
         Returns
         -------
         str
             ID of demultiplexing job
+
+        Raises
+        ------
+        AssertionError
+            Raised if fastqs are already present in the given output directory
+            for the demultiplexing job
+        RuntimeError
+            Raised when app ID / name for demultiplex name are invalid
         """
         if not self.args.testing:
             if not self.args.bcl2fastq_output:
@@ -57,15 +71,26 @@ class DXExecute():
 
         bcl2fastq_project, bcl2fastq_folder = self.args.bcl2fastq_output.split(':')
 
+        log.info(f'demultiplex app ID set: {app_id}')
+        log.info(f'demultiplex app name set: {app_name}')
+        log.info(f'optional config specified for demultiplexing: {PPRINT(config)}')
         log.info(f'bcl2fastq out: {self.args.bcl2fastq_output}')
         log.info(f'bcl2fastq project: {bcl2fastq_project}')
         log.info(f'bcl2fastq folder: {bcl2fastq_folder}')
+
+        # instance type and additional args may be specified in assay config
+        # for runing demultiplexing, get them if present
+        instance_type = config.get('instance_type')
+        additional_args = config.get('additional_args')
 
         inputs = {
             'upload_sentinel_record': {
                 "$dnanexus_link": self.args.sentinel_file
             }
         }
+
+        if additional_args:
+            inputs['advanced_opts'] = additional_args
 
         # check no fastqs are already present in the output directory for
         # bcl2fastq, exit if any present to prevent making a mess
@@ -90,14 +115,23 @@ class DXExecute():
                 applet_input=inputs,
                 project=bcl2fastq_project,
                 folder=bcl2fastq_folder,
-                priority='high'
+                priority='high',
+                instance_type=instance_type
             )
-        elif app_id.startswith('app-'):
-            job = dx.bindings.dxapp.DXApp(dxid=app_id).run(
+        elif app_id.startswith('app-') or app_name:
+            # running from app, prefer name over ID
+            # have to set to None to only use ID or name if both set
+            if app_name:
+                app_id = None
+            else:
+                app_name = None
+
+            job = dx.bindings.dxapp.DXApp(dxid=app_id, name=app_name).run(
                 app_input=inputs,
                 project=bcl2fastq_project,
                 folder=bcl2fastq_folder,
-                priority='high'
+                priority='high',
+                instance_type=instance_type
             )
         else:
             raise RuntimeError(
@@ -111,30 +145,47 @@ class DXExecute():
             f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
         ])
 
-        log.info("Starting demultiplexing, holding app until completed...")
+        log.info(
+            f"Starting demultiplexing ({job_id}), "
+            "holding app until completed..."
+        )
         job_handle.wait_on_done()
 
         log.info("Demuliplexing completed!")
 
-        # copy the demultiplexing stats json into the project root for multiQC
-        stats_json = list(dx.bindings.search.find_data_objects(
-            project=bcl2fastq_project,
-            folder=f'{bcl2fastq_folder}/Data/Intensities/BaseCalls/Stats/',
-            name="Stats.json"
-        ))
+        # check for and copy / move the required files for multiQC from
+        # bclfastq or bclconvert into a folder in root of the analysis project
+        qc_files = [
+            "Stats.json",              # bcl2fastq
+            "RunInfo.xml",             # ☟ bclconvert
+            "Demultiplex_Stats.csv",
+            "Quality_Metrics.csv",
+            "Adapter_Metrics.csv",
+            "Top_Unknown_Barcodes.csv"
+        ]
 
-        if stats_json:
-            file = dx.DXFile(
-                dxid=stats_json[0]['id'],
-                project=stats_json[0]['project']
-            )
+        for file in qc_files:
+            dx_object = list(dx.bindings.search.find_data_objects(
+                name=file,
+                project=bcl2fastq_project,
+                folder=bcl2fastq_folder
+            ))
 
-            if not self.args.dx_project_id == bcl2fastq_project:
-                file.clone(project=self.args.dx_project_id, folder='/')
-            else:
-                # bcl2fastq output in the analysis project => need to move
-                # instead of cloning (this is most likely just for testing)
-                file.move(folder='/')
+            if dx_object:
+                dx_file = dx.DXFile(
+                    dxid=dx_object[0]['id'],
+                    project=dx_object[0]['project']
+                )
+
+                if not self.args.dx_project_id == bcl2fastq_project:
+                    dx_file.clone(
+                        project=self.args.dx_project_id,
+                        folder='/demultiplex_multiqc_files'
+                    )
+                else:
+                    # bcl2fastq output in the analysis project => need to move
+                    # instead of cloning (this is most likely just for testing)
+                    dx_file.move(folder='/demultiplex_multiqc_files')
 
         if self.args.testing:
             with open('testing_job_id.log', 'a') as fh:
@@ -421,7 +472,7 @@ class DXExecute():
 
         if params["process_fastqs"] is True:
             input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
-        
+
         # add upload tars as input if INPUT-UPLOAD_TARS present
         if self.args.upload_tars:
             input_dict = ManageDict().add_upload_tars(
@@ -754,7 +805,7 @@ class DXManage():
             x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
-        log.info(f'Fastqs parsed from bcl2fastq job {job_id}':)
+        log.info(f'Fastqs parsed from bcl2fastq job {job_id}')
         log.info(PPRINT(fastq_details))
 
         return fastq_details
