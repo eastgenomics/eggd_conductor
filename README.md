@@ -253,6 +253,12 @@ All jobs sucessfully launched by eggd_conductor.
 Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
 ```
 
+## Supressing Automated Analysis
+
+If the app ID is set in the playbook YAML config for dx-streaming-upload, it will automatically be run on completion of a sequencing run upload to DNAnexus. This behaviour may be suppressed for a given run by tagging of the sentinel record file for the run with `suppress-automation` during the time taken to upload the run. This may be desired when a run is known to need processing in a different manner (i.e. for validation of changes) or if a different assay config file to those present at `ASSAY_CONFIG_PATH` from the app config is to be used.
+
+On starting, the app will check the provided sentinel record for the presence of this tag, if present an alert will be sent to the `SLACK_ALERT_CHANNEL` defined in the app config and the app will exit with a 0 status code. To then run analysis, the tag should be removed and the job relaunched, with any changes to inputs or arguments configured as needed. 
+
 
 ## Dependencies
 
