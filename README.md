@@ -16,7 +16,7 @@ The app may be run in 2 ways:
   - a samplesheet (`-SAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
   - a `RunInfo.xml` file (`-RUN_INFO_XML`) to parse the run ID from or the run ID as a string (`-RUN_ID`)
 
-In addition, both require passing eggd_conductor config file (`.cfg`). This is the config file containing app ID / name for the demultiplexing app (bcl2fastq | bclconvert), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
+In addition, both require passing eggd_conductor config file (`.cfg`). This is the config file containing app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
 
 
 ## Config file design
@@ -61,7 +61,7 @@ As the config file is a JSON, several fields may be added to enhance readability
 - `demultiplex_config` (dict): a set of config values for the demultiplexing job. This may contain the following keys:
   - `app_id` : app- ID of demultiplexing app to use, this will override the one in the app config if specified.
   - `app_name`: app name of demultiplexing app to use, this will override both the ID in the app config and `app_id` above if specified.
-  - `additional_args` : additional command line arguments to pass into the demultiplexing app, this will ONLY work if either the [eggd_bcl2fastq][bcl2fastq-url] or [eggd_bclconvert][bclconvert-url] apps are being used as `additional_args` is a valid input for those apps.
+  - `additional_args` : additional command line arguments to pass into the demultiplexing app, this will ONLY work if either the [eggd_bcl2fastq][bcl2fastq-url] or [eggd_bclconvert][bclconvert-url] apps are being used as `additional_args` is a valid input for those apps that is then passed directly to bcl2fastq or bclconvert respectively.
   - `instance_type` : instance type to use, will override the default for the app if specified.
 - `sample_name_regex` (list): list of regex patterns to use for performing samplesheet validation on sample names with
 
@@ -239,8 +239,22 @@ The following describe default app input behaviour:
 - `DEVELOPMENT` (optional): Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format
 - `TESTING` (optional): Terminates all jobs and clears output files after launching - for testing use only
 - `DEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
--  `DEMULTIPLEX_OUT` (optional): Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path
+- `DEMULTIPLEX_OUT` (optional): Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path
 
+
+## Demultiplexing
+
+Demultiplexing may optionally be run if uploading non-demultiplexed data via [dx-streaming-upload][dx-streaming-upload-url], this is controlled by setting `demultiplex: true` in the top level of the assay config. As described above, this will either use the demultiplexing app specified in the eggd_conductor app config, or one specified in the assay config with `demultiplex_config`. This will trigger the demultiplexing app to launch in the same project as the current eggd_conudctor job unless `-iDEMULTIPLEX_OUT` is specified in a different project, which will trigger the job to run in the same project.
+
+Once demultiplexing has completed, certain QC files will be copied that may be used by multiQC for including in the QC report. These will be copied into a directory in the root of the analysis project named `/demultiplex_multiqc_files`, this includes the following files:
+- **bcl2fastq**
+  - Stats.json
+- **bclconvert**
+  - RunInfo.xml
+  - Demultiplex_Stats.csv
+  - Quality_Metrics.csv
+  - Adapter_Metrics.csv
+  - Top_Unknown_Barcodes.csv
 
 ## Jira Integration
 
