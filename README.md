@@ -31,7 +31,7 @@ The app is built to rely on 2 config files:
 This currently must contain the following:
 
 - `ASSAY_CONFIG_PATH`: DNAnexus path to directory containing assay level json config files (format: `project:/path/to/configs`)
-- `DEMULTIPLEX_APP_ID=`: app ID of bcl2fastq or bclconvert for demultiplexing from dx-streaming-upload runs
+- `DEMULTIPLEX_APP_ID`: app ID of bcl2fastq or bclconvert for demultiplexing from dx-streaming-upload runs
 - `AUTH_TOKEN`: DNAnexus API token
 - `SLACK_TOKEN`: Slack API token, used for sending slack notifications
 - `SLACK_LOG_CHANNEL`: Slack channel to send general start and success notifications to
@@ -46,6 +46,7 @@ Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_
 
 As the config file is a JSON, several fields may be added to enhance readability that will not be parsed when running, such as the name, details and GitHub URL for each executable.
 
+
 **Required keys in the top level of the config include**:
 
 - `assay` (str): identifier of the assay the config is for (i.e. MYE, TSO500), will be used to name output directory, must be the same between versions for the same `assay_code`
@@ -57,7 +58,11 @@ As the config file is a JSON, several fields may be added to enhance readability
 
 **Optional keys in top level of assay config include**:
 
-- `demultiplex_app_id` (str): ID of demultiplex app / applet to use, if provided this will override the one set in the app config
+- `demultiplex_config` (dict): a set of config values for the demultiplexing job. This may contain the following keys:
+  - `app_id` : app- ID of demultiplexing app to use, this will override the one in the app config if specified.
+  - `app_name`: app name of demultiplexing app to use, this will override both the ID in the app config and `app_id` above if specified.
+  - `additional_args` : additional command line arguments to pass into the demultiplexing app, this will ONLY work if either the [eggd_bcl2fastq][bcl2fastq-url] or [eggd_bclconvert][bclconvert-url] apps are being used as `additional_args` is a valid input for those apps.
+  - `instance_type` : instance type to use, will override the default for the app if specified.
 - `sample_name_regex` (list): list of regex patterns to use for performing samplesheet validation on sample names with
 
 Example top level of config:
@@ -67,7 +72,7 @@ Example top level of config:
     "assay_code": "EGG2",
     "version": "v1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
-    "demultiplex": true,
+    "demultiplex": true, 
     "demultiplex_app_id": "app-GGz8qkQ4JQY6YfBBB46QGZvP",
     "users": {
         "org-emee_1": "CONTRIBUTE"
@@ -268,6 +273,7 @@ The following release `.tar.gz` are required to be included in `/resources/home/
 [hermes-url]: https://github.com/eastgenomics/hermes
 [samplesheet-validator-url]: https://github.com/eastgenomics/validate_sample_sheet
 [bcl2fastq-url]: https://github.com/eastgenomics/eggd_bcl2fastq
+[bclconvert-url]: https://github.com/eastgenomics/eggd_bclconvert
 
 [project-permissions]: https://documentation.dnanexus.com/developer/api/data-containers/project-permissions-and-sharing
 [dx-run-parameters]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
