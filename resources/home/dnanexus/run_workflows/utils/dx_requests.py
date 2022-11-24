@@ -31,14 +31,14 @@ class DXExecute():
         """
         Run demultiplexing app, holds until app completes.
 
-        Either an app name, app ID or applet ID may be specified as input 
+        Either an app name, app ID or applet ID may be specified as input
 
         Parameters
         ----------
         app_id : str
             ID of demultiplexing app / applet to run
         app_name : str
-            app- name of demultiplex app to run 
+            app- name of demultiplex app to run
         config : dict
             optional config values for demultiplex app
 
