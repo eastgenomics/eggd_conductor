@@ -56,27 +56,27 @@ class DXExecute():
             Raised when app ID / name for demultiplex name are invalid
         """
         if not self.args.testing:
-            if not self.args.bcl2fastq_output:
+            if not self.args.demultiplex_output:
                 # set output path to parent of sentinel file
                 out = dx.describe(self.args.sentinel_file)
                 sentinel_path = f"{out.get('project')}:{out.get('folder')}"
-                self.args.bcl2fastq_output = sentinel_path.replace('/runs', '')
+                self.args.demultiplex_output = sentinel_path.replace('/runs', '')
         else:
-            if not self.args.bcl2fastq_output:
+            if not self.args.demultiplex_output:
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to semtinel file dir
-                self.args.bcl2fastq_output = (
-                    f'{self.args.dx_project_id}:/bcl2fastq_{time_stamp()}'
+                self.args.demultiplex_output = (
+                    f'{self.args.dx_project_id}:/demultiplex_{time_stamp()}'
                 )
 
-        bcl2fastq_project, bcl2fastq_folder = self.args.bcl2fastq_output.split(':')
+        demultiplex_project, demultiplex_folder = self.args.demultiplex_output.split(':')
 
         log.info(f'demultiplex app ID set: {app_id}')
         log.info(f'demultiplex app name set: {app_name}')
         log.info(f'optional config specified for demultiplexing: {PPRINT(config)}')
-        log.info(f'bcl2fastq out: {self.args.bcl2fastq_output}')
-        log.info(f'bcl2fastq project: {bcl2fastq_project}')
-        log.info(f'bcl2fastq folder: {bcl2fastq_folder}')
+        log.info(f'demultiplex out: {self.args.demultiplex_output}')
+        log.info(f'demultiplex project: {demultiplex_project}')
+        log.info(f'demultiplex folder: {demultiplex_folder}')
 
         # instance type and additional args may be specified in assay config
         # for runing demultiplexing, get them if present
@@ -93,28 +93,28 @@ class DXExecute():
             inputs['advanced_opts'] = additional_args
 
         # check no fastqs are already present in the output directory for
-        # bcl2fastq, exit if any present to prevent making a mess
-        # with bcl2fastq output
+        # demultiplexing, exit if any present to prevent making a mess
+        # with demultiplexing output
         fastqs = list(dx.find_data_objects(
             name="*.fastq*",
             name_mode='glob',
-            project=bcl2fastq_project,
-            folder=bcl2fastq_folder
+            project=demultiplex_project,
+            folder=demultiplex_folder
         ))
 
         assert not fastqs, Slack().send(
-            "FastQs already present in output directory for bcl2fastq: "
-            f"`{self.args.bcl2fastq_output}`.\n\nExiting now to not "
+            "FastQs already present in output directory for demultiplexing: "
+            f"`{self.args.demultiplex_output}`.\n\nExiting now to not "
             f"potentially pollute a previous demultiplex job output. \n\n"
-            "Please either move the sentinel file or set the bcl2fastq "
-            "output directory with `-BCL2FASTQ_OUT`"
+            "Please either move the sentinel file or set the demultiplex "
+            "output directory with `-iDEMULTIPLEX_OUT`"
         )
 
         if app_id.startswith('applet-'):
             job = dx.bindings.dxapplet.DXApplet(dxid=app_id).run(
                 applet_input=inputs,
-                project=bcl2fastq_project,
-                folder=bcl2fastq_folder,
+                project=demultiplex_project,
+                folder=demultiplex_folder,
                 priority='high',
                 instance_type=instance_type
             )
@@ -128,14 +128,14 @@ class DXExecute():
 
             job = dx.bindings.dxapp.DXApp(dxid=app_id, name=app_name).run(
                 app_input=inputs,
-                project=bcl2fastq_project,
-                folder=bcl2fastq_folder,
+                project=demultiplex_project,
+                folder=demultiplex_folder,
                 priority='high',
                 instance_type=instance_type
             )
         else:
             raise RuntimeError(
-                f'Provided bcl2fastq app ID does not appear valid: {app_id}')
+                f'Provided demultiplex app ID does not appear valid: {app_id}')
 
         job_id = job.describe().get('id')
         job_handle = dx.bindings.dxjob.DXJob(dxid=job_id)
@@ -164,11 +164,20 @@ class DXExecute():
             "Top_Unknown_Barcodes.csv"
         ]
 
+        # need to first create destination folder
+        dx.api.project_new_folder(
+            object_id=self.args.dx_project_id,
+            input_params={
+                'folder': '/demultiplex_multiqc_files',
+                'parents':True
+            }
+        )
+
         for file in qc_files:
             dx_object = list(dx.bindings.search.find_data_objects(
                 name=file,
-                project=bcl2fastq_project,
-                folder=bcl2fastq_folder
+                project=demultiplex_project,
+                folder=demultiplex_folder
             ))
 
             if dx_object:
@@ -177,13 +186,13 @@ class DXExecute():
                     project=dx_object[0]['project']
                 )
 
-                if not self.args.dx_project_id == bcl2fastq_project:
+                if not self.args.dx_project_id == demultiplex_project:
                     dx_file.clone(
                         project=self.args.dx_project_id,
                         folder='/demultiplex_multiqc_files'
                     )
                 else:
-                    # bcl2fastq output in the analysis project => need to move
+                    # demultiplex output in the analysis project => need to move
                     # instead of cloning (this is most likely just for testing)
                     dx_file.move(folder='/demultiplex_multiqc_files')
 
@@ -772,29 +781,29 @@ class DXManage():
         )
 
 
-    def get_bcl2fastq_details(self, job_id) -> list:
+    def get_demultiplex_job_details(self, job_id) -> list:
         """
-        Given job ID for bcl2fastq, return a list of the fastq file IDs
+        Given job ID for demultiplexing, return a list of the fastq file IDs
 
         Parameters
         ----------
         job_id : str
-            job ID of bcl2fastq job
+            job ID of demultiplexing job
 
         Returns
         -------
         fastq_ids : list
             list of tuples with fastq file IDs and file name
         """
-        log.info(f"Getting fastqs from given bcl2fastq job: {job_id}")
-        bcl2fastq_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
-        bcl2fastq_project = bcl2fastq_job['project']
-        bcl2fastq_folder = bcl2fastq_job['folder']
+        log.info(f"Getting fastqs from given demultiplexing job: {job_id}")
+        demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
+        demultiplex_project = demultiplex_job['project']
+        demultiplex_folder = demultiplex_job['folder']
 
-        # find all fastqs from bcl2fastq job, return list of dicts with details
+        # find all fastqs from demultiplex job, return list of dicts with details
         fastq_details = list(dx.search.find_data_objects(
-            name="*.fastq*", name_mode="glob", project=bcl2fastq_project,
-            folder=bcl2fastq_folder, describe=True
+            name="*.fastq*", name_mode="glob", project=demultiplex_project,
+            folder=demultiplex_folder, describe=True
         ))
         # build list of tuples with fastq name and file ids
         fastq_details = [
@@ -805,7 +814,7 @@ class DXManage():
             x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
-        log.info(f'Fastqs parsed from bcl2fastq job {job_id}')
+        log.info(f'Fastqs parsed from demultiplexing job {job_id}')
         log.info(PPRINT(fastq_details))
 
         return fastq_details

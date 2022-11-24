@@ -16,7 +16,7 @@ The app may be run in 2 ways:
   - a samplesheet (`-SAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
   - a `RunInfo.xml` file (`-RUN_INFO_XML`) to parse the run ID from or the run ID as a string (`-RUN_ID`)
 
-In addition, both requires passing eggd_conductor config file (`.cfg`), this is the config file containing app ID for bcl2fastq, slack API token and DNAnexus auth token, aswell as the path to the assay json configs in DNAnexus.
+In addition, both require passing eggd_conductor config file (`.cfg`). This is the config file containing app ID / name for the demultiplexing app (bcl2fastq | bclconvert), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
 
 
 ## Config file design
@@ -31,7 +31,7 @@ The app is built to rely on 2 config files:
 This currently must contain the following:
 
 - `ASSAY_CONFIG_PATH`: DNAnexus path to directory containing assay level json config files (format: `project:/path/to/configs`)
-- `BCL2FASTQ_APP_ID=`: app ID of bcl2fastq for demultiplexing from dx-streaming-upload runs
+- `DEMULTIPLEX_APP_ID=`: app ID of bcl2fastq or bclconvert for demultiplexing from dx-streaming-upload runs
 - `AUTH_TOKEN`: DNAnexus API token
 - `SLACK_TOKEN`: Slack API token, used for sending slack notifications
 - `SLACK_LOG_CHANNEL`: Slack channel to send general start and success notifications to
@@ -51,7 +51,7 @@ As the config file is a JSON, several fields may be added to enhance readability
 - `assay` (str): identifier of the assay the config is for (i.e. MYE, TSO500), will be used to name output directory, must be the same between versions for the same `assay_code`
 - `assay_code` (str): code used to parse from samplename to determine if the config is for the given sample. At EGLH, the prefix EGG[0-9] is used in the samplename to indicate its assay (i.e. EGG2 -> myeloid sample). The assay codes from all found config files are used to determine which configs to use for which samples.
 - `version` (str): version of config file using semantic versioning (i.e. `1.0.0`). At run time all configs for a given `assay_code` are checked, and the highest version for each used.
-- `demultiplex` (boolean): if true, run bcl2fastq to generate fastqs
+- `demultiplex` (boolean): if true, run demultiplexing to generate fastqs
 - `users` (dict): DNAnexus users to add to output project and access level to be granted, valid permission levels may be found [here]( project-permissions).
 - `executables` (dict): each key should be the workflow or app id, with it's value being a dictionary (see below for example)
 
@@ -228,8 +228,8 @@ The following describe default app input behaviour:
 - `VALIDATE_SAMPLESHEET` (optional): Perform samplesheet validation and exit on invalid sheet
 - `DEVELOPMENT` (optional): Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format
 - `TESTING` (optional): Terminates all jobs and clears output files after launching - for testing use only
-- `BCL2FASTQ_JOB_ID` (optional):  use output fastqs of a previous bcl2fastq job instead of performing demultiplexing
--  `BCL2FASTQ_OUT` (optional): Path to store bcl2fastq output, if not given will default parent of sentinel file. Should be in the format project:path
+- `DEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
+-  `DEMULTIPLEX_OUT` (optional): Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path
 
 
 ## Jira Integration
@@ -260,7 +260,7 @@ Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ
 
 The following release `.tar.gz` are required to be included in `/resources/home/dnanexus/`:
 
-- [samplesheet validator](samplesheet-validator-url): used for validating samplesheets before running with bcl2fastq
+- [samplesheet validator](samplesheet-validator-url): used for validating samplesheets before running with demultiplexing
 
 
 [dx-streaming-upload-url]: https://github.com/dnanexus-rnd/dx-streaming-upload

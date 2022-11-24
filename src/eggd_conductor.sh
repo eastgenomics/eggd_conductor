@@ -246,8 +246,8 @@ main () {
     if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
     if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
     if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
-    if [ "$BCL2FASTQ_JOB_ID" ]; then optional_args+="--bcl2fastq_id $BCL2FASTQ_JOB_ID "; fi
-    if [ "$BCL2FASTQ_OUT" ]; then optional_args+="--bcl2fastq_output ${BCL2FASTQ_OUT} "; fi
+    if [ "$DEMULTIPLEX_JOB_ID" ]; then optional_args+="--demultiplex_job_id $DEMULTIPLEX_JOB_ID "; fi
+    if [ "$DEMULTIPLEX_OUT" ]; then optional_args+="--demultiplex_output ${DEMULTIPLEX_OUT} "; fi
     if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
