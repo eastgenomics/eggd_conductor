@@ -157,7 +157,7 @@ class DXExecute():
         # bclfastq or bclconvert into a folder in root of the analysis project
         qc_files = [
             "Stats.json",              # bcl2fastq
-            "RunInfo.xml",             # ☟ bclconvert
+            "RunInfo.xml",             # ↧ bclconvert
             "Demultiplex_Stats.csv",
             "Quality_Metrics.csv",
             "Adapter_Metrics.csv",
