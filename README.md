@@ -72,8 +72,12 @@ Example top level of config:
     "assay_code": "EGG2",
     "version": "v1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
-    "demultiplex": true, 
-    "demultiplex_app_id": "app-GGz8qkQ4JQY6YfBBB46QGZvP",
+    "demultiplex": true,
+    "demultiplex_config": {
+        "app_name": "app-eggd_bclconvert",
+        "additional_args": "--strict-mode true",
+        "instance_type": "mem1_ssd1_v2_x36"
+    },
     "users": {
         "org-emee_1": "CONTRIBUTE"
     },
@@ -91,6 +95,7 @@ Example top level of config:
 - `process_fastqs` (boolean): if the executable requires fastqs passing
 - `inputs` (dict): this forms the input dictionary passed to the call to dx api to trigger the running of the executable, more details may be found [here][dx-run-url]. See below for structure and available inputs.
 - `output_dirs` (dict): maps the app / workflow stages to directories in which to store output data. See below for structure and available inputs.
+
 
 **Optional keys per executable dictionary**:
 
