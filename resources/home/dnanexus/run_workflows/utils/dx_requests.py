@@ -196,7 +196,6 @@ class DXExecute():
                         project=self.args.dx_project_id,
                         folder='/demultiplex_multiqc_files'
                     )
-                    
 
         if self.args.testing:
             with open('testing_job_id.log', 'a') as fh:
