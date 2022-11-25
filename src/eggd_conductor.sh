@@ -92,6 +92,23 @@ _parse_sentinel_file () {
         RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
+    tags=$(jq -r '.tags | .[]' <<< "$sentinel_details")
+    if [[ "$tags" =~ "suppress-automation" ]]; then
+        # sentinel file has been tagged to not run automated analysis
+        # send Slack alert and exit without error
+        local message=":warning: eggd_conductor: Sentinel file for run *${RUN_ID}* "
+        message+="tagged with \`suppress-automation\` and will not be processed.%0A"
+        message+="To run analysis, remove the tag and relaunch this job.%0A"
+        message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+        tag="Automated analysis not run due to sentinel file being tagged 'suppress-automation'"
+        dx tag "$PARENT_JOB_ID" "$tag"
+        mark-success
+        exit 0
+    fi
+
     # set file ID of sentinel record to env to pick up in run_workflows.py
     export SENTINEL_FILE_ID="$sentinel_id"
 
