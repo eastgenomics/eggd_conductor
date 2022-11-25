@@ -186,15 +186,17 @@ class DXExecute():
                     project=dx_object[0]['project']
                 )
 
-                if not self.args.dx_project_id == demultiplex_project:
+                if self.args.dx_project_id == demultiplex_project:
+                    # demultiplex output in the analysis project => need to move
+                    # instead of cloning (this is most likely just for testing)
+                    dx_file.move(folder='/demultiplex_multiqc_files')
+                else:
+                    # copying to separate analysis project
                     dx_file.clone(
                         project=self.args.dx_project_id,
                         folder='/demultiplex_multiqc_files'
                     )
-                else:
-                    # demultiplex output in the analysis project => need to move
-                    # instead of cloning (this is most likely just for testing)
-                    dx_file.move(folder='/demultiplex_multiqc_files')
+                    
 
         if self.args.testing:
             with open('testing_job_id.log', 'a') as fh:
