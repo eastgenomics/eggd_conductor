@@ -253,6 +253,11 @@ All jobs sucessfully launched by eggd_conductor.
 Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
 ```
 
+## Slack Integration
+
+Notifications are sent to both the `SLACK_LOG_CHANNEL` and `SLACK_ALERT_CHANNEL` as set in the eggd_conductor app config. On starting, a notification is sent to the log channel to notify of automated analysis beginning, with a link to the job:
+
+
 
 ## Dependencies
 
