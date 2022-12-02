@@ -37,6 +37,7 @@ This currently must contain the following:
 - `SLACK_LOG_CHANNEL`: Slack channel to send general start and success notifications to
 - `SLACK_ALERT_CHANNEL`: Slack channel to send any alerts of fails to
 
+n.b. The default behaviour of running the app with minimum inputs specified is to search the given `ASSAY_CONFIG_PATH` above for the highest available version of config files for each assay code, as defined under `version` and `assay_code` fields in the assay config (described below). For each assay code, the highest version will be used for analysing any samples with a matching assay code in the sample name, which may be overridden with the input `-iASSAY_CONFIG`.
 
 ### Assay config file
 
@@ -278,6 +279,29 @@ Example comment added at end of successfully launching all jobs with link to ana
 All jobs sucessfully launched by eggd_conductor. 
 Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
 ```
+
+
+## Slack Integration
+
+Notifications are sent to both the `SLACK_LOG_CHANNEL` and `SLACK_ALERT_CHANNEL` as set in the eggd_conductor app config. On starting, a notification is sent to the log channel to notify of automated analysis beginning, with a link to the job:
+
+![image](https://user-images.githubusercontent.com/45037268/205304799-d1969b95-69f9-4d92-8a5a-e73d27b05b48.png)
+
+Once all jobs have completed launching, another notification will be sent to the log channel with a link to the downstream analysis:
+
+![image](https://user-images.githubusercontent.com/45037268/205304962-e94b1f74-555d-499e-8231-46d98fb850a9.png)
+
+Any errors will be sent to the alerts channel, this may both be where an error is caught and handled, and also if an unexpected error occurs and the traceback is parsed into the notification:
+
+![image](https://user-images.githubusercontent.com/45037268/205305361-27f69e5d-f6c2-4658-a6c1-24c39fc72dbc.png)
+> Example of missing Jira ticket alert
+
+![image](https://user-images.githubusercontent.com/45037268/205305399-8d21e471-f691-4f80-8389-9d144e423794.png)
+> Example of error occuring from checks during launching jobs
+
+![image](https://user-images.githubusercontent.com/45037268/205305431-8d89e519-1794-4046-9381-9d80eee90411.png)
+> Example of unhandled error occurring and traceback being parsed in notification
+
 
 ## Supressing Automated Analysis
 
