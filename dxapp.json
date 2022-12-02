@@ -1,11 +1,11 @@
 {
   "name": "eggd_conductor",
   "title": "eggd_conductor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "summary": "eggd_conductor",
   "dxapi": "1.0.0",
   "properties": {
-    "githubRelease": "v1.0.0"
+    "githubRelease": "v1.1.0"
   },
   "inputSpec": [
     {
@@ -123,18 +123,18 @@
       "group": "testing"
     },
     {
-      "name": "BCL2FASTQ_JOB_ID",
-      "label": "bcl2fastq job id",
+      "name": "DEMULTIPLEX_JOB_ID",
+      "label": "demultiplexing job id",
       "class": "string",
       "optional": true,
-      "help": "Optionally use fastqs from previous bcl2fastq job, will skip demultiplexing stage"
+      "help": "Optionally use fastqs from previous demultiplexing job, will skip demultiplexing stage"
     },
     {
-      "name": "BCL2FASTQ_OUT",
-      "label": "bcl2fastq output path",
+      "name": "DEMULTIPLEX_OUT",
+      "label": "demultiplex output path",
       "class": "string",
       "optional": true,
-      "help": "Path to store bcl2fastq output, if not given will default parent of sentinel file. Should be in the format project:path"
+      "help": "Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path"
     }
   ],
   "outputSpec": [],

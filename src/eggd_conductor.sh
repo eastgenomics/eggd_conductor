@@ -92,6 +92,23 @@ _parse_sentinel_file () {
         RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
+    tags=$(jq -r '.tags | .[]' <<< "$sentinel_details")
+    if [[ "$tags" =~ "suppress-automation" ]]; then
+        # sentinel file has been tagged to not run automated analysis
+        # send Slack alert and exit without error
+        local message=":warning: eggd_conductor: Sentinel file for run *${RUN_ID}* "
+        message+="tagged with \`suppress-automation\` and will not be processed.%0A"
+        message+="To run analysis, remove the tag and relaunch this job.%0A"
+        message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+        tag="Automated analysis not run due to sentinel file being tagged 'suppress-automation'"
+        dx tag "$PARENT_JOB_ID" "$tag"
+        mark-success
+        exit 0
+    fi
+
     # set file ID of sentinel record to env to pick up in run_workflows.py
     export SENTINEL_FILE_ID="$sentinel_id"
 
@@ -233,7 +250,12 @@ main () {
     mark-section "Building input arguments"
 
     optional_args=""
-    if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ASSAY_CONFIG "; fi
+    if [ "$ASSAY_CONFIG" ]; then
+        # extract file ID from $dnanexus_link format
+        # ASSAY_CONFIG=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
+        dx download "$ASSAY_CONFIG" -o assay_config.json
+        optional_args+="--assay_config assay_config.json "
+    fi
     if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
@@ -241,8 +263,8 @@ main () {
     if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
     if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
     if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
-    if [ "$BCL2FASTQ_JOB_ID" ]; then optional_args+="--bcl2fastq_id $BCL2FASTQ_JOB_ID "; fi
-    if [ "$BCL2FASTQ_OUT" ]; then optional_args+="--bcl2fastq_output ${BCL2FASTQ_OUT} "; fi
+    if [ "$DEMULTIPLEX_JOB_ID" ]; then optional_args+="--demultiplex_job_id $DEMULTIPLEX_JOB_ID "; fi
+    if [ "$DEMULTIPLEX_OUT" ]; then optional_args+="--demultiplex_output ${DEMULTIPLEX_OUT} "; fi
     if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
