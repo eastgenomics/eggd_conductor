@@ -37,6 +37,7 @@ This currently must contain the following:
 - `SLACK_LOG_CHANNEL`: Slack channel to send general start and success notifications to
 - `SLACK_ALERT_CHANNEL`: Slack channel to send any alerts of fails to
 
+n.b. The default behaviour of running the app with minimum inputs specified is to search the given `ASSAY_CONFIG_PATH` above for the highest available version of config files for each assay code, as defined under `version` and `assay_code` fields in the assay config (described below). For each assay code, the highest version will be used for analysing any samples with a matching assay code in the sample name, which may be overridden with the input `-iASSAY_CONFIG`.
 
 ### Low level / assay config file
 
