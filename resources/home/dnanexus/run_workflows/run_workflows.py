@@ -258,11 +258,11 @@ def parse_args() -> argparse.Namespace:
         help='for use when testing only - no. samples to limit running analyses for'
     )
     parser.add_argument(
-        '--bcl2fastq_id',
-        help='id of job from running bcl2fastq (if run)'
+        '--demultiplex_job_id',
+        help='id of job from running demultiplexing (if run)'
     )
     parser.add_argument(
-        '--bcl2fastq_output',
+        '--demultiplex_output',
         help=(
             'dx path to store output from demultiplexing, defaults to parent '
             'of sentinel file if not specified'
@@ -387,9 +387,9 @@ def main():
 
     fastq_details = []
 
-    if args.bcl2fastq_id:
-        # previous bcl2fastq job specified to use fastqs from
-        fastq_details = dx_manage.get_bcl2fastq_details(args.bcl2fastq_id)
+    if args.demultiplex_job_id:
+        # previous demultiplexing job specified to use fastqs from
+        fastq_details = dx_manage.get_demultiplex_job_details(args.demultiplex_job_id)
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
@@ -404,15 +404,24 @@ def main():
         fastq_details = load_test_data(args.test_samples)
     elif config.get('demultiplex'):
         # not using previous demultiplex job, fastqs or test sample list and
-        # demultiplex set to true in config => run bcl2fastq app
-        demultiplex_app_id = config.get('demultiplex_app_id')
-        if not demultiplex_app_id:
+        # demultiplex set to true in config => run demultiplexing app
+
+        # config and app ID for demultiplex is optional in assay config
+        demultiplex_config = config.get('demultiplex_config', {})
+        demultiplex_app_id = demultiplex_config.get('app_id', '')
+        demultiplex_app_name = demultiplex_config.get('app_name', '')
+
+        if not demultiplex_app_id and not demultiplex_app_name:
             # ID for demultiplex app not in assay config, use default from
             # app config
-            demultiplex_app_id = os.environ.get('BCL2FASTQ_APP_ID')
+            demultiplex_app_id = os.environ.get('DEMULTIPLEX_APP_ID')
 
-        job_id = dx_execute.demultiplex(demultiplex_app_id)
-        fastq_details = dx_manage.get_bcl2fastq_details(job_id)
+        job_id = dx_execute.demultiplex(
+            app_id=demultiplex_app_id,
+            app_name=demultiplex_app_name,
+            config=demultiplex_config
+        )
+        fastq_details = dx_manage.get_demultiplex_job_details(job_id)
     elif ManageDict().search(
             identifier='INPUT-UPLOAD_TARS',
             input_dict=config,

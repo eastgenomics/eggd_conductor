@@ -250,7 +250,12 @@ main () {
     mark-section "Building input arguments"
 
     optional_args=""
-    if [ "$ASSAY_CONFIG" ]; then optional_args+="--assay_config ${ASSAY_CONFIG} "; fi
+    if [ "$ASSAY_CONFIG" ]; then
+        # extract file ID from $dnanexus_link format
+        # ASSAY_CONFIG=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
+        dx download "$ASSAY_CONFIG" -o assay_config.json
+        optional_args+="--assay_config assay_config.json "
+    fi
     if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
@@ -258,8 +263,8 @@ main () {
     if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
     if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
     if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
-    if [ "$BCL2FASTQ_JOB_ID" ]; then optional_args+="--bcl2fastq_id $BCL2FASTQ_JOB_ID "; fi
-    if [ "$BCL2FASTQ_OUT" ]; then optional_args+="--bcl2fastq_output ${BCL2FASTQ_OUT} "; fi
+    if [ "$DEMULTIPLEX_JOB_ID" ]; then optional_args+="--demultiplex_job_id $DEMULTIPLEX_JOB_ID "; fi
+    if [ "$DEMULTIPLEX_OUT" ]; then optional_args+="--demultiplex_output ${DEMULTIPLEX_OUT} "; fi
     if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
