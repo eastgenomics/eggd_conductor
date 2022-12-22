@@ -459,6 +459,10 @@ def main():
 
     total_jobs = 0  # counter to write to final Slack message
 
+    # log file of all jobs, used to set as app output for picking up
+    # by separate monitoring script
+    open('all_job_ids.log', 'w').close()
+
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly

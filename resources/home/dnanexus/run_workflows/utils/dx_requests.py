@@ -286,7 +286,12 @@ class DXExecute():
         log.info(f'Started analysis in project {self.args.dx_project_id}, job: {job_id}')
 
         with open('job_id.log', 'a') as fh:
+            # log of current executable jobs
             fh.write(f'{job_id} ')
+
+        with open('all_job_ids.log', 'a') as fh:
+            # log of all launched job IDs
+            fh.write(f'{job_id},')
 
         if self.args.testing:
             with open('testing_job_id.log', 'a') as fh:

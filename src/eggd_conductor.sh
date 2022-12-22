@@ -336,5 +336,10 @@ main () {
     # tag conductor job with downstream project used for analysis
     dx tag "$PARENT_JOB_ID" "$analysis_project_url"
 
+    # set all job IDs as output
+    job_ids=$(cat all_job_ids.log)
+    job_ids="${job_ids%?}"  # trim off trailing comma
+    dx-jobutil-add-output job_ids "$job_ids" --class=string
+
     mark-success
 }
