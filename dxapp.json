@@ -137,7 +137,15 @@
       "help": "Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path"
     }
   ],
-  "outputSpec": [],
+  "outputSpec": [
+    {
+      "name": "job_ids",
+      "label": "job ids",
+      "class": "string",
+      "optional": true,
+      "help": "comma separated string of launched job IDs"
+    }
+  ],
   "runSpec": {
     "timeoutPolicy": {
       "*": {
