@@ -310,11 +310,9 @@ If the app ID is set in the playbook YAML config for dx-streaming-upload, it wil
 On starting, the app will check the provided sentinel record for the presence of this tag, if present an alert will be sent to the `SLACK_ALERT_CHANNEL` defined in the app config and the app will exit with a 0 status code. To then run analysis, the tag should be removed and the job relaunched, with any changes to inputs or arguments configured as needed. 
 
 
-## Dependencies
+## Monitoring
 
-The following release `.tar.gz` are required to be included in `/resources/home/dnanexus/`:
-
-- [samplesheet validator](samplesheet-validator-url): used for validating samplesheets before running with demultiplexing
+A [separate package][eggd_conductor_monitor] is available for monitoring and notifying of the state of analysis jobs launched via eggd_conductor. This parses the job IDs launched by each eggd_conductor job, and checks if all are complete, or if any have failed, and send an appropriate notification to given Slack channel(s).
 
 
 [dx-streaming-upload-url]: https://github.com/dnanexus-rnd/dx-streaming-upload
@@ -326,3 +324,4 @@ The following release `.tar.gz` are required to be included in `/resources/home/
 
 [project-permissions]: https://documentation.dnanexus.com/developer/api/data-containers/project-permissions-and-sharing
 [dx-run-parameters]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
+[eggd_conductor_monitor]: https://github.com/eastgenomics/eggd_conductor_monitor
