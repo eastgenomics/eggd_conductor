@@ -156,7 +156,8 @@
     "file": "src/eggd_conductor.sh",
     "distribution": "Ubuntu",
     "release": "20.04",
-    "version": "0"
+    "version": "0",
+    "headJobOnDemand": true
   },
   "access": {
     "network": [
@@ -171,7 +172,6 @@
   "authorizedUsers": [
     "org-emee_1"
   ],
-  "priority": "high",
   "regionalOptions": {
     "aws:eu-central-1": {
       "systemRequirements": {
