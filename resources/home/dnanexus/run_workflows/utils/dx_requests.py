@@ -64,7 +64,7 @@ class DXExecute():
         else:
             if not self.args.demultiplex_output:
                 # running in testing and going to demultiplex -> dump output to
-                # our testing analysis project to not go to semtinel file dir
+                # our testing analysis project to not go to sentinel file dir
                 self.args.demultiplex_output = (
                     f'{self.args.dx_project_id}:/demultiplex_{time_stamp()}'
                 )

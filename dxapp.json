@@ -134,7 +134,7 @@
       "label": "demultiplex output path",
       "class": "string",
       "optional": true,
-      "help": "Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path"
+      "help": "Path to store demultiplexing output, if not given will default to parent of sentinel file. Should be in the format project:path"
     }
   ],
   "outputSpec": [
