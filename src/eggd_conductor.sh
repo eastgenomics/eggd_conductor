@@ -84,7 +84,7 @@ _parse_sentinel_file () {
         None
     '''
     # get json of details to parse required info from
-    sentinel_details=$(dx describe --json "$SENTINEL_FILE")
+    sentinel_details=$(dx describe --json "$upload_sentinel_record")
     sentinel_id=$(jq -r '.id' <<< "$sentinel_details")
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
@@ -110,7 +110,7 @@ _parse_sentinel_file () {
     fi
 
     # set file ID of sentinel record to env to pick up in run_workflows.py
-    export SENTINEL_FILE_ID="$sentinel_id"
+    export upload_sentinel_record_ID="$sentinel_id"
 
     if [ "$SAMPLESHEET" ]; then
         # samplesheet specified as input arg
@@ -209,7 +209,7 @@ main () {
 
     python3 -m pip install -q --no-index --no-deps  packages/*
 
-    if [ -z "${SENTINEL_FILE+x}" ] && [ -z "${FASTQS+x}" ]; then
+    if [ -z "${upload_sentinel_record+x}" ] && [ -z "${FASTQS+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
     fi
@@ -222,7 +222,7 @@ main () {
         dx download -f "$RUN_INFO_XML" -o RunInfo.xml
     fi
 
-    if [[ "$SENTINEL_FILE" ]]; then
+    if [[ "$upload_sentinel_record" ]]; then
         printf "\nParsing sentinel file"
         _parse_sentinel_file
     else
@@ -253,7 +253,7 @@ main () {
         dx download "$ASSAY_CONFIG" -o assay_config.json
         optional_args+="--assay_config assay_config.json "
     fi
-    if [ "$SENTINEL_FILE" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
+    if [ "$upload_sentinel_record" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
     if [ "$FASTQS" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
