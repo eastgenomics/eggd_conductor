@@ -14,6 +14,7 @@ from collections import defaultdict
 from xml.etree import ElementTree as ET
 import json
 import os
+import re
 
 import dxpy as dx
 import pandas as pd
@@ -118,7 +119,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
 
     for code in all_config_assay_codes:
         for sample in all_samples:
-            if code.upper() in sample.upper():
+            if re.search(code, sample):
                 assay_to_samples[code].append(sample)
 
     if not testing:

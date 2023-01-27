@@ -1,4 +1,5 @@
 import logging
+import os
 
 from dxpy import DXLogHandler
 
@@ -13,7 +14,11 @@ def dx_log() -> logging.Logger:
         logging handler object
     """
     logger = logging.getLogger(__name__)
-    logger.addHandler(DXLogHandler())
+
+    if os.path.exists('/opt/dnanexus/log/priority'):
+        # running in DNAnexus, set up logging to monitor
+        logger.addHandler(DXLogHandler())
+
     logger.propagate = False
     logger.setLevel(logging.DEBUG)
 
