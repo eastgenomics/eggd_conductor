@@ -230,7 +230,7 @@ The following describe default app input behaviour:
 
 - `EGGD_CONDUCTOR_CONFIG`: config file for app containing required variables
 - `ASSAY_CONFIG` (optional): assay specific config file, if not given will search in `ASSAY_CONFIG_PATH` from `EGGD_CONDUCTOR_CONFIG` for appropriate file
-- `SENTINEL_FILE` (optional): sentinel file created by dx-streaming-upload to use for specifying run data for analysis
+- `upload_sentinel_record` (optional): sentinel file created by dx-streaming-upload to use for specifying run data for analysis
 - `SAMPLESHEET` (optional): samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
 - `FASTQS` (optional): array of fastq files, to use if not providing a sentinel file
 - `SAMPLE_NAMES` (optional): comma separated list of sample names, to use if not providing a samplesheet
