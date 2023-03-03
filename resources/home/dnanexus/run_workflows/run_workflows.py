@@ -111,15 +111,16 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     """
     # build a dict of assay codes from configs found to samples based off
     # matching assay_code in sample names
-    all_config_assay_codes = [x.get('assay_code') for x in configs.values()]
+    all_config_assay_codes = sorted([
+        x.get('assay_code') for x in configs.values()])
     assay_to_samples = defaultdict(list)
 
-    log.info(f'All assay codes: {all_config_assay_codes}')
-    log.info(f'All samples: {all_samples}')
+    log.info(f'All assay codes of config files: {all_config_assay_codes}')
+    log.info(f'All samples parsed from samplesheet: {all_samples}')
 
     for code in all_config_assay_codes:
         for sample in all_samples:
-            if re.search(code, sample):
+            if re.search(code, sample, re.IGNORECASE):
                 assay_to_samples[code].append(sample)
 
     if not testing:

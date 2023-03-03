@@ -593,6 +593,8 @@ class DXManage():
             f'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
         )
 
+        log.info(f"Searching following path for assay configs: {config_path}")
+
         project, path = config_path.split(':')
 
         files = list(dx.find_data_objects(
@@ -601,6 +603,8 @@ class DXManage():
             project=project,
             folder=path
         ))
+
+        log.info(f"File IDs of JSON files found: {files}")
 
         # sense check we find config files
         assert files, Slack().send(
