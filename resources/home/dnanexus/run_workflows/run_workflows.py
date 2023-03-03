@@ -49,7 +49,7 @@ def parse_sample_sheet(samplesheet) -> list:
 
     # sense check some samples found and samplesheet isn't malformed
     assert sample_list, Slack().send(
-        f"Sample list could not be parsed from samplesheet: {samplesheet}\n\n"
+        f"Sample list could not be parsed from samplesheet: {samplesheet}"
     )
 
     return sample_list
