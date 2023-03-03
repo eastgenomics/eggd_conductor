@@ -836,16 +836,16 @@ class DXManage():
         list
             list of file ids formated as {"$dnanexus_link": file-xxx}
         """
-        sentinel_id = os.environ.get('SENTINEL_FILE_ID')
-
-        if not sentinel_id:
-            # sentinel file not provided as input -> can't get tars
+        if not self.args.sentinel_file:
+            # sentinel file not provided as input -> no tars to parse
             return None
 
         details = dx.bindings.dxrecord.DXRecord(
-            dxid=sentinel_id).describe(incl_details=True)
-        
+            dxid=self.args.sentinel_file).describe(incl_details=True)
+
         upload_tars = details['details']['tar_file_ids']
+
+        log.info(f"Following upload tars found to add as input: {upload_tars}")
 
         # format in required format for a dx input
         upload_tars = [
