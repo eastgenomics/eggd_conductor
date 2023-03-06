@@ -296,7 +296,6 @@ def parse_args() -> argparse.Namespace:
         args.run_id = parse_run_info_xml(args.run_info_xml)
 
     if not args.samples:
-        # TODO : sample sheet validation?
         args.samples = parse_sample_sheet(args.samplesheet)
 
     return args

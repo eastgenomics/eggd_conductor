@@ -2,6 +2,7 @@
 Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
+from ast import literal_eval
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
@@ -92,6 +93,14 @@ class DXExecute():
         if additional_args:
             inputs['advanced_opts'] = additional_args
 
+        if os.environ.get("SAMPLESHEET_ID"):
+            # SAMPLESHEET_ID variable set to env => specified as an input to
+            # the app => use this for demultiplexing
+            inputs['sample_sheet'] = literal_eval(
+                os.environ.get("SAMPLESHEET_ID"))
+
+        log.info(f"Inputs set for running demultiplexing: {inputs}")
+
         # check no fastqs are already present in the output directory for
         # demultiplexing, exit if any present to prevent making a mess
         # with demultiplexing output
@@ -149,7 +158,23 @@ class DXExecute():
             f"Starting demultiplexing ({job_id}), "
             "holding app until completed..."
         )
-        job_handle.wait_on_done()
+
+        try:
+            # holds app until demultiplexing job returns success
+            job_handle.wait_on_done()
+        except dx.exceptions.DXJobFailureError as err:
+            # dx job error raised (i.e. failed, timed out, terminated)
+            job_url = (
+                f"platform.dnanexus.com/projects/"
+                f"{demultiplex_project.replace('project-', '')}/monitor/job/"
+                f"{job_id}"
+            )
+
+            Slack().send(
+                f"Demultiplexing job failed!\n\nError: {err}\n\n"
+                f"Demultiplexing job: {job_url}"
+            )
+            raise dx.exceptions.DXJobFailureError()
 
         log.info("Demuliplexing completed!")
 
