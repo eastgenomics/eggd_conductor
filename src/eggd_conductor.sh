@@ -118,7 +118,6 @@ _parse_sentinel_file () {
     elif [ "$sentinel_samplesheet" != 'null' ]; then
         # samplesheet found during upload and associated to sentinel file
         dx download -f "$sentinel_samplesheet" -o SampleSheet.csv
-        SAMPLESHEET="$sentinel_samplesheet"
     else
         # sample sheet missing from sentinel file, most likely due to not being
         # named correctly, download the first tar, unpack and try to find it
@@ -132,19 +131,17 @@ _parse_sentinel_file () {
         # unpack tar and find samplesheet
         mkdir ./first_tar_dir
         tar -xzf first_tar.tar.gz -C ./first_tar_dir
-        SAMPLESHEET=$(find ./first_tar_dir -regextype posix-extended  -iregex '.*sample[-_ ]?sheet.csv$')
+        local_samplesheet=$(find ./first_tar_dir -regextype posix-extended  -iregex '.*sample[-_ ]?sheet.csv$')
 
-        if [ -z "$SAMPLESHEET" ]; then
+        if [ -z "$local_samplesheet" ]; then
             # sample sheet missing from root and first tar
             message="Sample sheet missing from runs dir and first tar, exiting now."
             dx-jobutil-report-error "$message"
             _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
             exit 1
         else
-            # upload back to project in same dir as sentinel file to be able
-            # to get file ID for passing as input for INPUT-SAMPLESHEET
-            SAMPLESHEET=$(dx upload "$SAMPLESHEET" --path "$sentinel_path")
-            mv "$SAMPLESHEET" /home/dnanexus
+            # found samplesheet in run data, move it to parse sample names from in run_workflows.py
+            mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
         fi
     fi
 }
@@ -215,10 +212,13 @@ main () {
     fi
 
     if [ "$SAMPLESHEET" ]; then
+        # user specified samplesheet to use
         dx download -f "$SAMPLESHEET" -o SampleSheet.csv
+        export SAMPLESHEET_ID=$SAMPLESHEET
     fi
 
     if [ "$RUN_INFO_XML" ]; then
+        # user specified RunInfo.xml specified to use
         dx download -f "$RUN_INFO_XML" -o RunInfo.xml
     fi
 
@@ -231,8 +231,6 @@ main () {
         mark-section "running manually from provided FastQ files"
         _parse_fastqs
     fi
-
-    export SAMPLESHEET_ID=$SAMPLESHEET
 
     # send a message to logs so we know something is starting
     conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
