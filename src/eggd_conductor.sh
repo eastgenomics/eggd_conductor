@@ -294,8 +294,9 @@ main () {
         fi
 
         # build message to send to alert channel and exit
-        message=':warning: eggd_conductor: Jobs failed to launch - uncaught exception occurred!'
-        message+="%0Aeggd_conductor job: platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+        message=":warning: *Error - eggd_conductor*%0A%0AJobs failed to launch - uncaught "
+        message+="exception occurred!%0A%0Aeggd_conductor job: "
+        message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
         if [ -s analysis_project.log ]; then
             # analysis project was created, add to alert
@@ -307,7 +308,7 @@ main () {
         # parse out the Python traceback to add to the message
         traceback=$(awk '/^Traceback/,/+/' dx_stderr | head -n -1)
         if [ "$traceback" ]; then
-            message+="%0ATraceback: \`\`\`${traceback}\`\`\`"
+            message+="%0A%0ATraceback: \`\`\`${traceback}\`\`\`"
         fi
 
         _slack_notify "$message" "$SLACK_ALERT_CHANNEL"

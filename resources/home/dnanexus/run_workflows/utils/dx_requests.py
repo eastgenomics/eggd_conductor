@@ -611,6 +611,7 @@ class DXManage():
             f"No config files found in given path: {project}:{path}")
 
         all_configs = {}
+        all_config_file_ids = {}  # dict to store file ids of configs to use
 
         for file in files:
             current_config = json.loads(
@@ -634,8 +635,18 @@ class DXManage():
 
             # add config to dict if not already present or newer one found
             all_configs[assay_code] = current_config
+            all_config_file_ids[assay_code] = (current_version, file)
 
         log.info(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
+
+        # add to logs the file IDs of each assay config found, will log as:
+        # EGG2 (v1.2.0): file-abc
+        # EGG3 (v1.3.0): file xyz
+        versions_files = '\n'.join(
+            [f"{k} ({v[0]}): {v[1]}" for k, v in all_config_file_ids.items()])
+        log.info(
+            f"Versions and file IDs of assay configs to use: {versions_files}"
+        )
 
         return all_configs
 

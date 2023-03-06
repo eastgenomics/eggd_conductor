@@ -24,7 +24,7 @@ class Slack():
         self.slack_alert_channel = os.getenv("SLACK_ALERT_CHANNEL")
 
 
-    def send(self, message, exit_fail=True) -> None:
+    def send(self, message, exit_fail=True, warn=False) -> None:
         """
         Send alert to Slack to know something has failed
 
@@ -35,13 +35,24 @@ class Slack():
         exit_fail : bool
             if the alert is being sent when exiting and to create the
             slack_fail_sent.log file. If false, this will be for an alert only.
+        warn : bool
+            if to send the alert as a warning or an error (default False =>
+            send Slack alert as an error)
         """
         conductor_job_url = os.environ.get('conductor_job_url')
         channel = self.slack_alert_channel
-        message = (
-            f":warning: *Error in eggd_conductor*\n\n{message}\n\n"
-            f"eggd_conductor job: {conductor_job_url}"
-        )
+
+        if warn:
+            # sending warning with different wording to alert
+            message = (
+                f":rotating_light: *Warning - eggd_conductor*\n\n{message}\n\n"
+                f"eggd_conductor job: {conductor_job_url}"
+            )
+        else:
+            message = (
+                f":warning: *Error - eggd_conductor*\n\n{message}\n\n"
+                f"eggd_conductor job: {conductor_job_url}"
+            )
 
         log.info(f"Sending message to Slack channel {channel}\n\n{message}")
 
@@ -176,9 +187,8 @@ class Jira():
             # has not yet been raised / forgotten about, send an alert and
             # continue with things since linking to Jira is non-essential
             self.send_slack_alert(
-                "Error linking analysis to Jira - no Jira ticket found for "
-                f"the current sequencing run (`{run_id}`).\nContinuing with "
-                "analysis without linking to Jira."
+                f"No Jira ticket found for the current sequencing run "
+                f"*{run_id}*.\n\nContinuing with analysis without linking to Jira."
             )
 
             return None
@@ -197,7 +207,7 @@ class Jira():
 
     def send_slack_alert(self, message) -> None:
         """
-        Send alert to Slack that there was an issue with querying Jira
+        Send warning alert to Slack that there was an issue with querying Jira
 
         Parameters
         ----------
@@ -209,7 +219,8 @@ class Jira():
             os.mknod('jira_alert.log')
             Slack().send(
                 message=message,
-                exit_fail=False
+                exit_fail=False,
+                warn=True
             )
         else:
             log.info(
