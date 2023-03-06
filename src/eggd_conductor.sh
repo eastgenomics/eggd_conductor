@@ -114,9 +114,11 @@ _parse_sentinel_file () {
 
     if [ "$SAMPLESHEET" ]; then
         # samplesheet specified as input arg
+        echo "Using samplesheet specified as input"
         dx download -f "$SAMPLESHEET" -o SampleSheet.csv
     elif [ "$sentinel_samplesheet" != 'null' ]; then
         # samplesheet found during upload and associated to sentinel file
+        echo "Using samplesheet associated with sentinel record"
         dx download -f "$sentinel_samplesheet" -o SampleSheet.csv
         SAMPLESHEET="$sentinel_samplesheet"
     else
