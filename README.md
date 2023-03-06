@@ -317,6 +317,14 @@ If the app ID is set in the playbook YAML config for dx-streaming-upload, it wil
 
 On starting, the app will check the provided sentinel record for the presence of this tag, if present an alert will be sent to the `SLACK_ALERT_CHANNEL` defined in the app config and the app will exit with a 0 status code. To then run analysis, the tag should be removed and the job relaunched, with any changes to inputs or arguments configured as needed. 
 
+- Example tagged sentinel record:
+
+![image](https://user-images.githubusercontent.com/45037268/223139496-9749c7e1-6a35-4560-a919-22f3a3c1f630.png)
+
+- Example Slack notification:
+
+![image](https://user-images.githubusercontent.com/45037268/223140050-afb80a91-d76c-409a-8ef8-6003cb9a6d05.png)
+
 
 ## Monitoring
 
