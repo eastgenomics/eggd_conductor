@@ -140,7 +140,7 @@ _parse_sentinel_file () {
             _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
             exit 1
         else
-            # found samplesheet in run data
+            # found samplesheet in run data, move it to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
         fi
     fi
