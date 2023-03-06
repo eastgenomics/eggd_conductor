@@ -1,4 +1,4 @@
-# conductor (DNAnexus Platform App)
+# eggd_conductor (DNAnexus Platform App)
 
 DNAnexus app for automating end to end analysis of samples through apps and workflows.
 
@@ -64,7 +64,6 @@ As the config file is a JSON, several fields may be added to enhance readability
   - `app_name`: app name of demultiplexing app to use, this will override both the ID in the app config and `app_id` above if specified.
   - `additional_args` : additional command line arguments to pass into the demultiplexing app, this will ONLY work if either the [eggd_bcl2fastq][bcl2fastq-url] or [eggd_bclconvert][bclconvert-url] apps are being used as `additional_args` is a valid input for those apps that is then passed directly to bcl2fastq or bclconvert respectively.
   - `instance_type` : instance type to use, will override the default for the app if specified.
-- `sample_name_regex` (list): list of regex patterns to use for performing samplesheet validation on sample names with
 
 Example top level of config:
 ```{
@@ -194,6 +193,16 @@ n.b. where any inputs are linked to previous job outputs, the `depends_on` key s
                     },
     ```
 
+For hardcoded file inputs to be provided to apps / workflows, these should be formatted as `$dnanexus_link` dictionaries:
+
+```
+"multiqc_docker": {
+    "$dnanexus_link": "file-GF3PxgQ433Gqv1Q029Gjzjfv"
+},
+"multiqc_config_file": {
+    "$dnanexus_link": "file-GF3Py30433GvZGb99kBVjZk1"
+}
+```
 
 ### Structuring the output_dirs dictionary
 
@@ -227,20 +236,19 @@ This defines the output directory structure for the executables outputs. For wor
 
 The following describe default app input behaviour:
 
-
 - `EGGD_CONDUCTOR_CONFIG`: config file for app containing required variables
 - `ASSAY_CONFIG` (optional): assay specific config file, if not given will search in `ASSAY_CONFIG_PATH` from `EGGD_CONDUCTOR_CONFIG` for appropriate file
 - `upload_sentinel_record` (optional): sentinel file created by dx-streaming-upload to use for specifying run data for analysis
 - `SAMPLESHEET` (optional): samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
 - `FASTQS` (optional): array of fastq files, to use if not providing a sentinel file
 - `SAMPLE_NAMES` (optional): comma separated list of sample names, to use if not providing a samplesheet
-- `DX_PROJECT` (optional):  Project in which to run and store output, if not specified will create a new project named as `002_<RUNID>_<ASSAY_CODE>` or `003_YYMMDD_<RUNID>_<ASSAY_CODE>` if `development=true`
+- `DX_PROJECT` (optional):  project ID in which to run and store output, if not specified will create a new project named as `002_<RUNID>_<ASSAY_CODE>` or `003_YYMMDD_<RUNID>_<ASSAY_CODE>` if `development=true`
 - `RUN_ID` ( optional): ID of sequencing run used to name project, parsed from samplesheet if not specified
-- `VALIDATE_SAMPLESHEET` (optional): Perform samplesheet validation and exit on invalid sheet
 - `DEVELOPMENT` (optional): Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format
-- `TESTING` (optional): Terminates all jobs and clears output files after launching - for testing use only
+- `TESTING` (optional): terminates all jobs and clears output files after launching - for testing use only
+- `TESTING_SAMPLE_LIMIT` (optional): no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
 - `DEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
-- `DEMULTIPLEX_OUT` (optional): Path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format project:path
+- `DEMULTIPLEX_OUT` (optional): path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
 
 
 ## Demultiplexing
@@ -318,7 +326,6 @@ A [separate package][eggd_conductor_monitor] is available for monitoring and not
 [dx-streaming-upload-url]: https://github.com/dnanexus-rnd/dx-streaming-upload
 [dx-run-url]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
 [hermes-url]: https://github.com/eastgenomics/hermes
-[samplesheet-validator-url]: https://github.com/eastgenomics/validate_sample_sheet
 [bcl2fastq-url]: https://github.com/eastgenomics/eggd_bcl2fastq
 [bclconvert-url]: https://github.com/eastgenomics/eggd_bclconvert
 
