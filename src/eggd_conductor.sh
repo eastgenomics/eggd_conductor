@@ -330,11 +330,13 @@ main () {
     read -r project_id assay version < analysis_project.log
     total_jobs=$(cat total_jobs.log)
 
+    project_name=$(dx describe --json $project_id | jq -r '.name')
+
     analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
 
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
     message+="*${RUN_ID}*%0AConfig used: *${assay}* (v${version})%0A"
-    message+="Analysis project: ${analysis_project_url}"
+    message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
