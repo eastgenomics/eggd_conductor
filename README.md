@@ -59,6 +59,7 @@ As the config file is a JSON, several fields may be added to enhance readability
 
 **Optional keys in top level of assay config include**:
 
+- `changelog` (dict): optional recording of changes for each version of config file, useful for quickly identifying what has changed between versions
 - `demultiplex_config` (dict): a set of config values for the demultiplexing job. This may contain the following keys:
   - `app_id` : app- ID of demultiplexing app to use, this will override the one in the app config if specified.
   - `app_name`: app name of demultiplexing app to use, this will override both the ID in the app config and `app_id` above if specified.
@@ -72,19 +73,18 @@ Example top level of config:
     "assay_code": "EGG2",
     "version": "v1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
+    "users": {
+        "org-emee_1": "CONTRIBUTE"
+    },
+    "changelog" {
+        "v1.0.0": "Initial working version"
+    }
     "demultiplex": true,
     "demultiplex_config": {
         "app_name": "app-eggd_bclconvert",
         "additional_args": "--strict-mode true",
         "instance_type": "mem1_ssd1_v2_x36"
-    },
-    "users": {
-        "org-emee_1": "CONTRIBUTE"
-    },
-    "sample_name_regex": [
-        "[0-9]{7}-[A-Z0-9]*-[A-Z]{2,3}-[A-Za-z]*-MYE-[FMNU]-EGG2",
-        "Oncospan-[A-za-z0-9-]*"
-    ]
+    }
 ```
 
 **Required keys per executable dictionary**:
