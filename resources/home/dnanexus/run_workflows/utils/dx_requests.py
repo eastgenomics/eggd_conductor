@@ -94,7 +94,7 @@ class DXExecute():
 
         if os.environ.get("SAMPLESHEET_ID"):
             #  get just the ID of samplesheet in case of being formatted as
-            # {'$dnanexus_link': 'file_id'} and ad to inputs as this
+            # {'$dnanexus_link': 'file_id'} and add to inputs as this
             match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID'))
             if match:
                 inputs['sample_sheet'] = {'$dnanexus_link': match.group()}
