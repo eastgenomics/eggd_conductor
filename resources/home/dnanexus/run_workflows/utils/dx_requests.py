@@ -2,7 +2,6 @@
 Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
-from ast import literal_eval
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
@@ -94,10 +93,11 @@ class DXExecute():
             inputs['advanced_opts'] = additional_args
 
         if os.environ.get("SAMPLESHEET_ID"):
-            # SAMPLESHEET_ID variable set to env => specified as an input to
-            # the app => use this for demultiplexing
-            inputs['sample_sheet'] = literal_eval(
-                os.environ.get("SAMPLESHEET_ID"))
+            #  get just the ID of samplesheet in case of being formatted as
+            # {'$dnanexus_link': 'file_id'} and add to inputs as this
+            match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID'))
+            if match:
+                inputs['sample_sheet'] = {'$dnanexus_link': match.group()}
 
         log.info(f"Inputs set for running demultiplexing: {inputs}")
 
