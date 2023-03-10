@@ -15,6 +15,7 @@ from xml.etree import ElementTree as ET
 import json
 import os
 import re
+import subprocess
 
 import dxpy as dx
 import pandas as pd
@@ -318,9 +319,9 @@ def main():
         sample_list = args.samples.copy()
     else:
         # get all json assay configs from path in conductor config
-        configs = DXManage(args).get_json_configs()
+        config_data, config_file_ids = DXManage(args).get_json_configs()
         assay_to_samples = match_samples_to_assays(
-            configs=configs,
+            configs=config_data,
             all_samples=args.samples,
             testing=args.testing
         )
@@ -330,8 +331,17 @@ def main():
         # all of the below, will currently exit in match_samples_to_assays()
         # where more than one assay is present from the sample names
         assay_code = next(iter(assay_to_samples))
-        config = configs[assay_code]
+        config = config_data[assay_code]
+        config_file_id = config_file_ids[assay_code]
         sample_list = assay_to_samples[assay_code]
+
+        # add the file ID of assay config file used as job output, this
+        # is to make it easier to audit what configs were used for analysis
+        subprocess.run(
+            "dx-jobutil-add-output assay_config_file_id "
+            f"{config_file_id} --class=file",
+            shell=True, check=False
+        )
 
     if args.testing_sample_limit:
         sample_list = sample_list[:int(args.testing_sample_limit)]
