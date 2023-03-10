@@ -147,7 +147,7 @@ Example of per executable config:
             ...
 ```
 
-Example use of `extra_args` key to set priority to high and override default instance type:
+Example use of `extra_args` key to set priority to high and override default instance type for an **app**:
 ```
 "extra_args": {
     "systemRequirements": {
@@ -157,6 +157,16 @@ Example use of `extra_args` key to set priority to high and override default ins
 }
 ```
 
+Use of `extra_args` for overriding default instance types for a **workflow** requires specifying the `stageSystemRequirements` key and stage ID key, then a run specification mapping as done for apps:
+```
+"extra_args": {
+    "stageSystemRequirements": {
+        "stage-G0qpXy0433Gv75XbPJ3xj8jV": {
+            "*": {"instanceType": "mem1_ssd1_v2_x2"}
+        }
+    }
+}
+```
 
 ### Structuring the inputs dictionary
 
