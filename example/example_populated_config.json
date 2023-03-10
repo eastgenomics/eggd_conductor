@@ -5,12 +5,11 @@
     "version": "1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
     "demultiplex": true,
-    "sample_name_regex": [
-        "[0-9]{7}-[A-Z0-9]*-[A-Z]{2,3}-[A-Za-z]*-MYE-[FMNU]-EGG2",
-        "Oncospan-[A-za-z0-9-]*"
-    ],
     "users": {
-        "org-emee_1": "ADMINISTER"
+        "org-emee_1": "CONTRIBUTE"
+    },
+    "changelog": {
+        "1.0.0": "Initial working version"
     },
     "executables": {
         "workflow-GB6J7qQ433Gkf0ZYGbKfF0x6": {
@@ -24,6 +23,13 @@
             "inputs": {
                 "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs": "INPUT-R1",
                 "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs": "INPUT-R2"
+            },
+            "extra_args": {
+                "stageSystemRequirements": {
+                    "stage-G0qpXy0433Gv75XbPJ3xj8jV": {
+                        "*": {"instanceType": "mem2_ssd1_v2_x36"}
+                    }
+                }
             },
             "output_dirs": {
                 "stage-G0qpXy0433Gv75XbPJ3xj8jV": "/OUT-FOLDER/STAGE-NAME",
@@ -81,7 +87,12 @@
             "analysis": "analysis_4",
             "per_sample": false,
             "process_fastqs": false,
-            "extra_args": {"priority": "high"},
+            "extra_args": {
+                "priority": "high",
+                "systemRequirements": {
+                    "*": {"instanceType": "mem1_ssd1_v2_x8"}
+                }
+            },
             "depends_on": [
                 "analysis_1",
                 "analysis_2",
