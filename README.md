@@ -16,14 +16,14 @@ The app may be run in 2 ways:
   - a samplesheet (`-SAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
   - a `RunInfo.xml` file (`-RUN_INFO_XML`) to parse the run ID from or the run ID as a string (`-RUN_ID`)
 
-In addition, both require passing eggd_conductor config file (`.cfg`). This is the config file containing app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
+In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
 
 
 ## Config file design
 
 The app is built to rely on 2 config files:
 
-- a config file to store auth tokens and app variables
+- an app config file to store auth tokens and app variables
 - an assay specific config file that specifies all aspects of calling the required workflows and apps for a given assay
 
 ### eggd_conductor app config
@@ -43,7 +43,7 @@ n.b. The default behaviour of running the app with minimum inputs specified is t
 
 The assay config file for the conductor app is designed to be written as a JSON file, with each workflow or apps defined as an executable. For each workflow/app, there are several required and optional keys to add, with a required structure. An example empty template and populated config file may be found [here](example/config_template.json) and [here](example/example_populated_config.json) respectively.
 
-Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_CONFIG_PATH` from  `conductor.cfg`), and the default behaviour if a config file is not specified at run time is the search this directory and use the highest version config file for each `assay_code` (detailed below).
+Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_CONFIG_PATH` from  `-iEGGD_CONDUCTOR_CONFIG`), and the default behaviour if a config file is not specified at run time is the search this directory and use the highest version config file for each `assay_code` (detailed below).
 
 As the config file is a JSON, several fields may be added to enhance readability that will not be parsed when running, such as the name, details and GitHub URL for each executable.
 
