@@ -255,10 +255,13 @@ main () {
 
     optional_args=""
     if [ "$ASSAY_CONFIG" ]; then
-        # extract file ID from $dnanexus_link format
-        # ASSAY_CONFIG=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
+        # assay config specified, download and use it
         dx download "$ASSAY_CONFIG" -o assay_config.json
         optional_args+="--assay_config assay_config.json "
+
+        # add file ID of config as output field to easily audit what configs used for analyses
+        ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
+        dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=file
     fi
     if [ "$upload_sentinel_record" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi

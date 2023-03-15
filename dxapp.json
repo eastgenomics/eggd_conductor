@@ -141,6 +141,13 @@
       "class": "string",
       "optional": true,
       "help": "comma separated string of launched job IDs"
+    },
+    {
+      "name": "assay_config_file_id",
+      "label": "assay config file ID",
+      "class": "file",
+      "optional": true,
+      "help": "file ID of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
     }
   ],
   "runSpec": {

@@ -600,7 +600,9 @@ class DXManage():
         Returns
         -------
         dict
-            dict of dicts of configs, one per assay
+            dict of assay_code: config file contents
+        dict
+            dict of assay_code: DNAnexus file ID
 
         Raises
         ------
@@ -660,7 +662,7 @@ class DXManage():
 
             # add config to dict if not already present or newer one found
             all_configs[assay_code] = current_config
-            all_config_file_ids[assay_code] = (current_version, file)
+            all_config_file_ids[assay_code] = file['id']
 
         log.info(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
 
@@ -668,12 +670,12 @@ class DXManage():
         # EGG2 (v1.2.0): file-abc
         # EGG3 (v1.3.0): file xyz
         versions_files = '\n'.join(
-            [f"{k} ({v[0]}): {v[1]}" for k, v in all_config_file_ids.items()])
+            [f"{k}: {v}" for k, v in all_config_file_ids.items()])
         log.info(
-            f"Versions and file IDs of assay configs to use: {versions_files}"
+            f"File IDs of assay configs found to use: {versions_files}"
         )
 
-        return all_configs
+        return all_configs, all_config_file_ids
 
 
     def find_dx_project(self, project_name) -> str:
