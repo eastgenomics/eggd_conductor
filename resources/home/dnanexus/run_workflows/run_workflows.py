@@ -121,7 +121,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     log.info(f'\nAll samples parsed from samplesheet: {all_samples}')  
 
     # for each sample check each assay code if it matches, then select the
-    # matching config with highest versiuon
+    # matching config with highest version
     for sample in all_samples:
         sample_to_assay_configs = {}
         for code in all_config_assay_codes:
