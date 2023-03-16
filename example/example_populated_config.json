@@ -1,7 +1,7 @@
 {
     "name": "Config for myeloid assay",
     "assay": "MYE",
-    "assay_code": "EGG2",
+    "assay_code": "-EGG2|-LAB123",
     "version": "1.0.0",
     "details": "Includes main Uranus workflow, multi-fastqc and uranus annotation workflow",
     "demultiplex": true,
