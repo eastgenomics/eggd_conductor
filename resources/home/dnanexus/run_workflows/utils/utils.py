@@ -54,7 +54,7 @@ class Slack():
                 f"eggd_conductor job: {conductor_job_url}"
             )
 
-        log.info(f"Sending message to Slack channel {channel}\n\n{message}")
+        log.info(f"\nSending message to Slack channel {channel}\n\n{message}")
 
         http = requests.Session()
         retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
@@ -124,7 +124,7 @@ class Jira():
         -------
         list : list of all tickets with details for given queue
         """
-        log.info(f"Getting all Jira tickets from endpoint: {self.queue_url}")
+        log.info(f"\nGetting all Jira tickets from endpoint: {self.queue_url}")
         start = 0
         response_data = []
 
@@ -275,7 +275,7 @@ class Jira():
         try:
             # put whole thing in a try execept to not cause analysis to stop
             # if there's an issue with Jira, just send an alert to slack
-            log.info("Finding Jira ticket to add comment to")
+            log.info("\nFinding Jira ticket to add comment to")
             tickets = self.get_all_tickets(run_id=run_id)
             ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
             log.info(f"Found Jira ticket ID {ticket_id} for run {run_id}")

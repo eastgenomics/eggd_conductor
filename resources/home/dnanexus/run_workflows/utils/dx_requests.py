@@ -100,7 +100,7 @@ class DXExecute():
             if match:
                 inputs['sample_sheet'] = {'$dnanexus_link': match.group()}
 
-        log.info(f"Inputs set for running demultiplexing: {inputs}")
+        log.info(f"\nInputs set for running demultiplexing: {inputs}")
 
         # check no fastqs are already present in the output directory for
         # demultiplexing, exit if any present to prevent making a mess
@@ -265,7 +265,7 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
-        log.info(f"Populated input dict for: {executable}")
+        log.info(f"\nPopulated input dict for: {executable}")
         log.info(PPRINT(input_dict))
 
         if 'workflow-' in executable:
@@ -444,12 +444,12 @@ class DXExecute():
 
         # call dx run to start jobs
         log.info(
-            f"Calling {params['executable_name']} ({executable}) "
+            f"\nCalling {params['executable_name']} ({executable}) "
             f"on sample {sample}"
             )
 
         if input_dict.keys:
-            log.info(f'Input dict: {log.info(PPRINT(input_dict))}')
+            log.info(f'\nInput dict: {log.info(PPRINT(input_dict))}')
 
         job_id = self.call_dx_run(
             executable=executable,
@@ -567,7 +567,7 @@ class DXExecute():
         )
 
         # passing all samples to workflow
-        log.info(f'Calling {params["name"]} for all samples')
+        log.info(f'\nCalling {params["name"]} for all samples')
         job_id = self.call_dx_run(
             executable=executable,
             job_name=params['executable_name'],
@@ -617,7 +617,7 @@ class DXManage():
             f'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
         )
 
-        log.info(f"Searching following path for assay configs: {config_path}")
+        log.info(f"\nSearching following path for assay configs: {config_path}")
 
         project, path = config_path.split(':')
 
@@ -636,7 +636,7 @@ class DXManage():
         files_ids='\n\t'.join([
             f"{x['describe']['name']} ({x['id']} - "
             f"{x['describe']['archivalState']})" for x in files])
-        log.info(f"Assay config files found:\n\t{files_ids}")
+        log.info(f"\nAssay config files found:\n\t{files_ids}")
 
         all_configs = []
         for file in files:
@@ -692,6 +692,7 @@ class DXManage():
         """
         # filter all config files to just get full config data for the
         # highest version of each full assay code
+        log.info("\nFiltering config files from DNAnexus for highest versions")
         highest_ver_config_data = {}
         for config in all_configs:
             current_config_code = config.get('assay_code')
@@ -753,12 +754,14 @@ class DXManage():
                 full_code_to_use] = highest_ver_config_data[full_code_to_use]
 
         # add to log record of highest version of each config found
-        versions_files = '\n'.join(
+        usable_configs = '\n\t'.join(
             [f"{k} ({v['version']}): {v['file_id']}"
             for k, v in configs_to_use.items()]
         )
+
         log.info(
-            f"Assay configs found to use: {versions_files}"
+            "\nHighest versions of assay configs found to use:"
+            f"\n\t{usable_configs}\n"
         )
 
         return configs_to_use
@@ -844,10 +847,10 @@ class DXManage():
                 )
             )
             log.info(
-                f'Created new project for output: {output_project} ({project_id})'
+                f'\nCreated new project for output: {output_project} ({project_id})'
             )
         else:
-            log.info(f'Using existing found project: {output_project} ({project_id})')
+            log.info(f'\nUsing existing found project: {output_project} ({project_id})')
 
         users = config.get('users')
         if users:
@@ -856,7 +859,7 @@ class DXManage():
                 dx.bindings.dxproject.DXProject(dxid=project_id).invite(
                     user, access_level, send_email=False
                 )
-                log.info(f"Granted {access_level} priviledge to {user}")
+                log.info(f"\nGranted {access_level} priviledge to {user}")
 
         return project_id
 
@@ -929,7 +932,7 @@ class DXManage():
         fastq_ids : list
             list of tuples with fastq file IDs and file name
         """
-        log.info(f"Getting fastqs from given demultiplexing job: {job_id}")
+        log.info(f"\nGetting fastqs from given demultiplexing job: {job_id}")
         demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
         demultiplex_project = demultiplex_job['project']
         demultiplex_folder = demultiplex_job['folder']
@@ -948,7 +951,7 @@ class DXManage():
             x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
-        log.info(f'Fastqs parsed from demultiplexing job {job_id}')
+        log.info(f'\nFastqs parsed from demultiplexing job {job_id}')
         log.info(PPRINT(fastq_details))
 
         return fastq_details
@@ -973,7 +976,7 @@ class DXManage():
 
         upload_tars = details['details']['tar_file_ids']
 
-        log.info(f"Following upload tars found to add as input: {upload_tars}")
+        log.info(f"\nFollowing upload tars found to add as input: {upload_tars}")
 
         # format in required format for a dx input
         upload_tars = [
@@ -1012,7 +1015,7 @@ class DXManage():
                 }
             }
         """
-        log.info(f'Getting names for all executables: {executables}')
+        log.info(f'\nGetting names for all executables: {executables}')
         mapping = defaultdict(dict)
 
         # sense check everything is a valid dx executable

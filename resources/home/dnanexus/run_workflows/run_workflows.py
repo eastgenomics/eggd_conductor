@@ -79,7 +79,7 @@ def parse_run_info_xml(xml_file) -> str:
         # should always be present
         run_id = run_attributes[0].get('Id')
 
-    log.info(f'Parsed run ID {run_id} from RunInfo.xml')
+    log.info(f'\nParsed run ID {run_id} from RunInfo.xml')
 
     return run_id
 
@@ -112,12 +112,13 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     """
     # build a dict of assay codes from configs found to samples based off
     # matching assay_code in sample names
+    log.info("\nMatching samples to assay configs")
     all_config_assay_codes = sorted([
         x.get('assay_code') for x in configs.values()])
     assay_to_samples = defaultdict(list)
 
-    log.info(f'All assay codes of config files: {all_config_assay_codes}')
-    log.info(f'All samples parsed from samplesheet: {all_samples}')  
+    log.info(f'\nAll assay codes of config files: {all_config_assay_codes}')
+    log.info(f'\nAll samples parsed from samplesheet: {all_samples}')  
 
     # for each sample check each assay code if it matches, then select the
     # matching config with highest versiuon
@@ -159,7 +160,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             f"more than one assay found in given sample list: {assay_to_samples}"
         )
 
-    log.info(f"Total samples per assay identified: {assay_to_samples}")
+    log.info(f"\nTotal samples per assay identified: {assay_to_samples}")
 
     return assay_to_samples
 
@@ -469,13 +470,13 @@ def main():
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())
-    log.info('Executable names identified:')
+    log.info('\nExecutable names identified:')
     log.info(PPRINT(exe_names))
 
     # build mapping of executables input fields => required types (i.e.
     # file, array:file, boolean), used to correctly build input dict
     input_classes = dx_manage.get_input_classes(config['executables'].keys())
-    log.info('Executable input classes found:')
+    log.info('\nExecutable input classes found:')
     log.info(PPRINT(input_classes))
 
     # dict to add all stage output names and file ids for every sample to,
@@ -498,7 +499,7 @@ def main():
         log.info(
             f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
-        log.info("Params parsed from config before modifying:")
+        log.info("\nParams parsed from config before modifying:")
         log.info(PPRINT(params))
 
         # log file of all jobs run for current executable, used in case
@@ -561,7 +562,7 @@ def main():
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(total_jobs))
 
-    log.info("Completed calling jobs")
+    log.info("\nCompleted calling jobs")
 
     # add comment to Jira ticket for run to link to analysis project
     Jira().add_comment(
