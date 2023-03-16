@@ -7,9 +7,9 @@ from copy import deepcopy
 from datetime import datetime
 import json
 import os
+from packaging.version import Version, parse
 from pprint import PrettyPrinter
 import re
-from typing import Union
 
 import dxpy as dx
 
@@ -693,7 +693,8 @@ class DXManage():
         # filter all config files to just get full config data for the
         # highest version of each full assay code
         log.info("\nFiltering config files from DNAnexus for highest versions")
-        highest_ver_config_data = {}
+        highest_version_config_data = {}
+
         for config in all_configs:
             current_config_code = config.get('assay_code')
             current_config_ver = config.get('version')
@@ -704,17 +705,19 @@ class DXManage():
                 f"File ID: {config['file_id']}"
             )
 
-            highest_ver = highest_ver_config_data.get(
+            # get highest stored version of config file for current code
+            # we have found so far
+            highest_version = highest_version_config_data.get(
                 current_config_code, {}).get('version', '0')
 
-            if current_config_ver > highest_ver:
-                # this config is higher version than stored one for same code
-                highest_ver_config_data[current_config_code] = config
+            if Version(current_config_ver) > Version(highest_version):
+                # higher version than stored one for same code => replace
+                highest_version_config_data[current_config_code] = config
 
         # build simple dict of assay_code : version
         all_assay_codes = {
             x['assay_code']: x['version']
-            for x in highest_ver_config_data.values()
+            for x in highest_version_config_data.values()
         }
 
         # get unique list of single codes from all assay codes, split on '|'
@@ -747,11 +750,11 @@ class DXManage():
             )
 
             # for this unique code, select the full assay code with the highest
-            # version this one was found in, and then select the full config
-            # file data for it
-            full_code_to_use = max(matches, key=matches.get)
+            # version this one was found in using packaging.version.parse, and
+            # then select the full config file data for it
+            full_code_to_use = max(matches, key=parse)
             configs_to_use[
-                full_code_to_use] = highest_ver_config_data[full_code_to_use]
+                full_code_to_use] = highest_version_config_data[full_code_to_use]
 
         # add to log record of highest version of each config found
         usable_configs = '\n\t'.join(

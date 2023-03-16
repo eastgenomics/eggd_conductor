@@ -91,6 +91,71 @@ class TestFilterHighestConfigVersion():
         )
 
 
+    def test_correct_versions_kept_same_assay_code(self):
+        """
+        Test that correct versions of same config file kept when comparing
+        which is higher when config files have same assay code
+        """
+        configs = [
+            {
+                'assay': 'MYE', 'assay_code': 'EGG2', 'version': '1.0.0',
+                'file_id': 'file-xxx'
+            },
+            {
+                'assay': 'MYE', 'assay_code': 'EGG2', 'version': '1.1.0',
+                'file_id': 'file-xxx'
+            },
+            {
+                'assay': 'MYE', 'assay_code': 'EGG2', 'version': '1.11.0',
+                'file_id': 'file-xxx'
+            }
+        ]
+
+        correct_output = {
+            'EGG2': {
+                'assay': 'MYE', 'assay_code': 'EGG2', 'version': '1.11.0',
+                'file_id': 'file-xxx'
+            }
+        }
+
+        filtered = DXManage.filter_highest_config_version(configs)
+
+        assert filtered == correct_output, (
+            'Wrong version of config file returned'
+        )
+
+
+    def test_correct_versions_kept_different_assay_code(self):
+        """
+        Test that correct version of config file returned when the assay codes
+        differ but one is a subset of another with a lower version (should
+        only return the higher version config)
+        """
+        configs = [
+            {
+                'assay': 'MYE', 'assay_code': 'EGG2', 'version': '1.0.0',
+                'file_id': 'file-xxx'
+            },
+            {
+                'assay': 'MYE', 'assay_code': 'EGG2|LAB123', 'version': '1.11.0',
+                'file_id': 'file-xxx'
+            }
+        ]
+
+        correct_output = {
+            'EGG2|LAB123': {
+                'assay': 'MYE', 'assay_code': 'EGG2|LAB123', 'version': '1.11.0',
+                'file_id': 'file-xxx'
+            }
+        }
+
+        filtered = DXManage.filter_highest_config_version(configs)
+
+        assert filtered == correct_output, (
+            'Wrong version of config file returned for different assay codes'
+        )
+
+
     def test_assert_raised_with_two_configs_of_same_version(self):
         """
         Tests when 2 config files with the sam version are found for a

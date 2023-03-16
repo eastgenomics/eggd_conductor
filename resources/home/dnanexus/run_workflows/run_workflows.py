@@ -14,6 +14,7 @@ from collections import defaultdict
 from xml.etree import ElementTree as ET
 import json
 import os
+from packaging.version import parse as parseVersion
 import re
 import subprocess
 
@@ -127,12 +128,13 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         for code in all_config_assay_codes:
             # find all config files that match this sample
             if re.search(code, sample, re.IGNORECASE):
-                sample_to_assay_configs[code] = configs[code]
+                sample_to_assay_configs[code] = configs[code]['version']
 
         if sample_to_assay_configs:
             # found at least one config to match to sample
             highest_ver_config = max(
-                sample_to_assay_configs, key=sample_to_assay_configs.get)
+                sample_to_assay_configs, key=parseVersion)
+
             assay_to_samples[highest_ver_config].append(sample)
         else:
             # no match found, just log this as an AssertionError will be raised

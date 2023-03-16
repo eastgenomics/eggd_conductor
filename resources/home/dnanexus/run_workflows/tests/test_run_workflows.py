@@ -90,6 +90,32 @@ class TestMatchSamplesToAssays():
             'Incorrectly matched samples to assay codes'
         )
 
+
+    def test_selected_highest_version(self):
+        """
+        Test that when matching samples to assays and multiple configs match,
+        that the config wiht highest version is used
+        """
+        configs = {
+            'EGG2|LAB123': {'assay_code': 'EGG2|LAB123', 'version': '1.0.0'},
+            'EGG2|LAB123-2': {'assay_code': 'EGG3|LAB456-2', 'version': '1.2.0'},
+            'EGG2|LAB123-3': {'assay_code': 'EGG2|LAB123-3', 'version': '1.11.0'}
+        }
+
+        # samples have EGG2 in name so will match all the configs, 1.11.0
+        # should be selected
+        matches = match_samples_to_assays(
+            configs=configs,
+            all_samples=self.single_assay_sample_list,
+            testing=False
+        )
+
+        assert list(matches.keys()) == ['EGG2|LAB123-3'], (
+            "Wrong version of config file selected when matching to samples"
+        )
+
+        
+
     def test_raise_assertion_error_on_mixed_assays(self):
         """
         Test that an AssertionError is raised when more than one assay
@@ -101,6 +127,7 @@ class TestMatchSamplesToAssays():
                 all_samples=self.mixed_assay_sample_list,
                 testing=False
             )
+
 
     def test_raise_assertion_error_on_sample_w_no_assay_code_match(self):
         """
@@ -115,12 +142,5 @@ class TestMatchSamplesToAssays():
             )
 
 
-
-
-
-
-
-
-
 if __name__=="__main__":
-    TestMatchSamplesToAssays().test_raise_assertion_error_on_sample_w_no_assay_code_match()
+    TestMatchSamplesToAssays().test_selected_highest_version()
