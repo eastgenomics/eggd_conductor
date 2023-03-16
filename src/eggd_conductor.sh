@@ -124,8 +124,8 @@ _parse_sentinel_file () {
     else
         # sample sheet missing from sentinel file, most likely due to not being
         # named correctly, download the first tar, unpack and try to find it
-        printf 'Could not find samplesheet from sentinel file.\n'
-        printf 'Finding first run tar file to get sample sheet from.\n'
+        printf '\nCould not find samplesheet from sentinel file.\n'
+        printf '\nFinding first run tar file to try get sample sheet from...\n'
 
         # first tar always named _000.tar.gz, return id of it to download
         local first_tar_id=$(dx find data --path "$sentinel_path" --brief --name "*_000.tar.gz")
@@ -138,10 +138,13 @@ _parse_sentinel_file () {
 
         if [ -z "$local_samplesheet" ]; then
             # sample sheet missing from root and first tar
-            message="Sample sheet missing from runs dir and first tar, exiting now."
-            dx-jobutil-report-error "$message"
+            message=":warning: *Error - eggd_conductor*%0A%0A"
+            message+="No samplesheet could be found for run *${RUN_ID}* from the app input, "
+            message+="associated to the sentinel record or in the run data. Please rerun this "
+            message+="job and provide a samplesheet with \`-iSAMPLESHEET\`.%0A%0A"
+            message+="eggd_conductor job: ${conductor_job_url}"
             _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
-            exit 1
+            dx-jobutil-report-error "No samplesheet found for analysis."
         else
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
@@ -215,6 +218,11 @@ main () {
 
     python3 -m pip install -q --no-index --no-deps  packages/*
 
+    # link to current running job
+    conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
+    conductor_job_url+="/monitor/job/${PARENT_JOB_ID/job-/}"
+    export conductor_job_url
+
     if [ -z "${upload_sentinel_record+x}" ] && [ -z "${FASTQS+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
@@ -242,10 +250,6 @@ main () {
     fi
 
     # send a message to logs so we know something is starting
-    conductor_job_url="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
-    conductor_job_url+="/monitor/job/${PARENT_JOB_ID/job-/}"
-    export conductor_job_url
-
     message=":gear: eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
     message+="${conductor_job_url}"
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
