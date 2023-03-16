@@ -9,6 +9,7 @@ import json
 import os
 from pprint import PrettyPrinter
 import re
+from typing import Union
 
 import dxpy as dx
 
@@ -592,17 +593,15 @@ class DXManage():
 
     def get_json_configs(self) -> dict:
         """
-        Query path in DNAnexus for json config files fo each assay, returning
-        highest version available for each assay code.
+        Query path in DNAnexus for json config files for each assay, returning
+        full data for all unarchived config files found
 
         ASSAY_CONFIG_PATH comes from the app config file sourced to the env.
 
         Returns
         -------
-        dict
-            dict of assay_code: config file contents
-        dict
-            dict of assay_code: DNAnexus file ID
+        list
+            list of dicts of the json object for each config file found
 
         Raises
         ------
@@ -610,8 +609,6 @@ class DXManage():
             Raised when invalid project:path structure defined in app config
         AssertionError
             Raised when no config files found at the given path
-        AssertionError
-            Raised when config file has missing assay_code or version field
         """
         config_path = os.environ.get('ASSAY_CONFIG_PATH', '')
 
@@ -628,54 +625,143 @@ class DXManage():
             name="*.json",
             name_mode='glob',
             project=project,
-            folder=path
+            folder=path,
+            describe=True
         ))
-
-        log.info(f"File IDs of JSON files found: {files}")
 
         # sense check we find config files
         assert files, Slack().send(
             f"No config files found in given path: {project}:{path}")
 
-        all_configs = {}
-        all_config_file_ids = {}  # dict to store file ids of configs to use
+        files_ids='\n\t'.join([
+            f"{x['describe']['name']} ({x['id']} - "
+            f"{x['describe']['archivalState']})" for x in files])
+        log.info(f"Assay config files found:\n\t{files_ids}")
 
+        all_configs = []
         for file in files:
-            current_config = json.loads(
-                dx.bindings.dxfile.DXFile(
-                    project=file['project'], dxid=file['id']).read())
+            if file['describe']['archivalState'] == 'live':
+                config_data = json.loads(
+                    dx.bindings.dxfile.DXFile(
+                        project=file['project'], dxid=file['id']).read())
 
-            assay_code = current_config.get('assay_code')
-            current_version = current_config.get('version')
+                # add file ID as field into the config file
+                config_data['file_id'] = file['id']
+                all_configs.append(config_data)
+            else:
+                log.info(
+                    "Config file not in live state - will not be used:"
+                    f"{file['describe']['name']} ({file['id']}"
+                )
 
-            # more sense checking there's an assay and version
-            assert assay_code, Slack().send(
-                f"No assay code found in config file: {file}")
-            assert current_version, Slack().send(
-                f"No version found in config file: {file}")
+        return all_configs
 
-            if all_configs.get(assay_code):
-                # config for assay already found, check version if newer
-                present_version = all_configs.get(assay_code).get('version')
-                if present_version > current_version:
-                    continue
 
-            # add config to dict if not already present or newer one found
-            all_configs[assay_code] = current_config
-            all_config_file_ids[assay_code] = file['id']
+    @staticmethod
+    def filter_highest_config_version(all_configs) -> dict:
+        """
+        Filters all configs found from get_json_configs() to retain highest
+        version for each assay code to use for analysis.
 
-        log.info(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
+        Assay codes are expected to be either a single code in the 'assay_code'
+        field in the config file, or a '|' seperated string of multiple.
 
-        # add to logs the file IDs of each assay config found, will log as:
-        # EGG2 (v1.2.0): file-abc
-        # EGG3 (v1.3.0): file xyz
+        This keeps the highest version of each assay code, factoring in where
+        one assay code may be a subset of another with a higher version, and
+        only keeping the latter, i.e.
+        {'EGG2': 1.0.0, 'EGG2|LAB123': 1.1.0} -> {'EGG2|LAB123': 1.1.0}
+
+
+        Parameters
+        ----------
+        all_configs : list
+            list of dicts of the json object for each config file
+            found, returned from get_json_configs()
+
+        Returns
+        -------
+        dict
+            mapping of assay_code to full config data for the highest
+            version config file for each assay_code
+
+        Raises
+        ------
+        AssertionError
+            Raised when config file has missing assay_code or version field
+        
+        """
+        # filter all config files to just get full config data for the
+        # highest version of each full assay code
+        highest_ver_config_data = {}
+        for config in all_configs:
+            current_config_code = config.get('assay_code')
+            current_config_ver = config.get('version')
+
+            # sense check config file has code and version fields
+            assert current_config_code and current_config_ver, Slack().send(
+                f"Config file missing assay_code and/or version field!"
+                f"File ID: {config['file_id']}"
+            )
+
+            highest_ver = highest_ver_config_data.get(
+                current_config_code, {}).get('version', '0')
+
+            if current_config_ver > highest_ver:
+                # this config is higher version than stored one for same code
+                highest_ver_config_data[current_config_code] = config
+
+        # build simple dict of assay_code : version
+        all_assay_codes = {
+            x['assay_code']: x['version']
+            for x in highest_ver_config_data.values()
+        }
+
+        # get unique list of single codes from all assay codes, split on '|'
+        # i.e. ['EGG1', 'EGG2', 'EGG2|LAB123'] -> ['EGG1', 'EGG2', 'LAB123']
+        uniq_codes = [
+            x.split('|') for x in all_assay_codes.keys()]
+        uniq_codes = list(set([
+            code for split_codes in uniq_codes for code in split_codes]))
+
+        # final dict of config files to use as assay_code : config data
+        configs_to_use = {}
+
+        # for each single assay code, find the highest version config file
+        # that code is present in (i.e. {'EGG2': 1.0.0, 'EGG2|LAB123': 1.1.0}
+        # would result in EGG2 -> {'EGG2|LAB123': 1.1.0})
+        for uniq_code in uniq_codes:
+            matches = {}
+            for full_code in all_assay_codes.keys():
+                if uniq_code in full_code.split('|'):
+                    # this single assay code is in the full assay code
+                    # parsed from config, add match as 'assay_code': 'version'
+                    matches[full_code] =  all_assay_codes[full_code]
+
+            # check we don't have 2 matches with the same version as we
+            # can't tell which to use, i.e. EGG2 : 1.0.0 & EGG2|LAB123 : 1.0.0
+            assert sorted(list(matches.values())) == \
+                sorted(list(set(matches.values()))), Slack().send(
+                f"More than one version of config file found for a single "
+                f"assay code!\n\t{matches}"
+            )
+
+            # for this unique code, select the full assay code with the highest
+            # version this one was found in, and then select the full config
+            # file data for it
+            full_code_to_use = max(matches, key=matches.get)
+            configs_to_use[
+                full_code_to_use] = highest_ver_config_data[full_code_to_use]
+
+        # add to log record of highest version of each config found
         versions_files = '\n'.join(
-            [f"{k}: {v}" for k, v in all_config_file_ids.items()])
+            [f"{k} ({v['version']}): {v['file_id']}"
+            for k, v in configs_to_use.items()]
+        )
         log.info(
-            f"File IDs of assay configs found to use: {versions_files}"
+            f"Assay configs found to use: {versions_files}"
         )
 
-        return all_configs, all_config_file_ids
+        return configs_to_use
 
 
     def find_dx_project(self, project_name) -> str:

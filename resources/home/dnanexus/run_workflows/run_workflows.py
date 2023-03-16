@@ -119,10 +119,17 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     log.info(f'All assay codes of config files: {all_config_assay_codes}')
     log.info(f'All samples parsed from samplesheet: {all_samples}')
 
-    for code in all_config_assay_codes:
-        for sample in all_samples:
+    for sample in all_samples:
+        sample_to_assay_configs = {}
+        for code in all_config_assay_codes:
+            # find all config files that match this sample
             if re.search(code, sample, re.IGNORECASE):
-                assay_to_samples[code].append(sample)
+                sample_to_assay_configs[code] = configs[code]
+
+        # select config file with highest version for given samples code
+        highest_ver_config = max(
+            sample_to_assay_configs, key=sample_to_assay_configs.get)
+        assay_to_samples[highest_ver_config].append(sample)
 
     if not testing:
         # check all samples have an assay code in one of the configs
@@ -319,7 +326,9 @@ def main():
         sample_list = args.samples.copy()
     else:
         # get all json assay configs from path in conductor config
-        config_data, config_file_ids = DXManage(args).get_json_configs()
+        config_data = DXManage(args).get_json_configs()
+        config_data = DXManage.filter_highest_config_version(config_data)
+
         assay_to_samples = match_samples_to_assays(
             configs=config_data,
             all_samples=args.samples,
@@ -332,14 +341,13 @@ def main():
         # where more than one assay is present from the sample names
         assay_code = next(iter(assay_to_samples))
         config = config_data[assay_code]
-        config_file_id = config_file_ids[assay_code]
         sample_list = assay_to_samples[assay_code]
 
         # add the file ID of assay config file used as job output, this
         # is to make it easier to audit what configs were used for analysis
         subprocess.run(
             "dx-jobutil-add-output assay_config_file_id "
-            f"{config_file_id} --class=file",
+            f"{config_data[assay_code]['file_id']} --class=file",
             shell=True, check=False
         )
 
