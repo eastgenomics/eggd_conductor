@@ -117,8 +117,10 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     assay_to_samples = defaultdict(list)
 
     log.info(f'All assay codes of config files: {all_config_assay_codes}')
-    log.info(f'All samples parsed from samplesheet: {all_samples}')
+    log.info(f'All samples parsed from samplesheet: {all_samples}')  
 
+    # for each sample check each assay code if it matches, then select the
+    # matching config with highest versiuon
     for sample in all_samples:
         sample_to_assay_configs = {}
         for code in all_config_assay_codes:
@@ -126,10 +128,18 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             if re.search(code, sample, re.IGNORECASE):
                 sample_to_assay_configs[code] = configs[code]
 
-        # select config file with highest version for given samples code
-        highest_ver_config = max(
-            sample_to_assay_configs, key=sample_to_assay_configs.get)
-        assay_to_samples[highest_ver_config].append(sample)
+        if sample_to_assay_configs:
+            # found at least one config to match to sample
+            highest_ver_config = max(
+                sample_to_assay_configs, key=sample_to_assay_configs.get)
+            assay_to_samples[highest_ver_config].append(sample)
+        else:
+            # no match found, just log this as an AssertionError will be raised
+            # below for all samples that don't have a match
+            log.error(
+                f"No matching config file found for {sample}!\nConfigs found "
+                f"for the following assay codes: {all_config_assay_codes}"
+            )
 
     if not testing:
         # check all samples have an assay code in one of the configs

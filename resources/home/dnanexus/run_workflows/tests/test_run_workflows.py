@@ -52,11 +52,11 @@ class TestMatchSamplesToAssays():
     # minimal example of dict of configs that would be returned from
     # DXManage.get_json_configs() and DXManage.filter_highest_config_version()
     configs = {
-        'EGG2|LAB123': {'assay_code': 'EGG2|LAB123'},
-        'EGG3|LAB456': {'assay_code': 'EGG3|LAB456'},
-        'EGG4': {'assay_code': 'EGG4'},
-        'EGG5': {'assay_code': 'EGG5'},
-        'EGG6': {'assay_code': 'EGG6'},
+        'EGG2|LAB123': {'assay_code': 'EGG2|LAB123', 'version': '1.2.0'},
+        'EGG3|LAB456': {'assay_code': 'EGG3|LAB456', 'version': '1.1.0'},
+        'EGG4': {'assay_code': 'EGG4', 'version': '1.0.1'},
+        'EGG5': {'assay_code': 'EGG5', 'version': '1.1.1'},
+        'EGG6': {'assay_code': 'EGG6', 'version': '1.2.1'},
     }
 
     # test lists of samples as would be parsed from samplesheet
