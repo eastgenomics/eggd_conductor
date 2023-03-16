@@ -17,8 +17,8 @@ class TestFilterHighestConfigVersion():
     # Minimal test data structure of list of config files returned
     # from DXManage.get_json_configs(), including only assay, assay_code,
     # version and file_id that are required for filtering them down.
-    # Each dict in the list will be the full JSON response from reading
-    # the dx file object
+    # Each dict in the list would normally be the full JSON response
+    # from reading the dx file object
     all_config_files = [
         {
             'assay': 'MYE', 'assay_code': 'EGG2', 'version': '1.0.0',
@@ -61,10 +61,12 @@ class TestFilterHighestConfigVersion():
             - EGG5 -> 1.1.0
         
         Rationale of each single code matching:
-            - EGG2      ->  matches in EGG2|LAB123 (1.2.0)
-            - EGG5      ->  matches in EGG5 (1.1.0)
-            - LAB123    ->  matches in LAB123|LAB456 (1.3.0)
-            - LAB456    ->  matches in LAB123|LAB456 (1.3.0)
+            - subset of unique individual codes: EGG2, EGG5, LAB123 & LAB456
+            - matches for each:
+                - EGG2      ->  matches in EGG2|LAB123 (1.2.0)
+                - EGG5      ->  matches in EGG5 (1.1.0)
+                - LAB123    ->  matches in LAB123|LAB456 (1.3.0)
+                - LAB456    ->  matches in LAB123|LAB456 (1.3.0)
         """
         correct_configs = {
             'EGG2|LAB123': {
