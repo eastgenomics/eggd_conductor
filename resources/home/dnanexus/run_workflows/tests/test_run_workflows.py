@@ -50,15 +50,16 @@ class TestMatchSamplesToAssays():
     Tests for match_samples_to_assays()
     """
     # minimal example of dict of configs that would be returned from
-    # DXManage.get_json_configs()
+    # DXManage.get_json_configs() and DXManage.filter_highest_config_version()
     configs = {
-        'EGG2': {'assay_code': 'EGG2'},
-        'EGG3': {'assay_code': 'EGG3'},
+        'EGG2|LAB123': {'assay_code': 'EGG2|LAB123'},
+        'EGG3|LAB456': {'assay_code': 'EGG3|LAB456'},
         'EGG4': {'assay_code': 'EGG4'},
         'EGG5': {'assay_code': 'EGG5'},
         'EGG6': {'assay_code': 'EGG6'},
     }
 
+    # test lists of samples as would be parsed from samplesheet
     single_assay_sample_list = [f'sample{x}-EGG2' for x in range(1,11)]
     mixed_assay_sample_list = single_assay_sample_list + ['sample11-EGG3']
     sample_list_w_no_code = single_assay_sample_list + ['sample11']
@@ -76,7 +77,7 @@ class TestMatchSamplesToAssays():
         )
 
         correct_output = {
-            'EGG2': [
+            'EGG2|LAB123': [
                 'sample1-EGG2', 'sample2-EGG2',
                 'sample3-EGG2', 'sample4-EGG2',
                 'sample5-EGG2', 'sample6-EGG2',
