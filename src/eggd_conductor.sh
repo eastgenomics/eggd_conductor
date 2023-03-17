@@ -279,6 +279,7 @@ main () {
     if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
+    if [ "$MISMATCH_ALLOWANCE" ]; then optional_args+="--mismatch_allowance ${MISMATCH_ALLOWANCE} "; fi
 
     echo $optional_args
 

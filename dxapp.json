@@ -96,6 +96,13 @@
       "help": "Perform samplesheet validation and exit on invalid sheet"
     },
     {
+      "name": "MISMATCH_ALLOWANCE",
+      "label": "mismatch allowance",
+      "class": "int",
+      "default": 1,
+      "help": "no. of samples allowed to not match to any assay code and use the assay code of other samples"
+    },
+    {
       "name": "DEVELOPMENT",
       "label": "development",
       "class": "boolean",

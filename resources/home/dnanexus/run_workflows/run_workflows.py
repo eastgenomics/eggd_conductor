@@ -85,7 +85,7 @@ def parse_run_info_xml(xml_file) -> str:
     return run_id
 
 
-def match_samples_to_assays(configs, all_samples, testing) -> dict:
+def match_samples_to_assays(configs, all_samples, testing, mismatch=0) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
@@ -98,6 +98,10 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         list of samples parsed from samplesheet or specified with --samples
     testing : bool
         if running in test mode, if not will perform checks on samples
+    mismatch : int
+        number of samples allowed to not match to a given assay code, if the
+        total samples not matching an assay code if up to the given mismatch
+        these will use the same assay config as all other samples
 
     Returns
     -------
@@ -139,27 +143,57 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         else:
             # no match found, just log this as an AssertionError will be raised
             # below for all samples that don't have a match
-            log.error(
-                f"No matching config file found for {sample}!\nConfigs found "
-                f"for the following assay codes: {all_config_assay_codes}"
-            )
+            log.error(f"No matching config file found for {sample} !\n")
 
     if not testing:
+        # check all samples are for the same assay, don't handle mixed runs for now
+        assert len(assay_to_samples.keys()) == 1, Slack().send(
+            f"more than one assay found in given sample list: {assay_to_samples}"
+        )
+
         # check all samples have an assay code in one of the configs
         samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
+
+        if mismatch:
+            if (
+                sorted(all_samples) != sorted(samples_w_codes)
+            ) and (
+                (len(all_samples) - len(samples_w_codes)) <= int(mismatch)
+            ):
+                # not all samples matched a code and the total not matching
+                # is less than we allow => force the mismatch to use code
+                sample_not_match = set(all_samples) - set(samples_w_codes)
+                assay_code = next(iter(assay_to_samples))
+
+                log.info(
+                    f"Not all samples matched assay codes!\nSamples not "
+                    f"matching: {sample_not_match}\nTotal samples not "
+                    f"matching is less than mismatch limit allowed of "
+                    f"{mismatch}, therefore analysis will continue using "
+                    f"assay code of other samples ({assay_code})."
+                )
+
+                # add in sample(s) to the assay code match
+                assay_to_samples[assay_code].extend(sample_not_match)
+                samples_w_codes.extend(sample_not_match)
+
         samples_without_codes = '\n\t\t'.join([
             f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
         ])
+
         assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
             f"Could not identify assay code for all samples!\n\n"
             f"Configs for assay codes found: "
             f"`{', '.join(all_config_assay_codes)}`\n\nSamples not matching "
             f"any available config:\n\t\t{samples_without_codes}"
         )
-
-        # check all samples are for the same assay, don't handle mixed runs for now
-        assert len(assay_to_samples.keys()) == 1, Slack().send(
-            f"more than one assay found in given sample list: {assay_to_samples}"
+    else:
+        # running in testing mode, check we found at least one sample to config
+        # to actually run. We expect that not all samples may match since if
+        # TESTING_SAMPLE_LIMIT is specified then only a subset of samples
+        # will be in this dict
+        assert assay_to_samples, Slack().send(
+            "No samples matched to available config files for testing"
         )
 
     log.info(f"\nTotal samples per assay identified: {assay_to_samples}")
@@ -302,6 +336,13 @@ def parse_args() -> argparse.Namespace:
             'specifing file-id of fastq and sample name'
         )
     )
+    parser.add_argument(
+        '--mismatch_allowance', type=int,
+        help=(
+            "no. of samples allowed to not match to any assay code and use "
+            "the assay code of other samples (default: 1, set in dxapp.json)"
+        )
+    )
 
     args = parser.parse_args()
 
@@ -345,7 +386,8 @@ def main():
         assay_to_samples = match_samples_to_assays(
             configs=config_data,
             all_samples=args.samples,
-            testing=args.testing
+            testing=args.testing,
+            mismatch=args.mismatch_allowance
         )
 
         # select config to use by assay code from all samples
