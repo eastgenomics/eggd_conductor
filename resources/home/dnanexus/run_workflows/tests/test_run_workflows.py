@@ -73,7 +73,8 @@ class TestMatchSamplesToAssays():
         assay_samples = match_samples_to_assays(
             configs=self.configs,
             all_samples=self.single_assay_sample_list,
-            testing=False
+            testing=False,
+            mismatch=0
         )
 
         correct_output = {
@@ -107,7 +108,8 @@ class TestMatchSamplesToAssays():
         matches = match_samples_to_assays(
             configs=configs,
             all_samples=self.single_assay_sample_list,
-            testing=False
+            testing=False,
+            mismatch=0
         )
 
         assert list(matches.keys()) == ['EGG2|LAB123-3'], (
@@ -134,7 +136,8 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=sample_list,
-                testing=False
+                testing=False,
+                mismatch=0
             )
 
 
@@ -189,7 +192,8 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=sample_list,
-                testing=False
+                testing=False,
+                mismatch=1
             )
 
 
@@ -202,7 +206,8 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=self.mixed_assay_sample_list,
-                testing=False
+                testing=False,
+                mismatch=0
             )
 
 
@@ -215,7 +220,8 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=self.sample_list_w_no_code,
-                testing=False
+                testing=False,
+                mismatch=0
             )
 
 
