@@ -85,7 +85,7 @@ def parse_run_info_xml(xml_file) -> str:
     return run_id
 
 
-def match_samples_to_assays(configs, all_samples, testing, mismatch=0) -> dict:
+def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
