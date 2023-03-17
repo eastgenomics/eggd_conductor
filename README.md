@@ -51,7 +51,7 @@ As the config file is a JSON, several fields may be added to enhance readability
 **Required keys in the top level of the config include**:
 
 - `assay` (str): identifier of the assay the config is for (i.e. MYE, TSO500), will be used to name output directory, must be the same between versions for the same `assay_code`
-- `assay_code` (str): code used to parse from samplename to determine if the config is for the given sample. At EGLH, the prefix EGG[0-9] is used in the samplename to indicate its assay (i.e. EGG2 -> myeloid sample). The assay codes from all found config files are used to determine which configs to use for which samples.
+- `assay_code` (str): code(s) used to match against sample name to determine if the config is for the given sample. At runtime, all configs are pulled from `ASSAY_CONFIG_PATH` in DNAnexus, and the highest version for each code present is determined and kept to use for analysis. These assay codes are then used to match against sample names to determine which config file to use for analysis based on the presence of the code in the sample name. Multiple codes may be defined for one assay by seperating with a `|` (i.e. `'assay_code': 'LAB123|LAB456'`). This allows where a single config should be used for different codes, and handles having samples on a run with mixed codes but requiring the sample analysis.
 - `version` (str): version of config file using semantic versioning (i.e. `1.0.0`). At run time all configs for a given `assay_code` are checked, and the highest version for each used.
 - `demultiplex` (boolean): if true, run demultiplexing to generate fastqs
 - `users` (dict): DNAnexus users to add to output project and access level to be granted, valid permission levels may be found [here]( project-permissions).

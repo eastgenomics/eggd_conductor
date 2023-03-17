@@ -281,8 +281,8 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
-        log.info('Adding other inputs')
-        log.info('Input dict passed to check:')
+        log.info('\nAdding other inputs')
+        log.info('\nInput dict passed to check:')
         log.info(PPRINT(input_dict))
 
         # first checking if any INPUT- in dict to fill
@@ -296,7 +296,7 @@ class ManageDict():
         if not other_inputs:
             return input_dict
         else:
-            log.info(f'Other inputs found to replace: {other_inputs}')
+            log.info(f'\nOther inputs found to replace: {other_inputs}')
 
         # removing /output/ for now to fit to MultiQC
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
@@ -334,7 +334,7 @@ class ManageDict():
         out_dirs = [re.search(regex, x) for x in other_inputs]
         out_dirs = [x.group(0) for x in out_dirs if x]
 
-        log.info(f'Out dirs found to replace: {out_dirs}')
+        log.info(f'\nOut dirs found to replace: {out_dirs}')
 
         for dir in out_dirs:
             # find the output directory for the given analysis
@@ -357,7 +357,7 @@ class ManageDict():
                 replace_key=False
             )
 
-        log.info('Input dict after adding other inputs:')
+        log.info('\nInput dict after adding other inputs:')
         log.info(PPRINT(input_dict))
 
         return input_dict
@@ -438,7 +438,7 @@ class ManageDict():
                         # found ID in per run jobs dict => wait on completing
                         dependent_jobs.append(job)
 
-        log.info(f'Dependent jobs found: {dependent_jobs}')
+        log.info(f'\nDependent jobs found: {dependent_jobs}')
 
         return dependent_jobs
 
@@ -482,7 +482,7 @@ class ManageDict():
         ValueError
             No job id found for given analysis stage from `job_outputs_dict`
         """
-        log.info("Searching input dict for inputs to link to outputs")
+        log.info("\nSearching input dict for inputs to link to outputs")
         log.info("Input dict before:")
         log.info(PPRINT(input_dict))
 
@@ -501,7 +501,7 @@ class ManageDict():
                     'input) that should have been parsed earlier. Check '
                     f'config and try again. Input dict given: {input_dict}'
                 ))
-            log.info(f"Output dict for sample {sample}:")
+            log.info(f"\nOutput dict for sample {sample}:")
             log.info(PPRINT(job_outputs_dict))
 
         # check if input dict has any analysis_X => need to link a previous job
@@ -512,7 +512,7 @@ class ManageDict():
             return_key=False
         )
 
-        log.info(f"Found analyses to replace: {all_analysis_ids}")
+        log.info(f"\nFound analyses to replace: {all_analysis_ids}")
 
         log.info("Input dictionary before modifying")
         log.info(PPRINT(input_dict))
@@ -559,7 +559,7 @@ class ManageDict():
                 # current executable is running on all samples => need to
                 # gather all previous jobs for all samples and build input
                 # array structure
-                log.info("Job outputs dict to search")
+                log.info("\nJob outputs dict to search")
                 log.info(PPRINT(job_outputs_dict))
 
                 job_ids = self.search(
@@ -577,7 +577,7 @@ class ManageDict():
                         "same analysis as a previous job in the config"
                     ))
 
-                log.info(f"Found job IDs to link as inputs: {job_ids}")
+                log.info(f"\nFound job IDs to link as inputs: {job_ids}")
 
                 # for each input, first check if given analysis_X is present
                 # => need to link job IDs to the input. If true, turn that
@@ -653,7 +653,7 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
-        log.info(f"Populating output dict for {executable}, dict before:")
+        log.info(f"\nPopulating output dict for {executable}, dict before:")
 
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
@@ -675,7 +675,7 @@ class ManageDict():
 
             output_dict[stage] = dir
 
-        log.info(f'Output dict for {executable}:')
+        log.info(f'\nOutput dict for {executable}:')
         log.info(PPRINT(output_dict))
 
         return output_dict
@@ -713,7 +713,7 @@ class ManageDict():
         log.info(f'\nFiltering job outputs dict by sample name patterns for {stage}')
         log.info('\nJob outputs dict before filtering:')
         log.info(PPRINT(outputs_dict))
-        log.info('Filter dict:')
+        log.info('\nFilter dict:')
         log.info(PPRINT(filter_dict))
 
         new_outputs = {}
@@ -730,13 +730,13 @@ class ManageDict():
 
         if not stage_match:
             # stage has no filters to apply => just return the outputs dict
-            log.info(f'No filters to apply for stage: {stage}')
+            log.info(f'\nNo filters to apply for stage: {stage}')
             return outputs_dict
         else:
             # there was a filter for given stage to apply, if no
             # matches were found against the given pattern(s) this
             # will be an empty dict
-            log.info('Job outputs dict after filtering')
+            log.info('\nJob outputs dict after filtering')
             log.info(PPRINT(new_outputs))
 
             return new_outputs
@@ -771,7 +771,7 @@ class ManageDict():
             Raised when an input is non-optional and an empty list has been
             passed
         """
-        log.info("Checking input classes are valid")
+        log.info("\nChecking input classes are valid")
         log.info(PPRINT(input_dict))
         input_dict_copy = deepcopy(input_dict)
 

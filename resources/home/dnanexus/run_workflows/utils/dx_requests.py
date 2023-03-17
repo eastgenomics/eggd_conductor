@@ -7,6 +7,7 @@ from copy import deepcopy
 from datetime import datetime
 import json
 import os
+from packaging.version import Version, parse
 from pprint import PrettyPrinter
 import re
 
@@ -99,7 +100,7 @@ class DXExecute():
             if match:
                 inputs['sample_sheet'] = {'$dnanexus_link': match.group()}
 
-        log.info(f"Inputs set for running demultiplexing: {inputs}")
+        log.info(f"\nInputs set for running demultiplexing: {inputs}")
 
         # check no fastqs are already present in the output directory for
         # demultiplexing, exit if any present to prevent making a mess
@@ -264,7 +265,7 @@ class DXExecute():
         RuntimeError
             Raised when workflow-, app- or applet- not present in exe name
         """
-        log.info(f"Populated input dict for: {executable}")
+        log.info(f"\nPopulated input dict for: {executable}")
         log.info(PPRINT(input_dict))
 
         if 'workflow-' in executable:
@@ -443,12 +444,12 @@ class DXExecute():
 
         # call dx run to start jobs
         log.info(
-            f"Calling {params['executable_name']} ({executable}) "
+            f"\nCalling {params['executable_name']} ({executable}) "
             f"on sample {sample}"
             )
 
         if input_dict.keys:
-            log.info(f'Input dict: {log.info(PPRINT(input_dict))}')
+            log.info(f'\nInput dict: {log.info(PPRINT(input_dict))}')
 
         job_id = self.call_dx_run(
             executable=executable,
@@ -566,7 +567,7 @@ class DXExecute():
         )
 
         # passing all samples to workflow
-        log.info(f'Calling {params["name"]} for all samples')
+        log.info(f'\nCalling {params["name"]} for all samples')
         job_id = self.call_dx_run(
             executable=executable,
             job_name=params['executable_name'],
@@ -592,17 +593,15 @@ class DXManage():
 
     def get_json_configs(self) -> dict:
         """
-        Query path in DNAnexus for json config files fo each assay, returning
-        highest version available for each assay code.
+        Query path in DNAnexus for json config files for each assay, returning
+        full data for all unarchived config files found
 
         ASSAY_CONFIG_PATH comes from the app config file sourced to the env.
 
         Returns
         -------
-        dict
-            dict of assay_code: config file contents
-        dict
-            dict of assay_code: DNAnexus file ID
+        list
+            list of dicts of the json object for each config file found
 
         Raises
         ------
@@ -610,8 +609,6 @@ class DXManage():
             Raised when invalid project:path structure defined in app config
         AssertionError
             Raised when no config files found at the given path
-        AssertionError
-            Raised when config file has missing assay_code or version field
         """
         config_path = os.environ.get('ASSAY_CONFIG_PATH', '')
 
@@ -620,7 +617,7 @@ class DXManage():
             f'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
         )
 
-        log.info(f"Searching following path for assay configs: {config_path}")
+        log.info(f"\nSearching following path for assay configs: {config_path}")
 
         project, path = config_path.split(':')
 
@@ -628,54 +625,149 @@ class DXManage():
             name="*.json",
             name_mode='glob',
             project=project,
-            folder=path
+            folder=path,
+            describe=True
         ))
-
-        log.info(f"File IDs of JSON files found: {files}")
 
         # sense check we find config files
         assert files, Slack().send(
             f"No config files found in given path: {project}:{path}")
 
-        all_configs = {}
-        all_config_file_ids = {}  # dict to store file ids of configs to use
+        files_ids='\n\t'.join([
+            f"{x['describe']['name']} ({x['id']} - "
+            f"{x['describe']['archivalState']})" for x in files])
+        log.info(f"\nAssay config files found:\n\t{files_ids}")
 
+        all_configs = []
         for file in files:
-            current_config = json.loads(
-                dx.bindings.dxfile.DXFile(
-                    project=file['project'], dxid=file['id']).read())
+            if file['describe']['archivalState'] == 'live':
+                config_data = json.loads(
+                    dx.bindings.dxfile.DXFile(
+                        project=file['project'], dxid=file['id']).read())
 
-            assay_code = current_config.get('assay_code')
-            current_version = current_config.get('version')
+                # add file ID as field into the config file
+                config_data['file_id'] = file['id']
+                all_configs.append(config_data)
+            else:
+                log.info(
+                    "Config file not in live state - will not be used:"
+                    f"{file['describe']['name']} ({file['id']}"
+                )
 
-            # more sense checking there's an assay and version
-            assert assay_code, Slack().send(
-                f"No assay code found in config file: {file}")
-            assert current_version, Slack().send(
-                f"No version found in config file: {file}")
+        return all_configs
 
-            if all_configs.get(assay_code):
-                # config for assay already found, check version if newer
-                present_version = all_configs.get(assay_code).get('version')
-                if present_version > current_version:
-                    continue
 
-            # add config to dict if not already present or newer one found
-            all_configs[assay_code] = current_config
-            all_config_file_ids[assay_code] = file['id']
+    @staticmethod
+    def filter_highest_config_version(all_configs) -> dict:
+        """
+        Filters all configs found from get_json_configs() to retain highest
+        version for each assay code to use for analysis.
 
-        log.info(f"Found config files for assays: {', '.join(sorted(all_configs.keys()))}")
+        Assay codes are expected to be either a single code in the 'assay_code'
+        field in the config file, or a '|' seperated string of multiple.
 
-        # add to logs the file IDs of each assay config found, will log as:
-        # EGG2 (v1.2.0): file-abc
-        # EGG3 (v1.3.0): file xyz
-        versions_files = '\n'.join(
-            [f"{k}: {v}" for k, v in all_config_file_ids.items()])
-        log.info(
-            f"File IDs of assay configs found to use: {versions_files}"
+        This keeps the highest version of each assay code, factoring in where
+        one assay code may be a subset of another with a higher version, and
+        only keeping the latter, i.e.
+        {'EGG2': 1.0.0, 'EGG2|LAB123': 1.1.0} -> {'EGG2|LAB123': 1.1.0}
+
+
+        Parameters
+        ----------
+        all_configs : list
+            list of dicts of the json object for each config file
+            found, returned from get_json_configs()
+
+        Returns
+        -------
+        dict
+            mapping of assay_code to full config data for the highest
+            version config file for each assay_code
+
+        Raises
+        ------
+        AssertionError
+            Raised when config file has missing assay_code or version field
+        
+        """
+        # filter all config files to just get full config data for the
+        # highest version of each full assay code
+        log.info("\nFiltering config files from DNAnexus for highest versions")
+        highest_version_config_data = {}
+
+        for config in all_configs:
+            current_config_code = config.get('assay_code')
+            current_config_ver = config.get('version')
+
+            # sense check config file has code and version fields
+            assert current_config_code and current_config_ver, Slack().send(
+                f"Config file missing assay_code and/or version field!"
+                f"File ID: {config['file_id']}"
+            )
+
+            # get highest stored version of config file for current code
+            # we have found so far
+            highest_version = highest_version_config_data.get(
+                current_config_code, {}).get('version', '0')
+
+            if Version(current_config_ver) > Version(highest_version):
+                # higher version than stored one for same code => replace
+                highest_version_config_data[current_config_code] = config
+
+        # build simple dict of assay_code : version
+        all_assay_codes = {
+            x['assay_code']: x['version']
+            for x in highest_version_config_data.values()
+        }
+
+        # get unique list of single codes from all assay codes, split on '|'
+        # i.e. ['EGG1', 'EGG2', 'EGG2|LAB123'] -> ['EGG1', 'EGG2', 'LAB123']
+        uniq_codes = [
+            x.split('|') for x in all_assay_codes.keys()]
+        uniq_codes = list(set([
+            code for split_codes in uniq_codes for code in split_codes]))
+
+        # final dict of config files to use as assay_code : config data
+        configs_to_use = {}
+
+        # for each single assay code, find the highest version config file
+        # that code is present in (i.e. {'EGG2': 1.0.0, 'EGG2|LAB123': 1.1.0}
+        # would result in EGG2 -> {'EGG2|LAB123': 1.1.0})
+        for uniq_code in uniq_codes:
+            matches = {}
+            for full_code in all_assay_codes.keys():
+                if uniq_code in full_code.split('|'):
+                    # this single assay code is in the full assay code
+                    # parsed from config, add match as 'assay_code': 'version'
+                    matches[full_code] =  all_assay_codes[full_code]
+
+            # check we don't have 2 matches with the same version as we
+            # can't tell which to use, i.e. EGG2 : 1.0.0 & EGG2|LAB123 : 1.0.0
+            assert sorted(list(matches.values())) == \
+                sorted(list(set(matches.values()))), Slack().send(
+                f"More than one version of config file found for a single "
+                f"assay code!\n\t{matches}"
+            )
+
+            # for this unique code, select the full assay code with the highest
+            # version this one was found in using packaging.version.parse, and
+            # then select the full config file data for it
+            full_code_to_use = max(matches, key=parse)
+            configs_to_use[
+                full_code_to_use] = highest_version_config_data[full_code_to_use]
+
+        # add to log record of highest version of each config found
+        usable_configs = '\n\t'.join(
+            [f"{k} ({v['version']}): {v['file_id']}"
+            for k, v in configs_to_use.items()]
         )
 
-        return all_configs, all_config_file_ids
+        log.info(
+            "\nHighest versions of assay configs found to use:"
+            f"\n\t{usable_configs}\n"
+        )
+
+        return configs_to_use
 
 
     def find_dx_project(self, project_name) -> str:
@@ -758,10 +850,10 @@ class DXManage():
                 )
             )
             log.info(
-                f'Created new project for output: {output_project} ({project_id})'
+                f'\nCreated new project for output: {output_project} ({project_id})'
             )
         else:
-            log.info(f'Using existing found project: {output_project} ({project_id})')
+            log.info(f'\nUsing existing found project: {output_project} ({project_id})')
 
         users = config.get('users')
         if users:
@@ -770,7 +862,7 @@ class DXManage():
                 dx.bindings.dxproject.DXProject(dxid=project_id).invite(
                     user, access_level, send_email=False
                 )
-                log.info(f"Granted {access_level} priviledge to {user}")
+                log.info(f"\nGranted {access_level} priviledge to {user}")
 
         return project_id
 
@@ -843,7 +935,7 @@ class DXManage():
         fastq_ids : list
             list of tuples with fastq file IDs and file name
         """
-        log.info(f"Getting fastqs from given demultiplexing job: {job_id}")
+        log.info(f"\nGetting fastqs from given demultiplexing job: {job_id}")
         demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
         demultiplex_project = demultiplex_job['project']
         demultiplex_folder = demultiplex_job['folder']
@@ -862,7 +954,7 @@ class DXManage():
             x for x in fastq_details if not x[1].startswith('Undetermined')
         ]
 
-        log.info(f'Fastqs parsed from demultiplexing job {job_id}')
+        log.info(f'\nFastqs parsed from demultiplexing job {job_id}')
         log.info(PPRINT(fastq_details))
 
         return fastq_details
@@ -887,7 +979,7 @@ class DXManage():
 
         upload_tars = details['details']['tar_file_ids']
 
-        log.info(f"Following upload tars found to add as input: {upload_tars}")
+        log.info(f"\nFollowing upload tars found to add as input: {upload_tars}")
 
         # format in required format for a dx input
         upload_tars = [
@@ -926,7 +1018,7 @@ class DXManage():
                 }
             }
         """
-        log.info(f'Getting names for all executables: {executables}')
+        log.info(f'\nGetting names for all executables: {executables}')
         mapping = defaultdict(dict)
 
         # sense check everything is a valid dx executable
