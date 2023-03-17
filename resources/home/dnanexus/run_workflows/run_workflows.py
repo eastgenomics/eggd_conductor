@@ -99,14 +99,16 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
     testing : bool
         if running in test mode, if not will perform checks on samples
     mismatch : int
-        number of samples allowed to not match to a given assay code, if the
-        total samples not matching an assay code if up to the given mismatch
-        these will use the same assay config as all other samples
+        number of samples allowed to not match to a given assay code. If the
+        total no. of samples not matching an assay code is <= the given
+        allowed no. of mismatches, these will use the same assay config
+        as all other samples on the run
 
     Returns
     -------
     dict
-        dict of assay codes : list of matching samples
+        dict of assay_code : list of matching samples, i.e.
+            {LAB123 : ['sample1-LAB123', 'sample2-LAB123' ...]}
 
     Raises
     ------
