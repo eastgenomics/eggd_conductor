@@ -267,6 +267,7 @@ The following describe default app input behaviour:
 - `DEVELOPMENT` (optional): Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format
 - `TESTING` (optional): terminates all jobs and clears output files after launching - for testing use only
 - `TESTING_SAMPLE_LIMIT` (optional): no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
+- `MISMATCH_ALLOWANCE` (default: 1): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
 - `DEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
 - `DEMULTIPLEX_OUT` (optional): path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
 

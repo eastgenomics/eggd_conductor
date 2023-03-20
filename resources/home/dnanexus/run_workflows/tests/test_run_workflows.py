@@ -73,7 +73,8 @@ class TestMatchSamplesToAssays():
         assay_samples = match_samples_to_assays(
             configs=self.configs,
             all_samples=self.single_assay_sample_list,
-            testing=False
+            testing=False,
+            mismatch=0
         )
 
         correct_output = {
@@ -107,14 +108,94 @@ class TestMatchSamplesToAssays():
         matches = match_samples_to_assays(
             configs=configs,
             all_samples=self.single_assay_sample_list,
-            testing=False
+            testing=False,
+            mismatch=0
         )
 
         assert list(matches.keys()) == ['EGG2|LAB123-3'], (
             "Wrong version of config file selected when matching to samples"
         )
 
-        
+
+    def test_mismatch_set_zero(self):
+        """
+        Tests when missing assay code for sample to assay matching occurs
+        and mismatch set to zero (i.e. not allowed) and should raise an
+        AssertionError
+        """
+        sample_list = [
+            "sample1-EGG2",
+            "sample2-EGG2",
+            "sample3-EGG2",
+            "sample4"
+        ]
+
+        with pytest.raises(AssertionError):
+            # this should raise an AssertionError as normal for mismatch
+            # between total samples and those matching assay config
+            match_samples_to_assays(
+                configs=self.configs,
+                all_samples=sample_list,
+                testing=False,
+                mismatch=0
+            )
+
+
+    def test_mismatch_set_one(self):
+        """
+        Tests when missing assay code for sample to assay matching occurs
+        and mismatch set to one, this should assign the missing sample to
+        the same config as the other samples
+        """
+        sample_list = [
+            "sample1-EGG2",
+            "sample2-EGG2",
+            "sample3-EGG2",
+            "sample4"
+        ]
+
+        assay_samples = match_samples_to_assays(
+            configs=self.configs,
+            all_samples=sample_list,
+            testing=False,
+            mismatch=1
+        )
+
+        correct_output = {
+            'EGG2|LAB123': [
+                "sample1-EGG2",
+                "sample2-EGG2",
+                "sample3-EGG2",
+                "sample4"
+            ]
+        }
+
+        assert correct_output == assay_samples, (
+            "Matching samples to assay config with single sample mismatch failed"
+        )
+
+
+    def test_mismatch_set_one_with_two_mismatches(self):
+        """
+        Tests when missing assay code for two samples when assay matching occurs
+        and mismatch set to one, this should raise an AssertionError
+        """
+        sample_list = [
+            "sample1-EGG2",
+            "sample2-EGG2",
+            "sample3-EGG2",
+            "sample4",
+            "sample5"
+        ]
+
+        with pytest.raises(AssertionError):
+            match_samples_to_assays(
+                configs=self.configs,
+                all_samples=sample_list,
+                testing=False,
+                mismatch=1
+            )
+
 
     def test_raise_assertion_error_on_mixed_assays(self):
         """
@@ -125,7 +206,8 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=self.mixed_assay_sample_list,
-                testing=False
+                testing=False,
+                mismatch=0
             )
 
 
@@ -138,7 +220,8 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=self.sample_list_w_no_code,
-                testing=False
+                testing=False,
+                mismatch=0
             )
 
 

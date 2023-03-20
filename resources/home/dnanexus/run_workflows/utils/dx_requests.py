@@ -727,6 +727,11 @@ class DXManage():
         uniq_codes = list(set([
             code for split_codes in uniq_codes for code in split_codes]))
 
+        log.info(
+            "\nUnique assay codes parsed from all config "
+            f"assay_code fields {uniq_codes}\n"
+        )
+
         # final dict of config files to use as assay_code : config data
         configs_to_use = {}
 
