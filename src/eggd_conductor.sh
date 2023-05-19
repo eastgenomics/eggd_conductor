@@ -267,6 +267,12 @@ main () {
         ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
         dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=file
     fi
+    if [[ "$CREATE_PROJECT" == 'false' && -z "$DX_PROJECT" ]]; then
+        # default behaviour to not create analysis project and use same as
+        # app is running in, set DX_PROJECT input to be same as current project
+        # if one has not been specified
+        optional_args+="--dx_project_id $PROJECT_ID "
+    fi
     if [ "$upload_sentinel_record" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi

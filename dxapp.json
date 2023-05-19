@@ -81,6 +81,13 @@
       "help": "Project in which to run and store analysis outputs. \n If not given a new one will be created from the run ID and assay code."
     },
     {
+      "name": "CREATE_PROJECT",
+      "label": "Create project",
+      "class": "boolean",
+      "optional": true,
+      "help": "If to automatically create a downstream analysis project, default behaviour is to use the same project as eggd_conductor"
+    },
+    {
       "name": "RUN_ID",
       "label": "ID of sequencing run",
       "class": "string",
