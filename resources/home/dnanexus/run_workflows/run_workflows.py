@@ -428,6 +428,11 @@ def main():
 
     args.dx_project_name = output_project
 
+    print(
+        f"\nUsing project {output_project} ({args.dx_project_id}) "
+        "for launching analysis jobs in\n"
+    )
+
     # set context to project for running jobs
     dx.set_workspace_id(args.dx_project_id)
 
