@@ -262,7 +262,8 @@ The following describe default app input behaviour:
 - `SAMPLESHEET` (optional): samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
 - `FASTQS` (optional): array of fastq files, to use if not providing a sentinel file
 - `SAMPLE_NAMES` (optional): comma separated list of sample names, to use if not providing a samplesheet
-- `DX_PROJECT` (optional):  project ID in which to run and store output, if not specified will create a new project named as `002_<RUNID>_<ASSAY_CODE>` or `003_YYMMDD_<RUNID>_<ASSAY_CODE>` if `development=true`
+- `CREATE_PROJECT` (optional): controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project named as `002_<RUNID>_<ASSAY_CODE>` or `003_YYMMDD_<RUNID>_<ASSAY_CODE>` if `DEVELOPMENT` is `true`
+- `DX_PROJECT` (optional):  project ID in which to run and store output
 - `RUN_ID` ( optional): ID of sequencing run used to name project, parsed from samplesheet if not specified
 - `DEVELOPMENT` (optional): Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format
 - `TESTING` (optional): terminates all jobs and clears output files after launching - for testing use only
