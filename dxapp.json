@@ -96,14 +96,6 @@
       "help": "Parsed from samplesheet if not given"
     },
     {
-      "name": "VALIDATE_SAMPLESHEET",
-      "label": "validate samplesheet",
-      "class": "boolean",
-      "optional": true,
-      "default": true,
-      "help": "Perform samplesheet validation and exit on invalid sheet"
-    },
-    {
       "name": "MISMATCH_ALLOWANCE",
       "label": "mismatch allowance",
       "class": "int",
