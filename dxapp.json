@@ -86,7 +86,7 @@
       "class": "boolean",
       "optional": true,
       "default": false,
-      "help": "If to automatically create a downstream analysis project, default behaviour is to use the same project as eggd_conductor"
+      "help": "If to automatically create a downstream analysis project, default behaviour is to use the same project as eggd_conductor is currently running in"
     },
     {
       "name": "RUN_ID",
