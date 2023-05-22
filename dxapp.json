@@ -1,7 +1,7 @@
 {
   "name": "eggd_conductor",
   "title": "eggd_conductor",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "summary": "eggd_conductor",
   "dxapi": "1.0.0",
   "inputSpec": [
@@ -85,6 +85,7 @@
       "label": "Create project",
       "class": "boolean",
       "optional": true,
+      "default": false,
       "help": "If to automatically create a downstream analysis project, default behaviour is to use the same project as eggd_conductor"
     },
     {
