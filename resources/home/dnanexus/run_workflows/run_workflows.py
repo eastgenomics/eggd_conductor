@@ -279,8 +279,8 @@ def parse_args() -> argparse.Namespace:
         help='samplesheet to parse sample IDs from'
     )
     parser.add_argument(
-        '--samples', nargs='+',
-        help='list of sample names to run analysis on'
+        '--samples',
+        help='command seperated string of sample names to run analysis on'
     )
     parser.add_argument(
         '--run_info_xml',
@@ -353,6 +353,9 @@ def parse_args() -> argparse.Namespace:
         args.samples = [
             x.replace(' ', '') for x in args.samples.split(',') if x
         ]
+        log.info(
+            f"\nsamples specified to run jobs for: \n\t{args.samples}\n"
+        )
     if args.fastqs:
         args.fastqs = [x.replace(' ', '') for x in args.fastqs.split(',') if x]
 
