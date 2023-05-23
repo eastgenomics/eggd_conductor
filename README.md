@@ -43,6 +43,8 @@ n.b. The default behaviour of running the app with minimum inputs specified is t
 
 The assay config file for the conductor app is designed to be written as a JSON file, with each workflow or apps defined as an executable. For each workflow/app, there are several required and optional keys to add, with a required structure. An example empty template and populated config file may be found [here](example/config_template.json) and [here](example/example_populated_config.json) respectively.
 
+In addition, a GitHub repository containing full production config files may be found [here](https://github.com/eastgenomics/eggd_conductor_configs).
+
 Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_CONFIG_PATH` from  `-iEGGD_CONDUCTOR_CONFIG`), and the default behaviour if a config file is not specified at run time is the search this directory and use the highest version config file for each `assay_code` (detailed below).
 
 As the config file is a JSON, several fields may be added to enhance readability that will not be parsed when running, such as the name, details and GitHub URL for each executable.
@@ -323,7 +325,7 @@ Once all jobs have completed launching, another notification will be sent to the
 
 Any errors will be sent to the alerts channel, this may both be where an error is caught and handled, and also if an unexpected error occurs and the traceback is parsed into the notification:
 
-![image](https://user-images.githubusercontent.com/45037268/205305361-27f69e5d-f6c2-4658-a6c1-24c39fc72dbc.png)
+![image](https://github.com/eastgenomics/eggd_conductor/assets/45037268/75baae97-2e50-4076-b8f2-9457e0e88541)
 > Example of missing Jira ticket alert
 
 ![image](https://user-images.githubusercontent.com/45037268/205305399-8d21e471-f691-4f80-8389-9d144e423794.png)
