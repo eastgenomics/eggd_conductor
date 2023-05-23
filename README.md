@@ -43,6 +43,8 @@ n.b. The default behaviour of running the app with minimum inputs specified is t
 
 The assay config file for the conductor app is designed to be written as a JSON file, with each workflow or apps defined as an executable. For each workflow/app, there are several required and optional keys to add, with a required structure. An example empty template and populated config file may be found [here](example/config_template.json) and [here](example/example_populated_config.json) respectively.
 
+In addition, a GitHub repository of more full production config files may be found [here](https://github.com/eastgenomics/eggd_conductor_configs).
+
 Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_CONFIG_PATH` from  `-iEGGD_CONDUCTOR_CONFIG`), and the default behaviour if a config file is not specified at run time is the search this directory and use the highest version config file for each `assay_code` (detailed below).
 
 As the config file is a JSON, several fields may be added to enhance readability that will not be parsed when running, such as the name, details and GitHub URL for each executable.
