@@ -323,7 +323,7 @@ Once all jobs have completed launching, another notification will be sent to the
 
 Any errors will be sent to the alerts channel, this may both be where an error is caught and handled, and also if an unexpected error occurs and the traceback is parsed into the notification:
 
-![image](https://user-images.githubusercontent.com/45037268/205305361-27f69e5d-f6c2-4658-a6c1-24c39fc72dbc.png)
+![image](https://github.com/eastgenomics/eggd_conductor/assets/45037268/75baae97-2e50-4076-b8f2-9457e0e88541)
 > Example of missing Jira ticket alert
 
 ![image](https://user-images.githubusercontent.com/45037268/205305399-8d21e471-f691-4f80-8389-9d144e423794.png)
