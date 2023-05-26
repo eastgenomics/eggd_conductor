@@ -145,7 +145,7 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
             # select the config key with for the corresponding value found
             # to be the highest
             highest_ver_config = list(sample_to_assay_configs)[
-                list(sample_to_assay_configs.values).index(highest_ver_config)]
+                list(sample_to_assay_configs.values()).index(highest_ver_config)]
 
             assay_to_samples[highest_ver_config].append(sample)
         else:
