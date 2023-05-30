@@ -115,7 +115,31 @@ class TestMatchSamplesToAssays():
         assert list(matches.keys()) == ['EGG2|LAB123-3'], (
             "Wrong version of config file selected when matching to samples"
         )
+    
+    def test_select_highest_version_w_lower_code(self):
+        """
+        Test when matching samples to assay configs that the highest version
+        is kept when the assay codes might be 'smaller'
 
+        Test added to check for fix for the following issue:
+            https://github.com/eastgenomics/eggd_conductor/issues/80
+        """
+        configs = {
+            'EGG2|456': {'assay_code': 'EGG2|456', 'version': '1.1.0'},
+            'EGG2|123': {'assay_code': 'EGG2|123', 'version': '1.2.0'}
+        }
+
+        matches = match_samples_to_assays(
+            configs=configs,
+            all_samples=self.single_assay_sample_list,
+            testing=False,
+            mismatch=0
+        )           
+           
+        assert list(matches.keys()) == ['EGG2|123'], (
+            "Wrong version of config file selected when matching to samples"
+        )
+        
 
     def test_mismatch_set_zero(self):
         """
