@@ -224,8 +224,6 @@ Examples of instance type setting for a **workflow** using Illumina flowcell ID 
 }
 ```
 
-The above may also be used 
-
 ### Structuring the inputs dictionary
 
 The inputs dict may be given several inputs that act as placeholders to be parsed by the script at runtime. Each key : value pair should be given as the app/stage input as the key, and the placeholder as the value. The key MUST match the input given in the specified workflow /apps available inputs (i.e. in `dxapp.json` for apps, `stage-id.input` for workflows). These are all prefixed with `INPUT-` to be identifiable.
