@@ -299,7 +299,7 @@ class DXExecute():
                 depends_on=prev_jobs,
                 name=job_name,
                 extra_args=extra_args,
-                instance_types=instance_types
+                instance_type=instance_types
             )
         elif 'applet-' in executable:
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
@@ -310,7 +310,7 @@ class DXExecute():
                 depends_on=prev_jobs,
                 name=job_name,
                 extra_args=extra_args,
-                instance_types=instance_types
+                instance_type=instance_types
             )
         else:
             # doesn't appear to be valid workflow or app
