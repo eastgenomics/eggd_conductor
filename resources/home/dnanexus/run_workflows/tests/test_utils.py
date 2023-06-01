@@ -117,7 +117,6 @@ class TestSelectInstanceTypes():
             "wrong instances type selected for S2"
         )
     
-        
     def test_select_S4_from_S4(self):
         """
         Test where S4 is in the instance types dict and xxxxxDSxx is not, that
@@ -182,3 +181,23 @@ class TestSelectInstanceTypes():
         assert selected_instance_types == correct_dict, (
             "Wrong instance types selected fro MiSeq K pattern"
         )
+
+    def test_return_string(self):
+        """
+        Test where flowcell value is a string (i.e. for an app and not
+        workflow stages)
+        """
+        instance_types = {
+            "S1": "mem2_ssd1_v2_x16",
+            "S2": "mem2_ssd1_v2_x48",
+            "S4": "mem2_ssd1_v2_x96"
+        }
+
+        selected_instance = select_instance_types(
+            run_id="230324_A01295_0171_BHFFLYDRXY",
+            instance_types=instance_types)
+        
+        assert selected_instance == "mem2_ssd1_v2_x16", (
+            "Wrong instance type returned where return type should be a string"
+        )
+
