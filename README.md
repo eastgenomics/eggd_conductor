@@ -64,7 +64,7 @@ As the config file is a JSON, several fields may be added to enhance readability
   - `app_id` : app- ID of demultiplexing app to use, this will override the one in the app config if specified.
   - `app_name`: app name of demultiplexing app to use, this will override both the ID in the app config and `app_id` above if specified.
   - `additional_args` : additional command line arguments to pass into the demultiplexing app, this will ONLY work if either the [eggd_bcl2fastq][bcl2fastq-url] or [eggd_bclconvert][bclconvert-url] apps are being used as `additional_args` is a valid input for those apps that is then passed directly to bcl2fastq or bclconvert respectively.
-  - `instance_type` : instance type to use, will override the default for the app if specified.
+  - `instance_type` : instance type to use, will override the default for the app if specified
 
 Example top level of config:
 ```{
@@ -87,6 +87,25 @@ Example top level of config:
     }
 ```
 
+n.b. the `instance_type` in the `demultiplex_config` may either be defined as a string or a mapping of flowcell IDs to instance type strings to allow for setting the instance type based off the flowcell ID.
+```
+# single instance
+"demultiplex_config": {
+    "instance_type": "mem1_ssd1_v2_x36"
+}
+
+# flowcell dependent instances
+"demultiplex_config": {
+    "instance_type": {
+        "S1": "mem2_ssd1_v2_x16",
+        "S2": "mem2_ssd1_v2_x48",
+        "S4": "mem2_ssd1_v2_x96"
+    }
+}
+```
+See the below section **Dynamic instance types** for full explanation.
+
+
 **Required keys per executable dictionary**:
 
 - `name`: will be used to name output directory if using output variable naming (see below)
@@ -105,6 +124,7 @@ Example top level of config:
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
 - `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
 - `extra_args` (dict): mapping of [additional paramaters][dx-run-parameters] to pass to underlying API call for running dx analysis (i.e priority, cost_limit, instance_type) - see below for example formatting
+- `instance_types` (dict): mapping of flowcell identifiers to instance types to use for jobs, this allows for dynamically setting instances types based upon the flowcell used for sequencing. See the **Dynamic instance types** selection below for details.
 - `inputs_filter` (dict): mapping of stage / app input field and list of pattern(s) to filter input by. This is used when providing the output of one app as input to another, but not all files want to be provided as input (i.e. taking all output bam files of analysis_X jobs, but only wanting to use the one from a control). This should be structured as such:
 ```
 "inputs_filter": {
@@ -167,6 +187,44 @@ Use of `extra_args` for overriding default instance types for a **workflow** req
     }
 }
 ```
+
+### Dynamic instance types
+Different instance types for different types of flowcells may be defined for each executable, allowing for instances to be dynamically selected based upon the flowcell used for sequencing of the run being processed. This allows for setting optimal instances for all apps where the assay may be run on S1, S2, S4 flowcells etc and have differing compute requirements (i.e needing more storage for larger flowcells).
+This should be defined in the assay config file for each executable, with the required instance types given for each flowcell.
+
+Flowcell identifiers may be given either as patterns such as `xxxxxDRxx` (documented [here](https://knowledge.illumina.com/instrumentation/general/instrumentation-general-reference_material-list/000005589)), or as NovaSeq S1, S2 or S4 IDs. In addition, default instances may be given using a `"*"` as the key, which will be used if none of the given identifiers match the flowcell ID. Matching of these identifiers is done against the last field of the run ID, which for Illumina sequencers is the flowcell ID.
+
+Examples of instance type setting for a single **app** using 'S' identifiers:
+```
+"instance_types": {
+    "S1": "mem1_ssd1_v2_x2"
+    "S2": "mem1_ssd2_v2_x4"
+    "S4": "mem1_ssd2_v2_x8
+}
+```
+
+Examples of instance type setting for a **workflow** using Illumina flowcell ID patterns:
+```
+"instance_types: {
+    "xxxxxDRxx": {
+        "stage-xxx": "mem1_ssd1_v2_x2"
+        "stage-yyy": "mem2_ssd1_v2_x4"
+        "stage-zzz": "mem1_ssd1_v2_x8"
+    },
+    "xxxxxDMxx": {
+        "stage-xxx": "mem1_ssd1_v2_x4"
+        "stage-yyy": "mem2_ssd1_v2_x8"
+        "stage-zzz": "mem1_ssd1_v2_x16"
+    },
+    "xxxxxDSxx": {
+        "stage-xxx": "mem2_ssd1_v2_x4"
+        "stage-yyy": "mem2_ssd1_v2_x8"
+        "stage-zzz": "mem2_ssd2_v2_x32"
+    }
+}
+```
+
+The above may also be used 
 
 ### Structuring the inputs dictionary
 
