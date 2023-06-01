@@ -232,7 +232,7 @@ class DXExecute():
 
     def call_dx_run(
         self, executable, job_name, input_dict,
-        output_dict, prev_jobs, extra_args) -> str:
+        output_dict, prev_jobs, extra_args, instance_types) -> str:
         """
         Call workflow / app with populated input and output dicts
 
@@ -254,6 +254,8 @@ class DXExecute():
         extra_args : dict
             mapping of any additional arguments to pass to underlying dx
             API call, parsed from extra_args field in config file
+        instance_types : dict
+            mapping of instances to use for apps 
 
         Returns
         -------
@@ -278,7 +280,8 @@ class DXExecute():
                 rerun_stages=['*'],
                 depends_on=prev_jobs,
                 name=job_name,
-                extra_args=extra_args
+                extra_args=extra_args,
+                instance_types=instance_types
             )
         elif 'app-' in executable:
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
@@ -288,7 +291,8 @@ class DXExecute():
                 ignore_reuse=True,
                 depends_on=prev_jobs,
                 name=job_name,
-                extra_args=extra_args
+                extra_args=extra_args,
+                instance_types=instance_types
             )
         elif 'applet-' in executable:
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
@@ -298,7 +302,8 @@ class DXExecute():
                 ignore_reuse=True,
                 depends_on=prev_jobs,
                 name=job_name,
-                extra_args=extra_args
+                extra_args=extra_args,
+                instance_types=instance_types
             )
         else:
             # doesn't appear to be valid workflow or app
@@ -328,7 +333,8 @@ class DXExecute():
 
     def call_per_sample(
         self, executable, exe_names, input_classes, params, sample, config,
-        out_folder, job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+        out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
+        instance_types) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -358,6 +364,8 @@ class DXExecute():
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
+        instance_types : dict
+            mapping of instances to use for apps 
 
         Returns
         -------
@@ -457,7 +465,8 @@ class DXExecute():
             input_dict=input_dict,
             output_dict=output_dict,
             prev_jobs=dependent_jobs,
-            extra_args=extra_args
+            extra_args=extra_args,
+            instance_types=instance_types
         )
 
         if sample not in job_outputs_dict.keys():
@@ -472,7 +481,8 @@ class DXExecute():
 
     def call_per_run(
         self, executable, exe_names, input_classes, params, config,
-        out_folder, job_outputs_dict, executable_out_dirs, fastq_details) -> dict:
+        out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
+        instance_types) -> dict:
         """
         Populates input and output dicts from config for given workflow,
         returns dx job id and stores in dict to map workflow -> dx job id.
@@ -499,6 +509,8 @@ class DXExecute():
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
+        instance_types : dict
+            mapping of instances to use for apps 
 
         Returns
         -------
@@ -574,7 +586,8 @@ class DXExecute():
             input_dict=input_dict,
             output_dict=output_dict,
             prev_jobs=dependent_jobs,
-            extra_args=extra_args
+            extra_args=extra_args,
+            instance_types=instance_types
         )
 
         # map workflow id to created dx job id

@@ -5,6 +5,7 @@ and searching Jira for sequencing run tickets.
 from datetime import datetime
 import json
 import os
+import re
 import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
@@ -365,9 +366,13 @@ def select_instance_types(run_id, instance_types) -> dict:
     dynamically setting the appropriate instance type defined in the config.
 
     Flowcell type in instance types dict from config may be defined as:
-        - '*' -> implies using for given instance types for all flowcells
         - 'S1/S2/S4' -> human readable flowcell type, map back to IDs
         - 'xxxxxDRxx' -> Illumina ID format, use regex to match
+        - '*' -> default to use for flowcell where no others match
+    
+    Matching will be done in the above order (i.e. if S1 and xxxxxDRxx are
+    defined, S1 will be preferentially used). If no matches are found then
+    None is returned.
 
     Parameters
     ----------
@@ -381,6 +386,10 @@ def select_instance_types(run_id, instance_types) -> dict:
     dict
         instance types to use for given flowcell
     """
+    if not instance_types:
+        # empty dict provided => no user defined instances in config
+        return None
+ 
     # mapping of flowcell ID patterns for NovaSeq flowcells from:
     # https://knowledge.illumina.com/instrumentation/general/instrumentation-general-reference_material-list/000005589
     # "SP": "xxxxxDRxx"
@@ -390,14 +399,28 @@ def select_instance_types(run_id, instance_types) -> dict:
 
     matches = []
 
-    for flowcell_id in instance_types.keys():
-        if flowcell_id not in ["SP", "S1", "S2", "S4", "*"]:
-            # assume its an Illumina flowcell pattern (i.e. xxxxxBGxx),
-            # let 'x' in ID be any number or digit for matching
-            match = re.search(flowcell_id.replace('x', '[\d\w]{1}'), run_id)
+    flowcell_id = re.split('[_-]', run_id)[-1]  # flowcell ID is last part of run ID
+
+    for type in instance_types.keys():
+        if type not in ["SP", "S1", "S2", "S4", "*"]:
+            # assume its an Illumina flowcell pattern in the config (i.e. xxxxxDMxx)
+            # since the patterns aren't correct and can have more characters
+            # than x's, we turn it into a regex pattern matching >= n x's if
+            # there are alphanumeric characters at start or end
+            start_x = re.search(r'^x*', type).group()
+            end_x = re.search(r'x*$', type).group()
+
+            # make x's n or more character regex pattern (e.g. [\d\w]{5,})
+            if start_x:
+                start_x = f"[\d\w]{{{len(start_x)},}}"
+            
+            if end_x:
+                end_x = f"[\d\w]{{{len(end_x)},}}"
+
+            match = re.search(f"{start_x}{type.strip('x')}{end_x}", flowcell_id)
             if match:
-                matches.append(match.group(0))
-    
+                matches.append(type)
+
     if matches:
         # we found a match against the flowcell ID and one of the sets of
         # instance types to use => return this to use
@@ -408,9 +431,9 @@ def select_instance_types(run_id, instance_types) -> dict:
         log.info(f"Found instance types for flowcell: {matches[0]}")
         return instance_types.get(matches[0])
     
-    # no match against patterns found in instances types dict
-    # check for SP / S1 / S2 / S4
-    if re.match(r'xxxxxDRxx'.replace('x', '[\d\w]{1}'), run_id):
+    # no match against Illumina patterns found in instances types dict and
+    # the current flowcell ID, check for SP / S1 / S2 / S4
+    if 'DR' in flowcell_id:
         # this is an SP or S1 flowcell as both use the same identifier
         # therefore try select S1 first from the instance types since
         # we can't differetiate the two
@@ -418,28 +441,22 @@ def select_instance_types(run_id, instance_types) -> dict:
             return instance_types['S1']
         elif instance_types.get('SP'):
             return instance_types['SP']
-        elif instance_types.get('xxxxxDRxx'):
-            return instance_types['xxxxxDRxx']
         else:
             # no instance types defined for SP/S1 flowcell
             log.info('SP/S1 flowcell used but no instance types specified')
-    
-    if re.match(r'xxxxxDMx'.replace('x', '[\d\w]{1}'), run_id):
-        # this is an S2 flowcell
+
+    if 'DM' in flowcell_id:
+        # this is an S2 flowcell, check for either S2 or DM
         if instance_types.get('S2'):
             return instance_types['S2']
-        elif instance_types.get('xxxxxDMx'):
-            return instance_types['xxxxxDMx']
         else:
             # no instance type defined for S2 flowcell
             log.info('S2 flowcell used but no isntance types specified')
     
-    if re.match(r'xxxxxDSxx'.replace('x', '[\d\w]{1}'), run_id):
-        # this is an S4 flowcell
+    if 'DS' in flowcell_id:
+        # this is an S4 flowcell, check for either S4 or DS
         if instance_types.get('S4'):
             return instance_types['S4']
-        elif instance_types.get('xxxxxDSxx'):
-            return instance_types['xxxxxDSxx']
         else:
             # no instance type defined for S2 flowcell
             log.info('S4 flowcell used but no isntance types specified')
@@ -455,4 +472,5 @@ def select_instance_types(run_id, instance_types) -> dict:
             'No defined instances types found for flowcell used, will use '
             'app / workflow defaults'
         )
+        return None
 
