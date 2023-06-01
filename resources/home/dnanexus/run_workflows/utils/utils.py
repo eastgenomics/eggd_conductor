@@ -388,9 +388,14 @@ def select_instance_types(run_id, instance_types) -> dict:
         single instance type is defined, or dict if it is a mapping (i.e for
         multiple stages of a workflow)
     """
+    log.info('Selecting instance types from assay config file')
     if not instance_types:
         # empty dict provided => no user defined instances in config
         return None
+    
+    if isinstance(instance_types, str):
+        # instance types is string => single instance type
+        return instance_types
  
     # mapping of flowcell ID patterns for NovaSeq flowcells from:
     # https://knowledge.illumina.com/instrumentation/general/instrumentation-general-reference_material-list/000005589
