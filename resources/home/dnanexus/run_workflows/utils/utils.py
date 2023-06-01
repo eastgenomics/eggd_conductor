@@ -383,8 +383,10 @@ def select_instance_types(run_id, instance_types) -> dict:
 
     Returns
     -------
-    dict
-        instance types to use for given flowcell
+    dict | str
+        instance types to use for given flowcell, type will be a string if a
+        single instance type is defined, or dict if it is a mapping (i.e for
+        multiple stages of a workflow)
     """
     if not instance_types:
         # empty dict provided => no user defined instances in config

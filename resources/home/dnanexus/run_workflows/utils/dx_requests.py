@@ -14,7 +14,7 @@ import re
 import dxpy as dx
 
 from utils.manage_dict import ManageDict
-from utils.utils import Slack, log, time_stamp
+from utils.utils import Slack, log,select_instance_types, time_stamp
 
 
 PPRINT = PrettyPrinter(indent=1).pprint
@@ -82,6 +82,13 @@ class DXExecute():
         # instance type and additional args may be specified in assay config
         # for runing demultiplexing, get them if present
         instance_type = config.get('instance_type')
+        if isinstance(instance_type, dict):
+            # instance type defined in config is a mapping for multiple
+            # flowcells, select appropriate one for current flowcell
+            instance_type = select_instance_types(
+                run_id=self.args.run_id,
+                instance_types=instance_type)
+
         additional_args = config.get('additional_args')
 
         inputs = {
@@ -281,7 +288,7 @@ class DXExecute():
                 depends_on=prev_jobs,
                 name=job_name,
                 extra_args=extra_args,
-                instance_types=instance_types
+                stage_instance_types=instance_types
             )
         elif 'app-' in executable:
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
