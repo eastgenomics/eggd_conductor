@@ -451,7 +451,7 @@ def select_instance_types(run_id, instance_types) -> dict:
         'checking for SP, S1, S2 and S4'
     )
     if 'DR' in flowcell_id:
-        # this is an SP or S1 flowcell as both use the same identifier
+        # this is an SP or S1 flowcell, both use the same identifier
         # therefore try select S1 first from the instance types since
         # we can't differetiate the two
         if instance_types.get('S1'):
@@ -465,7 +465,7 @@ def select_instance_types(run_id, instance_types) -> dict:
             log.info('SP/S1 flowcell used but no instance types specified')
 
     if 'DM' in flowcell_id:
-        # this is an S2 flowcell, check for either S2 or DM
+        # this is an S2 flowcell, check for S2
         if instance_types.get('S2'):
             log.info("Match found for S2 instances")
             return instance_types['S2']
@@ -474,7 +474,7 @@ def select_instance_types(run_id, instance_types) -> dict:
             log.info('S2 flowcell used but no isntance types specified')
     
     if 'DS' in flowcell_id:
-        # this is an S4 flowcell, check for either S4 or DS
+        # this is an S4 flowcell, check for S4
         if instance_types.get('S4'):
             log.info("Match found for S4 instances")
             return instance_types['S4']
