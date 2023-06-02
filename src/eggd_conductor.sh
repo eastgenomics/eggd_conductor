@@ -249,8 +249,12 @@ main () {
         _parse_fastqs
     fi
 
+    # get user who launched job to add to Slack notification
+    user=$(dx describe --json "$PARENT_JOB_ID" | jq -r '.launchedBy' | sed 's/user-//')
+
     # send a message to logs so we know something is starting
     message=":gear: eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
+    message+="Launched by: ${user}%0A"
     message+="${conductor_job_url}"
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
