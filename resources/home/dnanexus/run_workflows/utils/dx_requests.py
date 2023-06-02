@@ -88,6 +88,8 @@ class DXExecute():
             instance_type = select_instance_types(
                 run_id=self.args.run_id,
                 instance_types=instance_type)
+        
+        log.info(f"Instance type selected for demultiplexing: {instance_type}")
 
         additional_args = config.get('additional_args')
 
