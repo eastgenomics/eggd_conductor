@@ -23,7 +23,7 @@ import pandas as pd
 
 from utils.dx_requests import PPRINT, DXExecute, DXManage
 from utils.manage_dict import ManageDict
-from utils.utils import Jira, Slack, log, time_stamp
+from utils.utils import Jira, Slack, log, select_instance_types, time_stamp
 
 
 def parse_sample_sheet(samplesheet) -> list:
@@ -569,6 +569,11 @@ def main():
         # save name to params to access later to name job
         params['executable_name'] = exe_names[executable]['name']
 
+        # get instance types to use for executable from config for flowcell
+        instance_types = select_instance_types(
+            run_id=args.run_id,
+            instance_types=params.get('instance_types'))
+
         if params['per_sample'] is True:
             # run workflow / app on every sample
             log.info(f'\nCalling {params["executable_name"]} per sample')
@@ -589,7 +594,8 @@ def main():
                     out_folder=parent_out_dir,
                     job_outputs_dict=job_outputs_dict,
                     executable_out_dirs=executable_out_dirs,
-                    fastq_details=fastq_details
+                    fastq_details=fastq_details,
+                    instance_types=instance_types
                 )
                 total_jobs += 1
 
@@ -604,7 +610,8 @@ def main():
                 out_folder=parent_out_dir,
                 job_outputs_dict=job_outputs_dict,
                 executable_out_dirs=executable_out_dirs,
-                fastq_details=fastq_details
+                fastq_details=fastq_details,
+                instance_types=instance_types
             )
             total_jobs += 1
         else:
