@@ -88,7 +88,7 @@ class DXExecute():
             instance_type = select_instance_types(
                 run_id=self.args.run_id,
                 instance_types=instance_type)
-        
+
         log.info(f"Instance type selected for demultiplexing: {instance_type}")
 
         additional_args = config.get('additional_args')
@@ -241,7 +241,7 @@ class DXExecute():
 
     def call_dx_run(
         self, executable, job_name, input_dict,
-        output_dict, prev_jobs, extra_args, instance_types) -> str:
+        output_dict, prev_jobs, extra_args, instance_types, hold=False) -> str:
         """
         Call workflow / app with populated input and output dicts
 
@@ -264,7 +264,9 @@ class DXExecute():
             mapping of any additional arguments to pass to underlying dx
             API call, parsed from extra_args field in config file
         instance_types : dict
-            mapping of instances to use for apps 
+            mapping of instances to use for apps
+        hold : bool
+            controls if to hold conductor until job finishes running
 
         Returns
         -------
@@ -337,13 +339,31 @@ class DXExecute():
             with open('testing_job_id.log', 'a') as fh:
                 fh.write(f'{job_id} ')
 
+        if hold:
+            # holding app until job completes
+            try:
+                job_handle.wait_on_done()
+            except dx.exceptions.DXJobFailureError as err:
+                # dx job error raised (i.e. failed, timed out, terminated)
+                job_url = (
+                    f"platform.dnanexus.com/projects/"
+                    f"{self.args.dx_project_id.replace('project-', '')}/monitor/job/"
+                    f"{job_id}"
+                )
+
+                Slack().send(
+                    f"Job failed!\n\nError: {err}\n\n"
+                    f"Job: {job_url}"
+                )
+                raise dx.exceptions.DXJobFailureError()
+
         return job_id
 
 
     def call_per_sample(
         self, executable, exe_names, input_classes, params, sample, config,
         out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
-        instance_types) -> dict:
+        instance_types, hold=False) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -374,7 +394,9 @@ class DXExecute():
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
         instance_types : dict
-            mapping of instances to use for apps 
+            mapping of instances to use for apps
+        hold : bool
+            controls if to hold conductor until job finishes running
 
         Returns
         -------
@@ -475,7 +497,8 @@ class DXExecute():
             output_dict=output_dict,
             prev_jobs=dependent_jobs,
             extra_args=extra_args,
-            instance_types=instance_types
+            instance_types=instance_types,
+            hold=hold
         )
 
         if sample not in job_outputs_dict.keys():
@@ -491,7 +514,7 @@ class DXExecute():
     def call_per_run(
         self, executable, exe_names, input_classes, params, config,
         out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
-        instance_types) -> dict:
+        instance_types, hold=False) -> dict:
         """
         Populates input and output dicts from config for given workflow,
         returns dx job id and stores in dict to map workflow -> dx job id.
@@ -519,7 +542,9 @@ class DXExecute():
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
         instance_types : dict
-            mapping of instances to use for apps 
+            mapping of instances to use for apps
+        hold : bool
+            controls if to hold conductor until job finishes running
 
         Returns
         -------
@@ -596,7 +621,8 @@ class DXExecute():
             output_dict=output_dict,
             prev_jobs=dependent_jobs,
             extra_args=extra_args,
-            instance_types=instance_types
+            instance_types=instance_types,
+            hold=hold
         )
 
         # map workflow id to created dx job id

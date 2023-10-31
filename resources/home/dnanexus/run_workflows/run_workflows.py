@@ -574,6 +574,9 @@ def main():
             run_id=args.run_id,
             instance_types=params.get('instance_types'))
 
+        # controls if to hold conductor until current executable completes
+        hold = params.get('hold')
+
         if params['per_sample'] is True:
             # run workflow / app on every sample
             log.info(f'\nCalling {params["executable_name"]} per sample')
@@ -595,7 +598,8 @@ def main():
                     job_outputs_dict=job_outputs_dict,
                     executable_out_dirs=executable_out_dirs,
                     fastq_details=fastq_details,
-                    instance_types=instance_types
+                    instance_types=instance_types,
+                    hold=hold
                 )
                 total_jobs += 1
 
@@ -611,7 +615,8 @@ def main():
                 job_outputs_dict=job_outputs_dict,
                 executable_out_dirs=executable_out_dirs,
                 fastq_details=fastq_details,
-                instance_types=instance_types
+                instance_types=instance_types,
+                hold=hold
             )
             total_jobs += 1
         else:
