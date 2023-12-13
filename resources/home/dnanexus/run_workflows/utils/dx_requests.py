@@ -264,7 +264,7 @@ class DXExecute():
             mapping of any additional arguments to pass to underlying dx
             API call, parsed from extra_args field in config file
         instance_types : dict
-            mapping of instances to use for apps 
+            mapping of instances to use for apps
 
         Returns
         -------
@@ -280,11 +280,17 @@ class DXExecute():
         log.info(PPRINT(input_dict))
 
         if 'workflow-' in executable:
+            # get common top level of each apps output destination
+            # to set as output of workflow for consitency of viewing
+            # in the browser
+            parent_path = os.path.commonprefix(list(output_dict.values()))
+
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
                 dxid=executable,
                 project=self.args.dx_project_id
             ).run(
                 workflow_input=input_dict,
+                folder=parent_path,
                 stage_folders=output_dict,
                 rerun_stages=['*'],
                 depends_on=prev_jobs,

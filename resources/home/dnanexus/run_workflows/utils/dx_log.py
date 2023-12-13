@@ -20,6 +20,6 @@ def dx_log() -> logging.Logger:
         logger.addHandler(DXLogHandler())
 
     logger.propagate = False
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     return logger
