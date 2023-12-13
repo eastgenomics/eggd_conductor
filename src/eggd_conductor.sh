@@ -220,8 +220,6 @@ main () {
     mark-section "setting up"
     _set_environment
 
-    printenv
-
     python3 -m pip install -q --no-index --no-deps  packages/*
 
     # link to current running job
