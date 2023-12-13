@@ -413,7 +413,7 @@ def main():
         # is to make it easier to audit what configs were used for analysis
         subprocess.run(
             "dx-jobutil-add-output assay_config_file_id "
-            f"{config_data[assay_code]['file_id']} --class=file",
+            f"{config_data[assay_code]['file_id']} --class=string",
             shell=True, check=False
         )
 
