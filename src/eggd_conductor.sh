@@ -19,6 +19,10 @@ _set_environment () {
     export PROJECT_ID=$DX_PROJECT_CONTEXT_ID
     export PARENT_JOB_ID=$DX_JOB_ID
 
+    # get the destination path (if set) to conductor to use
+    # as top level of launched jobs output
+    export DESTINATION=$(jq -r '.folder' dnanexus-job.json)
+
     # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
     dx cd $DX_PROJECT_CONTEXT_ID:
@@ -269,7 +273,7 @@ main () {
 
         # add file ID of config as output field to easily audit what configs used for analyses
         ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
-        dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=file
+        dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=string
     fi
     if [[ "$CREATE_PROJECT" == 'false' && -z "$DX_PROJECT" ]]; then
         # default behaviour to not create analysis project and use same as
