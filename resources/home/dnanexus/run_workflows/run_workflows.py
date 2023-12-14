@@ -579,10 +579,10 @@ def main():
             log.info(f'\nCalling {params["executable_name"]} per sample')
 
             # loop over samples and call app / workflow
-            for idx, sample in enumerate(sample_list):
+            for idx, sample in enumerate(sample_list, 1):
                 log.info(
                     f'\n\nStarting analysis for {sample} - '
-                    f'[{idx+1}/{len(sample_list)}]'
+                    f'[{idx}/{len(sample_list)}]'
                 )
                 job_outputs_dict = dx_execute.call_per_sample(
                     executable,
