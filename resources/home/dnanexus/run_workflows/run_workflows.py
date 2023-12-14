@@ -125,7 +125,7 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
     assay_to_samples = defaultdict(list)
 
     log.info(f'\nAll assay codes of config files: {all_config_assay_codes}')
-    log.info(f'\nAll samples parsed from samplesheet: {all_samples}')  
+    log.info(f'\nAll samples parsed from samplesheet: {all_samples}')
 
     # for each sample check each assay code if it matches, then select the
     # matching config with highest version
@@ -141,7 +141,7 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
             # one with the highest version
             highest_ver_config = max(
                 sample_to_assay_configs.values(), key=parseVersion)
-            
+
             # select the config key with for the corresponding value found
             # to be the highest
             latest_config_key = list(sample_to_assay_configs)[
@@ -539,8 +539,8 @@ def main():
     log.info('\nExecutable input classes found:')
     log.info(PPRINT(input_classes))
 
-    # dict to add all stage output names and file ids for every sample to,
-    # used to pass correct file ids to subsequent worklow/app calls
+    # dict to add all stage output names and job ids for every sample to,
+    # used to pass correct job ids to subsequent workflow / app calls
     job_outputs_dict = {}
 
     # storing output folders used for each workflow/app, might be needed to
@@ -582,7 +582,7 @@ def main():
             for idx, sample in enumerate(sample_list):
                 log.info(
                     f'\n\nStarting analysis for {sample} - '
-                    f'({idx}/{len(sample_list)})'
+                    f'[{idx+1}/{len(sample_list)}]'
                 )
                 job_outputs_dict = dx_execute.call_per_sample(
                     executable,
@@ -599,6 +599,21 @@ def main():
                 )
                 total_jobs += 1
 
+            if params.get('hold'):
+                # specified to hold => wait for all sample jobs to complete
+                # job_outputs_dict for per sample jobs structured as:
+                # {'sample1': {'analysis_1': 'job-xxx'}...}
+                job_ids = [x.get(params['analysis']) for x in job_outputs_dict.values()]
+                log.info(
+                    f'Holding conductor until {len(job_ids)} '
+                    f'{params["executable_name"]} job(s) complete...'
+                )
+                for job in job_ids:
+                    if job.startswith('job-'):
+                        dx.DXJob(dxid=job).wait_on_done()
+                    else:
+                        dx.DXAnalysis(dxid=job).wait_on_done()
+
         elif params['per_sample'] is False:
             # run workflow / app on all samples at once
             job_outputs_dict = dx_execute.call_per_run(
@@ -614,6 +629,16 @@ def main():
                 instance_types=instance_types
             )
             total_jobs += 1
+
+            if params.get('hold'):
+                print(f"Holding conductor until {params['name']} completes...")
+                executable_id = job_outputs_dict[params['analysis']]
+
+                if executable_id.startswith('job-'):
+                    dx.DXJob(dxid=executable_id).wait_on_done()
+                else:
+                    dx.DXAnalysis(dxid=executable_id).wait_on_done()
+
         else:
             # per_sample is not True or False, exit
             raise ValueError(

@@ -313,7 +313,7 @@ main () {
             # non empty log => jobs to terminate
             echo "Terminating jobs"
             jobs=$(cat job_id.log)
-            dx terminate "$jobs"
+            dx terminate $jobs
         fi
 
         if [ -f slack_fail_sent.log ]; then
