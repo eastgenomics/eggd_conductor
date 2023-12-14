@@ -667,7 +667,7 @@ class ManageDict():
                 dir = dir.replace("STAGE-NAME", app_name)
 
             destination = os.environ.get('DESTINATION')
-            if destination and destination != 'null':
+            if destination:
                 # add app destination as top level output if given
                 dir = f"/{destination}/{dir}"
 
