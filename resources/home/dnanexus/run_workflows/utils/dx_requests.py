@@ -10,6 +10,7 @@ import os
 from packaging.version import Version, parse
 from pprint import PrettyPrinter
 import re
+from typing import Tuple
 
 import dxpy as dx
 
@@ -347,9 +348,19 @@ class DXExecute():
 
 
     def call_per_sample(
-        self, executable, exe_names, input_classes, params, sample, config,
-        out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
-        instance_types) -> dict:
+            self,
+            executable,
+            exe_names,
+            input_classes,
+            params,
+            sample,
+            config,
+            out_folder,
+            job_outputs_dict,
+            executable_out_dirs,
+            fastq_details,
+            instance_types
+        ) -> dict:
         """
         Populate input and output dicts for given workflow and sample, then
         call to dx to start job. Job id is returned and stored in output dict
@@ -393,6 +404,33 @@ class DXExecute():
         output_dict = config_copy['executables'][executable]['output_dirs']
 
         extra_args = params.get("extra_args", {})
+
+        if params['executable_name'].startswith('TSO500_reports_workflow'):
+            # handle specific inputs of eggd_TSO500 -> TSO500 workflow
+
+            # get the job ID for previous eggd_tso500 job, this _should_ just
+            # be analysis_1, but check anyway incase other apps added in future
+            # per sample jobs would be stored in prev_jobs dict under sample key,
+            # so we can just check for analysis_ for prior apps run once per run
+            jobs = [
+                job_outputs_dict[x] for x in job_outputs_dict if x.startswith('analysis_')
+            ]
+            jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
+            tso500_id = jobs.get('eggd_tso500')
+
+            assert tso500_id, "Could not find prior eggd_tso500 job"
+
+            # get details of the job to pull files from
+            all_output_files, job_output_ids = DXManage(
+                args=None).get_job_output_details(tso500_id)
+
+            # try add all eggd_tso500 app outputs to reports workflow input
+            input_dict = ManageDict().populate_tso500_reports_workflow(
+                input_dict=input_dict,
+                sample=sample,
+                all_output_files=all_output_files,
+                job_output_ids=job_output_ids
+            )
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
@@ -1157,3 +1195,40 @@ class DXManage():
                     'optional', False)
 
         return mapping
+
+
+    def get_job_output_details(self, job_id) -> Tuple[list, list]:
+        """
+        Get describe details for all output files from a job
+
+        Parameters
+        ----------
+        job_id : str
+            ID of job to get output files from
+
+        Returns
+        -------
+        list
+            list of describe dicts for each file found
+        list
+            list of dicts of job output field -> job output file IDs
+        """
+        print(f"Querying output files for {job_id}")
+        # find files in given jobs out directory
+        job_details = dx.DXJob(dxid=job_id).describe()
+        job_output_ids = job_details.get('output')
+        all_output_files = list(dx.find_data_objects(
+            project=job_details.get('project'),
+            folder=job_details.get('folder'),
+            describe=True
+        ))
+
+        # ensure these files only came from our given job
+        all_output_files = [
+            x for x in all_output_files
+            if x['describe']['createdBy']['job'] == job_id
+        ]
+
+        print(f"Found {len(all_output_files)} from {job_id}")
+
+        return all_output_files, job_output_ids

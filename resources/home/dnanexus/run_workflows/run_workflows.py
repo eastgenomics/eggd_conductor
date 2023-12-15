@@ -569,6 +569,12 @@ def main():
         # save name to params to access later to name job
         params['executable_name'] = exe_names[executable]['name']
 
+        if params['executable_name'] == 'eggd_tso500':
+            print("SKIPPING")
+            job_outputs_dict['analysis_1'] = 'job-Gb5qGBj4QJYZkKPX315y0Yv0'
+            continue
+            # record-GZvVyk04X7kz5kPB5QF6V2qx
+
         # get instance types to use for executable from config for flowcell
         instance_types = select_instance_types(
             run_id=args.run_id,
