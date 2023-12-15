@@ -126,6 +126,7 @@ See the below section **Dynamic instance types** for full explanation.
     - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
 - `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
 - `extra_args` (dict): mapping of [additional paramaters][dx-run-parameters] to pass to underlying API call for running dx analysis (i.e priority, cost_limit, instance_type) - see below for example formatting
+- `hold` (boolean): controls whether to hold conductor until all jobs for the given executable complete before attempting to launch the next analysis steps. This may be used when downstream analysis may need to split out an array of output files from an upstream job, instead of taking the full array as input.
 - `instance_types` (dict): mapping of flowcell identifiers to instance types to use for jobs, this allows for dynamically setting instances types based upon the flowcell used for sequencing. See the **Dynamic instance types** selection below for details.
 - `inputs_filter` (dict): mapping of stage / app input field and list of pattern(s) to filter input by. This is used when providing the output of one app as input to another, but not all files want to be provided as input (i.e. taking all output bam files of analysis_X jobs, but only wanting to use the one from a control). This should be structured as such:
 ```

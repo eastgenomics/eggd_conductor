@@ -80,7 +80,7 @@ class DXExecute():
         log.info(f'demultiplex folder: {demultiplex_folder}')
 
         # instance type and additional args may be specified in assay config
-        # for runing demultiplexing, get them if present
+        # for running demultiplexing, get them if present
         instance_type = config.get('instance_type')
         if isinstance(instance_type, dict):
             # instance type defined in config is a mapping for multiple
@@ -88,7 +88,7 @@ class DXExecute():
             instance_type = select_instance_types(
                 run_id=self.args.run_id,
                 instance_types=instance_type)
-        
+
         log.info(f"Instance type selected for demultiplexing: {instance_type}")
 
         additional_args = config.get('additional_args')
@@ -374,13 +374,13 @@ class DXExecute():
         job_outputs_dict : dict
             dictionary of previous job outputs
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass output
+            dict of analysis stage to its output dir path, used to pass output
             of an analysis to input of another (i.e.
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
         instance_types : dict
-            mapping of instances to use for apps 
+            mapping of instances to use for apps
 
         Returns
         -------
@@ -519,13 +519,13 @@ class DXExecute():
         job_outputs_dict : dict
             dictionary of previous job outputs
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass
+            dict of analysis stage to its output dir path, used to pass
             output of an analysis to input of another (i.e.
             analysis_1 : /path/to/output)
         fastq_details : list of tuples
             list with tuple per fastq containing (DNAnexus file id, filename)
         instance_types : dict
-            mapping of instances to use for apps 
+            mapping of instances to use for apps
 
         Returns
         -------
