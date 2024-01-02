@@ -635,7 +635,7 @@ def main():
 
         if params.get('hold'):
             # specified to hold => wait for all jobs to complete
-            DXManage().hold_on_wait(
+            DXManage().wait_on_done(
                 analysis=params['analysis'],
                 analysis_name=params['executable_name'],
                 all_job_ids=job_outputs_dict
