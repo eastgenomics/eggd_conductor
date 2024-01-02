@@ -1232,3 +1232,40 @@ class DXManage():
         print(f"Found {len(all_output_files)} from {job_id}")
 
         return all_output_files, job_output_ids
+
+
+    def hold_on_wait(self, analysis, analysis_name, all_job_ids) -> None:
+        """
+        Hold eggd_conductor until all job(s) for the given analysis step
+        have completed
+
+        Parameters
+        ----------
+        analysis : str
+            analysis step to select job IDs to wait on
+        analysis_name : str
+            name of analysis step to wait on
+        all_job_ids : dict
+            mapping of analysis step -> job ID(s)
+        """
+        # job_outputs_dict for per run jobs structured as
+        # {'analysis_1': 'job-xxx'} and per sample as
+        # {'sample1': {'analysis_2': 'job-xxx'}...} => try and get both
+        job_ids = [all_job_ids.get(analysis)]
+        job_ids.extend([
+            x.get(analysis) for x in all_job_ids.values()
+            if isinstance(x, dict)
+        ])
+
+        log.info(
+            f'Holding conductor until {len(job_ids)} '
+            f'{analysis_name} job(s) complete...'
+        )
+
+        for job in job_ids:
+            if job.startswith('job-'):
+                dx.DXJob(dxid=job).wait_on_done()
+            else:
+                dx.DXAnalysis(dxid=job).wait_on_done()
+
+        print('All jobs to wait on completed')

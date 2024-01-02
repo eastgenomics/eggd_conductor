@@ -952,8 +952,8 @@ class ManageDict():
             # get the actual stage.field from input dict, we will
             # have this something like:
             # inputs: {
-            # "stage-GF22j384b0bpYgYB5fjkk34X.bam": "eggd_tso500.bam",
-            # "stage-GF22j384b0bpYgYB5fjkk34X.index": "eggd_tso500.idx"
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.bam": "eggd_tso500.bam",
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.index": "eggd_tso500.idx"
             # }
             # the value strings are pretty arbitrary bu the main thing is
             # we're not hardcoding the actual stage IDs here in case they
