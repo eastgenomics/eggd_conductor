@@ -416,7 +416,7 @@ class ManageDict():
         if sample:
             # running per sample, assume we only wait on the samples previous
             # job and not all instances of the given executable for all samples
-            job_outputs_dict = job_outputs_dict[sample]
+            job_outputs_dict = job_outputs_dict.get(sample, {})
 
         # check if job depends on previous jobs to hold till complete
         dependent_analyses = params.get("depends_on")
