@@ -270,7 +270,7 @@ class ManageDict():
         args : argparse.Namespace
             namespace object of passed cmd line arguments
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass output of
+            dict of analysis stage to its output dir path, used to pass output of
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
         sample : str, default None
             optional, sample name used to filter list of fastqs
