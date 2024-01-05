@@ -280,6 +280,92 @@ class TestDXManageGetJobOutputDetails(unittest.TestCase):
             self.assertEqual(ids, correct_ids)
 
 
+class TestDXManageWaitOnDone(unittest.TestCase):
+    """
+    Tests for DXManage.wait_on_done()
+
+    Function calls dxpy.DXJob.wait_on_done() on one or more
+    job- / analysis- IDs to hold conductor until jobs complete.
+
+    We want to test this works for both per run and per sample jobs
+    as these will be structured differently in the given dict of job IDs.
+    """
+    @patch('utils.dx_requests.dx.DXJob')
+    def test_job_held(self, mock_job):
+        """
+        Test when per run and per jobs are held on completing
+        """
+        # minimal dict mapping launched jobs, per run jobs will be defined
+        # in the top level of the dict, and per sample jobs will be stored
+        # under the sample name as a key for each analysis
+        launched_jobs_dict = {
+            'analysis_1': 'job-xxx',
+            'sample1': {
+                'analysis_2': 'job-yyy'
+            },
+            'sample2': {
+                'analysis_2': 'job-zzz'
+            }
+        }
+
+        with self.subTest():
+            DXManage(None).wait_on_done(
+                analysis='analysis_1',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_job.call_count, 1)
+
+        with self.subTest():
+            mock_job.call_count = 0  # reset call count
+            DXManage(None).wait_on_done(
+                analysis='analysis_2',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_job.call_count, 2)
+
+
+    @patch('utils.dx_requests.dx.DXAnalysis')
+    def test_analysis_held(self, mock_analysis):
+        """
+        Test when per run and per jobs are held on completing
+        """
+        # minimal dict mapping launched analysis (i.e. workflows), per
+        # run analysis will be defined in the top level of the dict, and
+        # per sample analysis will be stored under the sample name as a
+        # key for each analysis
+        launched_jobs_dict = {
+            'analysis_1': 'analysis-xxx',
+            'sample1': {
+                'analysis_2': 'analysis-yyy'
+            },
+            'sample2': {
+                'analysis_2': 'analysis-zzz'
+            }
+        }
+
+        with self.subTest():
+            DXManage(None).wait_on_done(
+                analysis='analysis_1',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_analysis.call_count, 1)
+
+        with self.subTest():
+            mock_analysis.call_count = 0  # reset call count
+            DXManage(None).wait_on_done(
+                analysis='analysis_2',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_analysis.call_count, 2)
+
 
 if __name__=="__main__":
     TestFilterHighestConfigVersion()

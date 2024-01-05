@@ -7,15 +7,15 @@ from copy import deepcopy
 from datetime import datetime
 import json
 import os
-from packaging.version import Version, parse
 from pprint import PrettyPrinter
 import re
 from typing import Tuple
 
 import dxpy as dx
+from packaging.version import Version, parse
 
 from utils.manage_dict import ManageDict
-from utils.utils import Slack, log,select_instance_types, time_stamp
+from utils.utils import Slack, log, select_instance_types, time_stamp
 
 
 PPRINT = PrettyPrinter(indent=1).pprint
@@ -23,7 +23,7 @@ PPRINT = PrettyPrinter(indent=1).pprint
 
 class DXExecute():
     """
-    Methods for handling exeuction of apps / worklfows
+    Methods for handling execution of apps / workflows
     """
     def __init__(self, args) -> None:
         self.args = args
@@ -1257,9 +1257,12 @@ class DXManage():
             if isinstance(x, dict)
         ])
 
+        # ensure we don't have any Nones
+        job_ids = [x for x in job_ids if x]
+
         log.info(
             f'Holding conductor until {len(job_ids)} '
-            f'{analysis_name} job(s) complete...'
+            f'{analysis_name} job(s) complete: {", ".join(job_ids)}'
         )
 
         for job in job_ids:
