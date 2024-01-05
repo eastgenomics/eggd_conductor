@@ -5,7 +5,6 @@ dictionaries for passing to dx run.
 
 from copy import deepcopy
 from pprint import PrettyPrinter
-from operator import itemgetter
 import os
 import re
 import sys
