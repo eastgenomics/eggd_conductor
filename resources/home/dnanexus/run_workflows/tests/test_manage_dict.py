@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(
 ))
 
 from utils.manage_dict import PPRINT, ManageDict
-from tests import TEST_DATA_DIR
+from .settings import TEST_DATA_DIR
 
 
 class TestSearchDict():
@@ -512,7 +512,7 @@ class TestAddOtherInputs():
     }
 
     # set samplesheet file ID as env variable as set in eggd_conductor.sh
-    os.environ['SAMPLESHEET'] = (
+    os.environ['SAMPLESHEET_ID'] = (
         "{'$dnanexus_link': 'file-GGxPVxQ4X7kbkFBx7b913b0G'}"
     )
 

@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../../')
 ))
 
-from tests import TEST_DATA_DIR
+from .settings import TEST_DATA_DIR
 from run_workflows.run_workflows import (
     match_samples_to_assays, parse_run_info_xml, parse_sample_sheet)
 
