@@ -1,7 +1,11 @@
 from copy import deepcopy
 import os
-import pytest
+import unittest
+from unittest.mock import patch
 import sys
+
+import pytest
+
 sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
@@ -53,13 +57,13 @@ class TestFilterHighestConfigVersion():
         for each assay code.
 
         Unique assay codes present between all configs:
-            EGG2, EGG5, LAB123, LAB456 
+            EGG2, EGG5, LAB123, LAB456
 
         We expect to return the following:
             - EGG2|LAB123 -> 1.2.0
             - LAB123|LAB456 -> 1.3.0
             - EGG5 -> 1.1.0
-        
+
         Rationale of each single code matching:
             - subset of unique individual codes: EGG2, EGG5, LAB123 & LAB456
             - matches for each:
@@ -198,6 +202,172 @@ class TestFilterHighestConfigVersion():
         with pytest.raises(AssertionError):
             DXManage.filter_highest_config_version(config_files)
 
+
+class TestDXManageGetJobOutputDetails(unittest.TestCase):
+    """
+    Tests for DXManage.get_job_output_details()
+
+    Function queries the output directory of a given job for output
+    files, then filters these down by the given job ID to ensure
+    they are output from that job. This is to get all the output
+    file details in an efficient manner since dxpy.describe on a
+    job can't return the output file details directly
+
+    Tests will just be to show that only files for the given job
+    are correctly returned
+    """
+    @patch('utils.dx_requests.dx.DXJob')
+    @patch('utils.dx_requests.dx.find_data_objects')
+    def test_only_job_specified_job_files_returned(self, mock_find, mock_job):
+        """
+        Test when a directory has other job output in that only the
+        output from the given job is returned
+        """
+        # minimal return of dx.describe on given job ID
+        mock_job.return_value.describe.return_value = {
+            'id': 'job-xxx',
+            'project': 'project-xxx',
+            'output': [
+                {
+                    'output_field1': [
+                        {'$dnanexus_link': 'file-xxx'}
+                    ]
+                }
+            ]
+        }
+
+        # minimal dx.find_data_objects return with files from multiple jobs
+        mock_find.return_value = [
+            {
+                'id': 'file-xxx',
+                'describe': {
+                    'createdBy': {
+                        'job': 'job-xxx'
+                    }
+                }
+            },
+            {
+                'id': 'file-yyy',
+                'describe': {
+                    'createdBy': {
+                        'job': 'job-yyy'
+                    }
+                }
+            },
+            {
+                'id': 'file-zzz',
+                'describe': {
+                    'createdBy': {
+                        'job': 'job-zzz'
+                    }
+                }
+            }
+        ]
+
+        files, ids = DXManage(None).get_job_output_details('job-xxx')
+
+        with self.subTest():
+            # test the describe object for job-xxx returned
+            self.assertEqual(files, [mock_find.return_value[0]])
+
+        with self.subTest():
+            # test only the IDs from job-xxx objects returned
+            correct_ids = [
+                {
+                    'output_field1': [
+                        {'$dnanexus_link': 'file-xxx'}
+                    ]
+                }
+            ]
+            self.assertEqual(ids, correct_ids)
+
+
+class TestDXManageWaitOnDone(unittest.TestCase):
+    """
+    Tests for DXManage.wait_on_done()
+
+    Function calls dxpy.DXJob.wait_on_done() on one or more
+    job- / analysis- IDs to hold conductor until jobs complete.
+
+    We want to test this works for both per run and per sample jobs
+    as these will be structured differently in the given dict of job IDs.
+    """
+    @patch('utils.dx_requests.dx.DXJob')
+    def test_job_held(self, mock_job):
+        """
+        Test when per run and per sample jobs are held on completing
+        """
+        # minimal dict mapping launched jobs, per run jobs will be defined
+        # in the top level of the dict, and per sample jobs will be stored
+        # under the sample name as a key for each analysis
+        launched_jobs_dict = {
+            'analysis_1': 'job-xxx',
+            'sample1': {
+                'analysis_2': 'job-yyy'
+            },
+            'sample2': {
+                'analysis_2': 'job-zzz'
+            }
+        }
+
+        with self.subTest():
+            DXManage(None).wait_on_done(
+                analysis='analysis_1',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_job.call_count, 1)
+
+        with self.subTest():
+            mock_job.call_count = 0  # reset call count
+            DXManage(None).wait_on_done(
+                analysis='analysis_2',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_job.call_count, 2)
+
+
+    @patch('utils.dx_requests.dx.DXAnalysis')
+    def test_analysis_held(self, mock_analysis):
+        """
+        Test when per run and per sample analyses (i.e. running a workflow)
+        are held on completing
+        """
+        # minimal dict mapping launched analysis (i.e. workflows), per
+        # run analysis will be defined in the top level of the dict, and
+        # per sample analysis will be stored under the sample name as a
+        # key for each analysis
+        launched_jobs_dict = {
+            'analysis_1': 'analysis-xxx',
+            'sample1': {
+                'analysis_2': 'analysis-yyy'
+            },
+            'sample2': {
+                'analysis_2': 'analysis-zzz'
+            }
+        }
+
+        with self.subTest():
+            DXManage(None).wait_on_done(
+                analysis='analysis_1',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_analysis.call_count, 1)
+
+        with self.subTest():
+            mock_analysis.call_count = 0  # reset call count
+            DXManage(None).wait_on_done(
+                analysis='analysis_2',
+                analysis_name='test_app',
+                all_job_ids=launched_jobs_dict
+            )
+
+            self.assertEqual(mock_analysis.call_count, 2)
 
 
 if __name__=="__main__":

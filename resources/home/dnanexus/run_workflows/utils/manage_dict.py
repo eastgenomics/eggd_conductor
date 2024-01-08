@@ -7,8 +7,14 @@ from copy import deepcopy
 from pprint import PrettyPrinter
 import os
 import re
+import sys
 
+import dxpy as dx
 from flatten_json import flatten, unflatten_list
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.realpath(__file__), '../../')
+))
 
 from utils.utils import Slack, log
 
@@ -263,7 +269,7 @@ class ManageDict():
         args : argparse.Namespace
             namespace object of passed cmd line arguments
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass output of
+            dict of analysis stage to its output dir path, used to pass output of
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
         sample : str, default None
             optional, sample name used to filter list of fastqs
@@ -409,7 +415,7 @@ class ManageDict():
         if sample:
             # running per sample, assume we only wait on the samples previous
             # job and not all instances of the given executable for all samples
-            job_outputs_dict = job_outputs_dict[sample]
+            job_outputs_dict = job_outputs_dict.get(sample, {})
 
         # check if job depends on previous jobs to hold till complete
         dependent_analyses = params.get("depends_on")
@@ -464,7 +470,7 @@ class ManageDict():
             (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
             filter sample IDs by
         sample : str, default None
-            (optional) sample name used to limit searching for previous analyes
+            (optional) sample name used to limit searching for previous analyses
 
         Returns
         -------
@@ -473,8 +479,6 @@ class ManageDict():
 
         Raises
         ------
-        KeyError
-            Sample missing from `job_outputs_dict`
         RuntimeError
             Raised if an input is not an analysis id (i.e analysis_2)
         RuntimeError
@@ -492,16 +496,25 @@ class ManageDict():
 
         if sample:
             # ensure we only use outputs for given sample
-            job_outputs_dict = job_outputs_dict.get(sample)
-            if not job_outputs_dict:
-                raise KeyError((
-                    f'{sample} not found in output dict. This is most likely '
-                    'from this being the first executable called and having '
-                    'a misconfigured input section in config (i.e. misspelt '
-                    'input) that should have been parsed earlier. Check '
-                    f'config and try again. Input dict given: {input_dict}'
-                ))
-            log.info(f"\nOutput dict for sample {sample}:")
+            sample_outputs = job_outputs_dict.get(sample, {})
+            if not sample_outputs:
+                print(
+                    f"Sample key {sample} not found in previous outputs, this "
+                    "is expected if all previous steps were only from per run "
+                    "jobs. Will continue with checking for analysis inputs."
+                )
+
+            # get any per run jobs to select from if an output is to be
+            # parsed from there, these will be in the top level of the
+            # job _outputs dict (i.e. {'analysis_1': "job-xxx"})
+            per_run_outputs = {
+                k: v for k, v  in job_outputs_dict.items()
+                if k.startswith('analysis_')
+            }
+
+            job_outputs_dict = {**per_run_outputs, **sample_outputs}
+
+            log.info(f"\nOutput dict for run & sample {sample}:")
             log.info(PPRINT(job_outputs_dict))
 
         # check if input dict has any analysis_X => need to link a previous job
@@ -861,3 +874,133 @@ class ManageDict():
             f"unparsed `analysis-` still in config, please check readme for "
             f"valid input parameters. \nUnparsed analyses: `{unparsed_inputs}`"
         )
+
+
+    def populate_tso500_reports_workflow(
+            self,
+            input_dict,
+            sample,
+            all_output_files,
+            job_output_ids
+        ) -> dict:
+        """
+        Handle the irritating running of the TSO500 reports workflow
+        after eggd_TSO500 app runs.
+
+        This is a pain as the eggd_TSO500 runs once per run, and outputs
+        an array of files for each file type (i.e BAMs, VCFs, CVOs etc.).
+        In addition, if the run is a mix of DNA and RNA samples, these
+        are different output fields (job-xxx.dna_bams vs job-xxx.rna_bams).
+        Therefore, we will handle parsing of these inputs separately from
+        the standard functions, and maybe one day this can all go away...
+
+        Outline of what we expect to handle here:
+            - get all output files for the given sample from the
+                eggd_TSO500 app output
+            - get either the DNA BAM or RNA BAM output and respective index
+                as inputs for mosdepth
+            - get either gVCF (for DNA) or SpliceVariants VCF (for RNA)
+                as inputs for vcf rescue -> vep -> workbooks
+            - get the CombinedVariantOutput tsv for the sample and the
+                metricsOutput for the run as inputs for input to
+                generate_variant_workbook.additional_files
+
+
+        Parameters
+        ----------
+        input_dict : dict
+            input dict parsed from the config
+        sample : str
+            name of current sample
+        all_output_files : list
+            list of dicts of all output files from eggd_tso500 job
+        job_output_ids : dict mapping output field -> list of file IDs
+            (e.g. {'vcf': [{'$dnanexus_link': 'file-xxx', ...}]})
+
+        Returns
+        -------
+        dict
+            populated input dict
+        """
+        print("Adding input files for TSO500 reports workflow")
+
+        # mapping of the value expected in the input dict parsed from
+        # the config file -> the eggd_tso500 app output fields to select from
+        tso500_input_fields = {
+            "eggd_tso500.fastqs": ['fastqs'],
+            "eggd_tso500.bam": ['dna_bams', 'rna_bams'],
+            "eggd_tso500.idx": ['dna_bam_index', 'rna_bam_index'],
+            "eggd_tso500.vcf": ['gvcfs', 'splice_variants_vcfs'],
+            "eggd_tso500.cvo": ['cvo']
+        }
+
+        for stage_input, output_fields in tso500_input_fields.items():
+            # get the actual stage.field from input dict, we will
+            # have something like this from the config:
+            # inputs: {
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.bam": "eggd_tso500.bam",
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.index": "eggd_tso500.idx"
+            # }
+            # the value strings are pretty arbitrary but the main thing is
+            # we're not hardcoding the actual stage IDs here in case they
+            # change, and then we can just change them in the config
+            config_stage_input = list({
+                k: v for k, v in input_dict.items() if v == stage_input
+            }.keys())
+
+            if not config_stage_input:
+                # this input not present in config file, likely been removed
+                continue
+
+            config_stage_input = config_stage_input[0]
+
+            # get the corresponding eggd_tso500 output files for
+            # the given stage input
+            dx_links = [job_output_ids.get(x) for x in output_fields]
+            file_ids = [
+                id.get('$dnanexus_link') for sublist in dx_links for id in sublist
+            ]
+            file_details = [
+                x for x in all_output_files if x['id'] in file_ids
+            ]
+            sample_file = [
+                x for x in file_details if x['describe']['name'].startswith(sample)
+            ]
+
+            assert sample_file, (
+                f"No eggd_tso500 files found for sample {sample} for "
+                f"input {stage_input}"
+            )
+
+            if output_fields == ['fastqs']:
+                # handle fastqs separately since they should be an array
+                input_dict[config_stage_input] = [
+                    {'$dnanexus_link': x['id']} for x in sample_file
+                ]
+            else:
+                input_dict[config_stage_input] = {
+                    '$dnanexus_link': sample_file[0]['id']
+                }
+
+        # get the dnanexus_link we already added for the cvo, and turn
+        # this into an array input with the metricsOutput
+        additional_files_stage = [
+            x for x in input_dict if x.endswith('.additional_files')
+        ]
+
+        if additional_files_stage:
+            additional_files_stage = additional_files_stage[0]
+
+            # make additional files for generate_workbook also take in the
+            # per run metricsOutput file, should already have the sample cvo
+            metrics_output = job_output_ids.get('metricsOutput')
+            assert metrics_output, "No metrics output file found from tso500 job"
+
+            cvo_dnanexus_link = input_dict[additional_files_stage]
+            input_dict[additional_files_stage] = [
+                metrics_output, cvo_dnanexus_link
+            ]
+
+        print(f"Inputs added to input dict:\n\n{input_dict}")
+
+        return input_dict

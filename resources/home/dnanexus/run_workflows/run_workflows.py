@@ -428,13 +428,13 @@ def main():
         args.dx_project_id = DXManage(args).get_or_create_dx_project(config)
 
     # write analysis project to file to pick up at end to send Slack message
-    output_project = dx.bindings.dxproject.DXProject(
-        dxid=args.dx_project_id).describe().get('name')
     with open('analysis_project.log', 'w') as fh:
         fh.write(
             f'{args.dx_project_id} {args.assay_name} {config.get("version")}\n'
         )
 
+    output_project = dx.bindings.dxproject.DXProject(
+        dxid=args.dx_project_id).describe().get('name')
     args.dx_project_name = output_project
 
     print(
@@ -599,21 +599,6 @@ def main():
                 )
                 total_jobs += 1
 
-            if params.get('hold'):
-                # specified to hold => wait for all sample jobs to complete
-                # job_outputs_dict for per sample jobs structured as:
-                # {'sample1': {'analysis_1': 'job-xxx'}...}
-                job_ids = [x.get(params['analysis']) for x in job_outputs_dict.values()]
-                log.info(
-                    f'Holding conductor until {len(job_ids)} '
-                    f'{params["executable_name"]} job(s) complete...'
-                )
-                for job in job_ids:
-                    if job.startswith('job-'):
-                        dx.DXJob(dxid=job).wait_on_done()
-                    else:
-                        dx.DXAnalysis(dxid=job).wait_on_done()
-
         elif params['per_sample'] is False:
             # run workflow / app on all samples at once
             job_outputs_dict = dx_execute.call_per_run(
@@ -630,15 +615,6 @@ def main():
             )
             total_jobs += 1
 
-            if params.get('hold'):
-                print(f"Holding conductor until {params['name']} completes...")
-                executable_id = job_outputs_dict[params['analysis']]
-
-                if executable_id.startswith('job-'):
-                    dx.DXJob(dxid=executable_id).wait_on_done()
-                else:
-                    dx.DXAnalysis(dxid=executable_id).wait_on_done()
-
         else:
             # per_sample is not True or False, exit
             raise ValueError(
@@ -651,6 +627,14 @@ def main():
             f'launched successfully!\n\n'
         )
 
+        if params.get('hold'):
+            # specified to hold => wait for all jobs to complete
+            DXManage().wait_on_done(
+                analysis=params['analysis'],
+                analysis_name=params['executable_name'],
+                all_job_ids=job_outputs_dict
+            )
+
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(total_jobs))
 
@@ -660,7 +644,7 @@ def main():
     Jira().add_comment(
         run_id=args.run_id,
         comment=(
-            "All jobs sucessfully launched by eggd_conductor. "
+            "All jobs successfully launched by eggd_conductor. "
             "\nAnalysis project: "
         ),
         url=(

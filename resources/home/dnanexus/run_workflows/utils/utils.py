@@ -9,8 +9,13 @@ import re
 import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
+import sys
 import traceback
 from urllib3.util import Retry
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.realpath(__file__), '../')
+))
 
 from utils.dx_log import dx_log
 
@@ -393,12 +398,12 @@ def select_instance_types(run_id, instance_types) -> dict:
         # empty dict provided => no user defined instances in config
         log.info('No instance types set to use from config')
         return None
-    
+
     if isinstance(instance_types, str):
         # instance types is string => single instance type
         log.info(f"Single instance type set: {instance_types}")
         return instance_types
- 
+
     # mapping of flowcell ID patterns for NovaSeq flowcells from:
     # https://knowledge.illumina.com/instrumentation/general/instrumentation-general-reference_material-list/000005589
     # "SP": "xxxxxDRxx"
@@ -424,7 +429,7 @@ def select_instance_types(run_id, instance_types) -> dict:
             # make x's n or more character regex pattern (e.g. [\d\w]{5,})
             if start_x:
                 start_x = f"[\d\w]{{{len(start_x)},}}"
-            
+
             if end_x:
                 end_x = f"[\d\w]{{{len(end_x)},}}"
 
