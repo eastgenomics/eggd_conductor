@@ -1240,6 +1240,8 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
                 "stage-generate_variant_workbook.additional_files": "eggd_tso500.cvo",
          }
 
+        # minimal example files as would be returned from finding files in
+        # eggd_tso500 directory with dx_requests.DXManage.get_job_output_details()
         self.all_output_files = [
             {'id': 'file-a1', 'describe': {'name': 'sample1_R1.fastq'}},
             {'id': 'file-a2', 'describe': {'name': 'sample1_R2.fastq'}},
@@ -1263,6 +1265,8 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             {'id': 'file-i1', 'describe': {'name': 'metricsOutput.tsv'}},
         ]
 
+
+        # example mapping of eggd_tso500 output fields -> $dnanexus_links
         self.job_output_ids = {
             'fastqs': [
                 {'$dnanexus_link': 'file-a1'},
@@ -1368,6 +1372,8 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
         Test when a sample is missing a file that an AssertionError is raised
         """
         missing_files = deepcopy(self.all_output_files)
+
+        # remove cvo file for sample 1 from output files
         missing_files = [
             x for x in missing_files if not x.get('id') == 'file-h1'
         ]
@@ -1377,7 +1383,7 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             'for input eggd_tso500.cvo'
         )
         with pytest.raises(AssertionError, match=expected_error):
-            populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+            ManageDict().populate_tso500_reports_workflow(
                 input_dict=self.reports_workflow_input_dict,
                 sample='sample1',
                 all_output_files=missing_files,
@@ -1396,14 +1402,9 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
         expected_error = 'No metrics output file found from tso500 job'
 
         with pytest.raises(AssertionError, match=expected_error):
-            populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+            ManageDict().populate_tso500_reports_workflow(
                 input_dict=self.reports_workflow_input_dict,
                 sample='sample1',
                 all_output_files=self.all_output_files,
                 job_output_ids=missing_files
             )
-
-
-if __name__ == '__main__':
-
-    pass

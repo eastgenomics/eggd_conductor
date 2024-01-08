@@ -267,9 +267,11 @@ class TestDXManageGetJobOutputDetails(unittest.TestCase):
         files, ids = DXManage(None).get_job_output_details('job-xxx')
 
         with self.subTest():
+            # test the describe object for job-xxx returned
             self.assertEqual(files, [mock_find.return_value[0]])
 
         with self.subTest():
+            # test only the IDs from job-xxx objects returned
             correct_ids = [
                 {
                     'output_field1': [
@@ -293,7 +295,7 @@ class TestDXManageWaitOnDone(unittest.TestCase):
     @patch('utils.dx_requests.dx.DXJob')
     def test_job_held(self, mock_job):
         """
-        Test when per run and per jobs are held on completing
+        Test when per run and per sample jobs are held on completing
         """
         # minimal dict mapping launched jobs, per run jobs will be defined
         # in the top level of the dict, and per sample jobs will be stored
@@ -331,7 +333,8 @@ class TestDXManageWaitOnDone(unittest.TestCase):
     @patch('utils.dx_requests.dx.DXAnalysis')
     def test_analysis_held(self, mock_analysis):
         """
-        Test when per run and per jobs are held on completing
+        Test when per run and per sample analyses (i.e. running a workflow)
+        are held on completing
         """
         # minimal dict mapping launched analysis (i.e. workflows), per
         # run analysis will be defined in the top level of the dict, and
