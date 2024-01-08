@@ -428,13 +428,13 @@ def main():
         args.dx_project_id = DXManage(args).get_or_create_dx_project(config)
 
     # write analysis project to file to pick up at end to send Slack message
-    output_project = dx.bindings.dxproject.DXProject(
-        dxid=args.dx_project_id).describe().get('name')
     with open('analysis_project.log', 'w') as fh:
         fh.write(
             f'{args.dx_project_id} {args.assay_name} {config.get("version")}\n'
         )
 
+    output_project = dx.bindings.dxproject.DXProject(
+        dxid=args.dx_project_id).describe().get('name')
     args.dx_project_name = output_project
 
     print(
