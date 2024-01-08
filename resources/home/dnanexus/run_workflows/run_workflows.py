@@ -629,11 +629,22 @@ def main():
 
         if params.get('hold'):
             # specified to hold => wait for all jobs to complete
-            DXManage().wait_on_done(
+
+            # tag conductor whilst waiting to make it clear its being held
+            conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
+            hold_tag = ([
+                f'Holding conductor until {params["executable_name"]} job(s) complete'
+            ])
+            conductor_job.add_tags(hold_tag)
+
+            DXManage.wait_on_done(
                 analysis=params['analysis'],
                 analysis_name=params['executable_name'],
                 all_job_ids=job_outputs_dict
             )
+
+            conductor_job.remove_tags(hold_tag)
+
 
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(total_jobs))
