@@ -2,8 +2,11 @@ from argparse import Namespace
 from copy import deepcopy
 import json
 import os
-import pytest
 import sys
+import unittest
+
+import pytest
+
 sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
@@ -1211,6 +1214,193 @@ class TestCheckAllInputs():
         with pytest.raises(AssertionError):
             ManageDict().check_all_inputs(
                 input_dict=self.input_dict_with_unparsed_analysis
+            )
+
+
+class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
+    """
+    Tests for ManageDict.populate_tso500_reports_workflow
+
+    Function handles the specific output -> input parsing of eggd_tso500
+    and the downstream per sample eggd_tso500_reports_workflow. Tests
+    here to ensure that the input dict is correctly populated and
+    missing files will correctly be caught.
+    """
+    def setUp(self):
+        """
+        Define minimal sets of data structures expected for parsing
+        """
+        # input dict as would be parsed from assay config file, only
+        # including the inputs here to link to eggd_tso500 outputs
+        self.reports_workflow_input_dict = {
+            "stage-multi_fastqc.fastqs": "eggd_tso500.fastqs",
+                "stage-mosdepth.bam": "eggd_tso500.bam",
+                "stage-mosdepth.index": "eggd_tso500.idx",
+                "stage-vcf_rescue.gvcf": "eggd_tso500.vcf",
+                "stage-generate_variant_workbook.additional_files": "eggd_tso500.cvo",
+         }
+
+        self.all_output_files = [
+            {'id': 'file-a1', 'describe': {'name': 'sample1_R1.fastq'}},
+            {'id': 'file-a2', 'describe': {'name': 'sample1_R2.fastq'}},
+            {'id': 'file-a3', 'describe': {'name': 'sample3_R1.fastq'}},
+            {'id': 'file-a4', 'describe': {'name': 'sample3_R2.fastq'}},
+            {'id': 'file-b1', 'describe': {'name': 'sample1.bam'}},
+            {'id': 'file-b2', 'describe': {'name': 'sample2.bam'}},
+            {'id': 'file-c1', 'describe': {'name': 'sample3.rna.bam'}},
+            {'id': 'file-c2', 'describe': {'name': 'sample4.rna.bam'}},
+            {'id': 'file-d1', 'describe': {'name': 'sample1.bam.bai'}},
+            {'id': 'file-d2', 'describe': {'name': 'sample2.bam.bai'}},
+            {'id': 'file-e1', 'describe': {'name': 'sample3.ran.bam.bai'}},
+            {'id': 'file-e2', 'describe': {'name': 'sample4.ran.bam.bai'}},
+            {'id': 'file-f1', 'describe': {'name': 'sample1.genome.vcf'}},
+            {'id': 'file-f2', 'describe': {'name': 'sample2.genome.vcf'}},
+            {'id': 'file-g1', 'describe': {'name': 'sample3.splice_variants.vcf'}},
+            {'id': 'file-g2', 'describe': {'name': 'sample4.splice_variants.vcf'}},
+            {'id': 'file-h1', 'describe': {'name': 'sample1_CombinedVariantOutput.tsv'}},
+            {'id': 'file-h2', 'describe': {'name': 'sample2_CombinedVariantOutput.tsv'}},
+            {'id': 'file-h3', 'describe': {'name': 'sample3_CombinedVariantOutput.tsv'}},
+            {'id': 'file-i1', 'describe': {'name': 'metricsOutput.tsv'}},
+        ]
+
+        self.job_output_ids = {
+            'fastqs': [
+                {'$dnanexus_link': 'file-a1'},
+                {'$dnanexus_link': 'file-a2'},
+                {'$dnanexus_link': 'file-a3'},
+                {'$dnanexus_link': 'file-a4'}
+            ],
+            'dna_bams': [
+                {'$dnanexus_link': 'file-b1'},
+                {'$dnanexus_link': 'file-b2'}
+            ],
+            'rna_bams': [
+                {'$dnanexus_link': 'file-c1'},
+                {'$dnanexus_link': 'file-c2'}
+            ],
+            'dna_bam_index': [
+                {'$dnanexus_link': 'file-d1'},
+                {'$dnanexus_link': 'file-d2'}
+            ],
+            'rna_bam_index': [
+                {'$dnanexus_link': 'file-e1'},
+                {'$dnanexus_link': 'file-e2'}
+            ],
+            'gvcfs': [
+                {'$dnanexus_link': 'file-f1'},
+                {'$dnanexus_link': 'file-f2'}
+            ],
+            'splice_variants_vcfs': [
+                {'$dnanexus_link': 'file-g1'},
+                {'$dnanexus_link': 'file-g2'}
+            ],
+            'cvo': [
+                {'$dnanexus_link': 'file-h1'},
+                {'$dnanexus_link': 'file-h2'},
+                {'$dnanexus_link': 'file-h3'}
+            ],
+            'metricsOutput': {
+                '$dnanexus_link': 'file-i1'
+            }
+        }
+
+
+    def test_inputs_for_dna_sample_correct(self):
+        """
+        Test that for sample1 that is DNA (has dna_bam output) that the
+        input dict is populated correctly
+        """
+        populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+            input_dict=self.reports_workflow_input_dict,
+            sample='sample1',
+            all_output_files=self.all_output_files,
+            job_output_ids=self.job_output_ids
+        )
+
+        expected_output = {
+            'stage-multi_fastqc.fastqs': [
+                {'$dnanexus_link': 'file-a1'},
+                {'$dnanexus_link': 'file-a2'}
+            ],
+            'stage-mosdepth.bam': {'$dnanexus_link': 'file-b1'},
+            'stage-mosdepth.index': {'$dnanexus_link': 'file-d1'},
+            'stage-vcf_rescue.gvcf': {'$dnanexus_link': 'file-f1'},
+            'stage-generate_variant_workbook.additional_files': [
+                {'$dnanexus_link': 'file-i1'},
+                {'$dnanexus_link': 'file-h1'}
+            ]
+        }
+
+        self.assertEqual(populated_input_dict, expected_output)
+
+
+    def test_inputs_for_rna_sample_correct(self):
+        """
+        Test that for sample3 that is RNA (has rna_bam output and
+        splice_variant vcf) that the input dict is populated correctly
+        """
+        populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+            input_dict=self.reports_workflow_input_dict,
+            sample='sample3',
+            all_output_files=self.all_output_files,
+            job_output_ids=self.job_output_ids
+        )
+
+        expected_output = {
+            'stage-multi_fastqc.fastqs': [
+                {'$dnanexus_link': 'file-a3'},
+                {'$dnanexus_link': 'file-a4'}
+            ],
+            'stage-mosdepth.bam': {'$dnanexus_link': 'file-c1'},
+            'stage-mosdepth.index': {'$dnanexus_link': 'file-e1'},
+            'stage-vcf_rescue.gvcf': {'$dnanexus_link': 'file-g1'},
+            'stage-generate_variant_workbook.additional_files': [
+                {'$dnanexus_link': 'file-i1'},
+                {'$dnanexus_link': 'file-h3'}
+            ]
+        }
+
+        self.assertEqual(populated_input_dict, expected_output)
+
+
+    def test_missing_files_for_sample_raises_assertion_error(self):
+        """
+        Test when a sample is missing a file that an AssertionError is raised
+        """
+        missing_files = deepcopy(self.all_output_files)
+        missing_files = [
+            x for x in missing_files if not x.get('id') == 'file-h1'
+        ]
+
+        expected_error = (
+            'No eggd_tso500 files found for sample sample1 '
+            'for input eggd_tso500.cvo'
+        )
+        with pytest.raises(AssertionError, match=expected_error):
+            populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+                input_dict=self.reports_workflow_input_dict,
+                sample='sample1',
+                all_output_files=missing_files,
+                job_output_ids=self.job_output_ids
+            )
+
+
+    def test_missing_metrics_output_raises_assertion_error(self):
+        """
+        Test when run level metricsOutput is missing that an AssertionError
+        is raised
+        """
+        missing_files = deepcopy(self.job_output_ids)
+        missing_files.pop('metricsOutput')
+
+        expected_error = 'No metrics output file found from tso500 job'
+
+        with pytest.raises(AssertionError, match=expected_error):
+            populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+                input_dict=self.reports_workflow_input_dict,
+                sample='sample1',
+                all_output_files=self.all_output_files,
+                job_output_ids=missing_files
             )
 
 
