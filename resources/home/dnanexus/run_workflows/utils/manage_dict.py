@@ -914,9 +914,8 @@ class ManageDict():
             name of current sample
         all_output_files : list
             list of dicts of all output files from eggd_tso500 job
-        job_output_ids : list
-            list of dicts of job output ids, with output field -> list
-            of file IDs (e.g. [{'vcf': [{'$dnanexus_link': 'file-xxx', ...}]}])
+        job_output_ids : dict mapping output field -> list of file IDs
+            (e.g. {'vcf': [{'$dnanexus_link': 'file-xxx', ...}]})
 
         Returns
         -------
@@ -936,7 +935,27 @@ class ManageDict():
         }
 
         for stage_input, output_fields in tso500_input_fields.items():
-            # get the DNA or RNA bams, getting lists results in list of lists
+            # get the actual stage.field from input dict, we will
+            # have something like this from the config:
+            # inputs: {
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.bam": "eggd_tso500.bam",
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.index": "eggd_tso500.idx"
+            # }
+            # the value strings are pretty arbitrary but the main thing is
+            # we're not hardcoding the actual stage IDs here in case they
+            # change, and then we can just change them in the config
+            config_stage_input = list({
+                k: v for k, v in input_dict.items() if v == stage_input
+            }.keys())
+
+            if not config_stage_input:
+                # this input not present in config file, likely been removed
+                continue
+
+            config_stage_input = config_stage_input[0]
+
+            # get the corresponding eggd_tso500 output files for
+            # the given stage input
             dx_links = [job_output_ids.get(x) for x in output_fields]
             file_ids = [
                 id.get('$dnanexus_link') for sublist in dx_links for id in sublist
@@ -948,42 +967,39 @@ class ManageDict():
                 x for x in file_details if x['describe']['name'].startswith(sample)
             ]
 
-            # get the actual stage.field from input dict, we will
-            # have this something like:
-            # inputs: {
-            #   "stage-GF22j384b0bpYgYB5fjkk34X.bam": "eggd_tso500.bam",
-            #   "stage-GF22j384b0bpYgYB5fjkk34X.index": "eggd_tso500.idx"
-            # }
-            # the value strings are pretty arbitrary bu the main thing is
-            # we're not hardcoding the actual stage IDs here in case they
-            # change, and then we can just change them in the config
-            stage = list({
-                k: v for k, v in input_dict.items()
-                if v == stage_input}.keys()
-            )[0]
+            assert sample_file, (
+                f"No eggd_tso500 files found for sample {sample} for "
+                f"input {stage_input}"
+            )
 
             if output_fields == ['fastqs']:
                 # handle fastqs separately since they should be an array
-                input_dict[stage] = [
+                input_dict[config_stage_input] = [
                     {'$dnanexus_link': x['id']} for x in sample_file
                 ]
             else:
-                input_dict[stage] = {'$dnanexus_link': sample_file[0]['id']}
-
-        # make additional files for generate_workbook also take in the
-        # per run metricsOutput file, should already have the sample cvo
-        metrics_output = job_output_ids.get('metricsOutput')
-        assert metrics_output, "No metrics output file found from tso500 job"
+                input_dict[config_stage_input] = {
+                    '$dnanexus_link': sample_file[0]['id']
+                }
 
         # get the dnanexus_link we already added for the cvo, and turn
         # this into an array input with the metricsOutput
         additional_files_stage = [
             x for x in input_dict if x.endswith('.additional_files')
-        ][0]
-        cvo_dnanexus_link = input_dict[additional_files_stage]
-        input_dict[additional_files_stage] = [
-            metrics_output, cvo_dnanexus_link
         ]
+
+        if additional_files_stage:
+            additional_files_stage = additional_files_stage[0]
+
+            # make additional files for generate_workbook also take in the
+            # per run metricsOutput file, should already have the sample cvo
+            metrics_output = job_output_ids.get('metricsOutput')
+            assert metrics_output, "No metrics output file found from tso500 job"
+
+            cvo_dnanexus_link = input_dict[additional_files_stage]
+            input_dict[additional_files_stage] = [
+                metrics_output, cvo_dnanexus_link
+            ]
 
         print(f"Inputs added to input dict:\n\n{input_dict}")
 
