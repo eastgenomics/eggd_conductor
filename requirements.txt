@@ -3,5 +3,11 @@ flatten_json==0.1.13
 packaging==20.3
 pandas==1.4.1
 pytest==7.0.1
+pytest-cov==4.0.0
+pytest-html==4.1.0
+pytest-metadata==3.0.0
+pytest-mock==3.11.1
+pytest-subtests==0.11.0
+python-dateutil==2.8.2
 Requests==2.*
 urllib3==1.25.8
