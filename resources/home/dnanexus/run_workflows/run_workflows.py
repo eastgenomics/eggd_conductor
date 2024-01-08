@@ -633,7 +633,7 @@ def main():
             # tag conductor whilst waiting to make it clear its being held
             conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
             hold_tag = ([
-                f'Holding conductor until {params["executable_name"]} job(s) complete'
+                f'Holding job until {params["executable_name"]} job(s) complete'
             ])
             conductor_job.add_tags(hold_tag)
 
