@@ -38,6 +38,7 @@ OR
 - `-iRUN_ID`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
 - `-iSAMPLE_NAMES`: comma separated list of sample names, to use if not providing a samplesheet
 - `-iJOB_REUSE`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This is currently only implemented for per-run analysis steps.
+- `-iEXCLUDE_SAMPLES`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be as they are in the samplesheet*)
 
 
 **Integers**
