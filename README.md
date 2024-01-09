@@ -41,7 +41,7 @@ OR
 - `-iRUN_ID`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
 - `-iSAMPLE_NAMES`: comma separated list of sample names, to use if not providing a samplesheet
 - `-iJOB_REUSE`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This is currently only implemented for per-run analysis steps.
-- `-iEXCLUDE_SAMPLES`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be as they are in the samplesheet*)
+- `-iEXCLUDE_SAMPLES`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be specified as they are in the samplesheet*)
 
 
 **Integers**
@@ -63,13 +63,13 @@ The app may be run in 2 ways:
   - a samplesheet (`-iSAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
   - a `RunInfo.xml` file (`-iRUN_INFO_XML`) to parse the run ID from **or** the run ID as a string (`-iRUN_ID`)
 
-In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
+In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing the Slack/Jira/DNAnexus tokens, app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), as well as the path to the assay JSON configs in DNAnexus.
 
 A general outline of what the app does is as follows:
 
 - If starting from sentinel record:
   - parse the sentinel record to get the file IDs of the upload tar data, RunInfo.xml file and samplesheet
-- If starting from fastqs:
+- If starting from FASTQs:
   - ensure that other required inputs are provided, including:
     - either `-iSAMPLESHEET` or `-iSAMPLE_NAMES`
     - either `-iRUN_ID` or `-iRUN_INFO_XML` file
@@ -78,10 +78,10 @@ A general outline of what the app does is as follows:
 - The project to launch analysis jobs in is determined by:
   - If `-iCREATE_PROJECT=true` set, a new DNAnexus project is created
   - If `-iDX_PROJECT` is specified, this project is used
-  - If neither of the above are set, jobs will be launched in the same project as eggd_conductor is running
+  - If neither of the above are set, jobs will be launched in the same project as eggd_conductor is running (default behaviour)
 - Jira helpdesk searched for a matching ticket against the run ID to add a comment linking it to the eggd_conductor job
 - If `-iFASTQS` or `-iDEMULTIPLEX_JOB_ID` specified the FASTQs are parsed for analysis, else if running demultiplexing this will start and eggd_conductor held until it completes
-- For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details). If `hold: true` is specified for any of the analysis steps, the eggd_conductor job is held until the given analysis completes (this is to be used when )
+- For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details). If `hold: true` is specified for any of the analysis steps, the eggd_conductor job is held until the given analysis completes (this is to be used when parsing output arrays -> downstream inputs where specific files must be parsed out)
 - A final Jira comment is added once all jobs have been launched
 
 
