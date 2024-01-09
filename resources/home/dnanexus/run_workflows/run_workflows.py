@@ -384,10 +384,12 @@ def parse_args() -> argparse.Namespace:
         # check given JOB_REUSE is valid JSON
         try:
             args.job_reuse = json.loads(args.job_reuse)
-        except json.decoder.JSONDecodeError as exc:
+        except json.decoder.JSONDecodeError:
             raise SyntaxError(
-                '-iJOB_REUSE provided does not appear to be valid JSON format'
-            ).with_traceback(sys.exc_info()[2]) from exc
+                Slack().send(
+                   '`-iJOB_REUSE` provided does not appear to be valid '
+                   f'JSON format: `{args.job_reuse}`'
+            ))
     else:
         args.job_reuse = {}
 
