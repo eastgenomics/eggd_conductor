@@ -17,6 +17,7 @@ import os
 from packaging.version import parse as parseVersion
 import re
 import subprocess
+import sys
 
 import dxpy as dx
 import pandas as pd
@@ -351,6 +352,14 @@ def parse_args() -> argparse.Namespace:
             "the assay code of other samples (default: 1, set in dxapp.json)"
         )
     )
+    parser.add_argument(
+        '--job_reuse',
+        help=(
+            "JSON formatted string mapping analysis step -> job ID to reuse "
+            "outputs from instead of running analysis (i.e. "
+            "'{\"analysis_1\": \"job-xxx\"}')"
+        )
+    )
 
     args = parser.parse_args()
 
@@ -370,6 +379,17 @@ def parse_args() -> argparse.Namespace:
 
     if not args.samples:
         args.samples = parse_sample_sheet(args.samplesheet)
+
+    if args.job_reuse:
+        # check given JOB_REUSE is valid JSON
+        try:
+            args.job_reuse = json.loads(args.job_reuse)
+        except json.decoder.JSONDecodeError as exc:
+            raise SyntaxError(
+                '-iJOB_REUSE provided does not appear to be valid JSON format'
+            ).with_traceback(sys.exc_info()[2]) from exc
+    else:
+        args.job_reuse = {}
 
     return args
 
@@ -559,6 +579,30 @@ def main():
         log.info(
             f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
+
+        # first check if specified to reuse a previous job for this step
+        if args.job_reuse.get(params["analysis"]):
+            previous_job = args.job_reuse.get(params["analysis"])
+
+            assert re.match(r'(job|analysis)-[\w]+', previous_job), (
+                f"Job specified to reuse does not appear valid: {previous_job}"
+            )
+
+            if params['per_sample']:
+                # ensure we're only doing this for per run jobs for now
+                raise NotImplementedError(
+                    '-iJOB_REUSE not yet implemented for per sample jobs'
+                )
+
+            log.info(
+                f"Reusing provided job {previous_job} for analysis step "
+                f"{params['analysis']} for {params['name']}"
+            )
+
+            job_outputs_dict[params["analysis"]] = previous_job
+
+            continue
+
         log.info("\nParams parsed from config before modifying:")
         log.info(PPRINT(params))
 

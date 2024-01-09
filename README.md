@@ -330,6 +330,7 @@ The following describe default app input behaviour:
 - `MISMATCH_ALLOWANCE` (default: 1): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
 - `DEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
 - `DEMULTIPLEX_OUT` (optional): path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
+- `JOB_REUSE` (`string`; optional): JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{"analysis_1": "job-xxx"}'). This is currently only implemented for per-run analysis steps.
 
 
 ## Demultiplexing
