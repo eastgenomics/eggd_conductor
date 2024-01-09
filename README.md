@@ -11,7 +11,7 @@ Automating analysis for given samples from a config file definition. This can ei
 
 ## App Inputs - Defaults & Behaviour
 
-The following describe default app input behaviour:
+The following describes default app input behaviour
 
 **Required**
 - `-iEGGD_CONDUCTOR_CONFIG` (`file`): config file for app containing required variables
@@ -26,6 +26,7 @@ OR
 
 
 **Optional**
+
 **Files**
 - `-iSAMPLESHEET`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
 - `-iASSAY_CONFIG`: assay specific config file, if not given will search in `-iASSAY_CONFIG_PATH` from `-iEGGD_CONDUCTOR_CONFIG` for appropriate file
@@ -80,7 +81,7 @@ A general outline of what the app does is as follows:
   - If neither of the above are set, jobs will be launched in the same project as eggd_conductor is running
 - Jira helpdesk searched for a matching ticket against the run ID to add a comment linking it to the eggd_conductor job
 - If `-iFASTQS` or `-iDEMULTIPLEX_JOB_ID` specified the FASTQs are parsed for analysis, else if running demultiplexing this will start and eggd_conductor held until it completes
-- For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details)
+- For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details). If `hold: true` is specified for any of the analysis steps, the eggd_conductor job is held until the given analysis completes (this is to be used when )
 - A final Jira comment is added once all jobs have been launched
 
 
