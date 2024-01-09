@@ -285,19 +285,19 @@ def exclude_samples_from_sample_list(exclude_samples, sample_list) -> list:
         Raised when one or more samples specified not in sample list
     """
     log.info(
-        f"Excluding following {len(args.exclude_samples)} samples from "
-        f"per sample analysis steps: {args.exclude_samples}"
+        f"Excluding following {len(exclude_samples)} samples from "
+        f"per sample analysis steps: {exclude_samples}"
     )
 
     # sense check that valid sample names have been specified
-    invalid_samples = [x for x in args.exclude_samples if x not in sample_list]
+    invalid_samples = [x for x in exclude_samples if x not in sample_list]
     if invalid_samples:
         raise RuntimeError(Slack().send(
-            "sample(s) specified to exclude do not seem valid sample names"
-            f" from the given samplesheet: {', '.join(invalid_samples)}"
+            "Sample(s) specified to exclude do not seem valid sample names"
+            f" from the given samplesheet: `{', '.join(invalid_samples)}`"
         ))
 
-    sample_list = list(set(sample_list) - set(args.exclude_samples))
+    sample_list = list(set(sample_list) - set(exclude_samples))
 
     return sample_list
 
