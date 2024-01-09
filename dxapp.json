@@ -96,6 +96,13 @@
       "help": "Parsed from samplesheet if not given"
     },
     {
+      "name": "JOB_REUSE",
+      "label": "job reuse",
+      "class": "string",
+      "optional": true,
+      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{\"analysis_1\": \"job-xxx\"}')"
+    },
+    {
       "name": "MISMATCH_ALLOWANCE",
       "label": "mismatch allowance",
       "class": "int",
