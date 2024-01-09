@@ -39,6 +39,18 @@ _set_environment () {
     while IFS= read -r line; do export "${line?}"; done < conductor.cfg
     dx login --noprojects --token "$AUTH_TOKEN"
     set -x
+
+    # check we can still describe the project we are in, if not this means
+    # the project was not shared with the token account and won't have correct
+    # permissions to run jobs => error here
+    {
+        dx describe "$PROJECT_ID" > /dev/null
+    } || {
+        message=":warning: *Error - eggd_conductor*%0A%0APermissions error accessing "
+        message+="\`${PROJECT_NAME}\` (\`${PROJECT_ID}\`) using supplied token in "
+        message+="config. Check project permissions and rerun."
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+    }
 }
 
 _exit () {

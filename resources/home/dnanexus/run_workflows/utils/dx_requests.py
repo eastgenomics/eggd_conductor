@@ -1234,7 +1234,8 @@ class DXManage():
         return all_output_files, job_output_ids
 
 
-    def wait_on_done(self, analysis, analysis_name, all_job_ids) -> None:
+    @staticmethod
+    def wait_on_done(analysis, analysis_name, all_job_ids) -> None:
         """
         Hold eggd_conductor until all job(s) for the given analysis step
         have completed
