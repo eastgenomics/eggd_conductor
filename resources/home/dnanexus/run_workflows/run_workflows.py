@@ -262,6 +262,46 @@ def load_test_data(test_samples) -> list:
     return fastq_details
 
 
+def exclude_samples_from_sample_list(exclude_samples, sample_list) -> list:
+    """
+    Remove specified samples from sample list used for running per
+    sample jobs
+
+    Parameters
+    ----------
+    exclude_samples : list
+        list of samples to remove from sample list
+    sample_list : list
+        list of sample names parsed from samplesheet
+
+    Returns
+    -------
+    list
+        sample list with specified samples excluded
+
+    Raises
+    ------
+    RuntimeError
+        Raised when one or more samples specified not in sample list
+    """
+    log.info(
+        f"Excluding following {len(exclude_samples)} samples from "
+        f"per sample analysis steps: {exclude_samples}"
+    )
+
+    # sense check that valid sample names have been specified
+    invalid_samples = [x for x in exclude_samples if x not in sample_list]
+    if invalid_samples:
+        raise RuntimeError(Slack().send(
+            "Sample(s) specified to exclude do not seem valid sample names"
+            f" from the given samplesheet: `{', '.join(invalid_samples)}`"
+        ))
+
+    sample_list = list(set(sample_list) - set(exclude_samples))
+
+    return sample_list
+
+
 def parse_args() -> argparse.Namespace:
     """
     Parse command line arguments
@@ -360,6 +400,13 @@ def parse_args() -> argparse.Namespace:
             "'{\"analysis_1\": \"job-xxx\"}')"
         )
     )
+    parser.add_argument(
+        '--exclude_samples',
+        help=(
+            'comma separated string of sample names to exclude from '
+            'per sample analysis steps'
+        )
+    )
 
     args = parser.parse_args()
 
@@ -392,6 +439,11 @@ def parse_args() -> argparse.Namespace:
             ))
     else:
         args.job_reuse = {}
+
+    if args.exclude_samples:
+        args.exclude_samples = [
+            x.replace(' ', '') for x in args.exclude_samples.split(',') if x
+        ]
 
     return args
 
@@ -441,6 +493,12 @@ def main():
 
     if args.testing_sample_limit:
         sample_list = sample_list[:int(args.testing_sample_limit)]
+
+    if args.exclude_samples:
+        sample_list = exclude_samples_from_sample_list(
+            exclude_samples=args.exclude_samples,
+            sample_list=sample_list
+        )
 
     if not args.assay_name:
         args.assay_name = config.get('assay')
