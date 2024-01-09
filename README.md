@@ -53,7 +53,7 @@ OR
 
 ---
 
-## What data are required for this app to run?
+## How does this app work
 
 The app may be run in 2 ways:
 
@@ -63,6 +63,30 @@ The app may be run in 2 ways:
   - a `RunInfo.xml` file (`-iRUN_INFO_XML`) to parse the run ID from **or** the run ID as a string (`-iRUN_ID`)
 
 In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
+
+A general outline of what the app does is as follows:
+
+- If starting from sentinel record:
+  - parse the sentinel record to get the file IDs of the upload tar data, RunInfo.xml file and samplesheet
+- If starting from fastqs:
+  - ensure that other required inputs are provided, including:
+    - either `-iSAMPLESHEET` or `-iSAMPLE_NAMES`
+    - either `-iRUN_ID` or `-iRUN_INFO_XML` file
+- If assay config file specified to use, this is downloaded and read in to use
+- If a config file is not specified, all config files in DNAnexus are found and are filtered down to the highest version available using the `assay_code` field in the config files against the sample names
+- The project to launch analysis jobs in is determined by:
+  - If `-iCREATE_PROJECT=true` set, a new DNAnexus project is created
+  - If `-iDX_PROJECT` is specified, this project is used
+  - If neither of the above are set, jobs will be launched in the same project as eggd_conductor is running
+- Jira helpdesk searched for a matching ticket against the run ID to add a comment linking it to the eggd_conductor job
+- If `-iFASTQS` or `-iDEMULTIPLEX_JOB_ID` specified the FASTQs are parsed for analysis, else if running demultiplexing this will start and eggd_conductor held until it completes
+- For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details)
+- A final Jira comment is added once all jobs have been launched
+
+
+**Notes**
+- if no Jira ticket is found, an alert will be sent but analysis will still continue
+- Slack notifications are sent when eggd_conductor starts and once it has launched all jobs, as well as for any errors that occur
 
 ---
 
