@@ -103,6 +103,13 @@
       "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{\"analysis_1\": \"job-xxx\"}')"
     },
     {
+      "name": "EXCLUDE_SAMPLES",
+      "label": "exclude samples",
+      "class": "string",
+      "optional": true,
+      "help": "comma separated string of sample names to exclude from per sample analysis steps"
+    },
+    {
       "name": "MISMATCH_ALLOWANCE",
       "label": "mismatch allowance",
       "class": "int",
