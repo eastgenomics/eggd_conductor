@@ -86,7 +86,7 @@ A general outline of what the app does is as follows:
 
 
 **Notes**
-- if no Jira ticket is found, an alert will be sent but analysis will still continue
+- If no Jira ticket is found, an alert will be sent but analysis will still continue
 - Slack notifications are sent when eggd_conductor starts and once it has launched all jobs, as well as for any errors that occur
 
 ---
@@ -98,7 +98,6 @@ The app is built to rely on 2 config files:
 - an app config file to store auth tokens and app variables
 - an assay specific config file that specifies all aspects of calling the required workflows and apps for a given assay
 
----
 
 ### eggd_conductor app config
 
@@ -113,7 +112,7 @@ This currently must contain the following:
 
 n.b. The default behaviour of running the app with minimum inputs specified is to search the given `ASSAY_CONFIG_PATH` above for the highest available version of config files for each assay code, as defined under `version` and `assay_code` fields in the assay config (described below). For each assay code, the highest version will be used for analysing any samples with a matching assay code in the sample name, which may be overridden with the input `-iASSAY_CONFIG`.
 
----
+
 
 ### Assay config file
 
