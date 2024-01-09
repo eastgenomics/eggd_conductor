@@ -12,25 +12,31 @@ Automating analysis for given samples from a config file definition. This can ei
 The following describe default app input behaviour:
 
 **Required**
-- `-iEGGD_CONDUCTOR_CONFIG`: config file for app containing required variables
+- `-iEGGD_CONDUCTOR_CONFIG` (`file`): config file for app containing required variables
+
 and either:
-- `-iupload_sentinel_record`: sentinel file created by dx-streaming-upload to use for specifying run data for analysis (*n.b. this is the only input that is lowercase as this is a fixed requirement from dx-streaming-upload*)
+
+- `-iupload_sentinel_record` (`record`): sentinel file created by dx-streaming-upload to use for specifying run data for analysis (*n.b. this is the only input that is lowercase as this is a fixed requirement from dx-streaming-upload*)
+
 OR
-- `-iFASTQS` (optional): array of fastq files, to use if not providing a sentinel file
+
+- `-iFASTQS` (`array:file`): array of fastq files, to use if not providing a sentinel file
 
 
 **Optional**
 **Files**
-- `-iSAMPLESHEET` (optional): samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
-- `-iASSAY_CONFIG` (optional): assay specific config file, if not given will search in `-iASSAY_CONFIG_PATH` from `-iEGGD_CONDUCTOR_CONFIG` for appropriate file
-- `-iSAMPLE_NAMES` (optional): comma separated list of sample names, to use if not providing a samplesheet
+- `-iSAMPLESHEET`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
+- `-iASSAY_CONFIG`: assay specific config file, if not given will search in `-iASSAY_CONFIG_PATH` from `-iEGGD_CONDUCTOR_CONFIG` for appropriate file
+- `-iRUN_INFO_XML`: *Only required if starting from `-iFASTQS` input and not providing `-iRUN_ID`*. RunInfo.xml file for the run, used to parse RunID from for naming of DNAnexus project if `-iCREATE_PROJECT=true` and for adding to Slack notifications.
+
 
 
 **Strings**
-- `-iDEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
-- `-iDEMULTIPLEX_OUT` (optional): path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
+- `-iDEMULTIPLEX_JOB_ID`:  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
+- `-iDEMULTIPLEX_OUT`: path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
 - `-iDX_PROJECT`: project ID in which to run and store output
-- `-iRUN_ID`: ID of sequencing run used to name project, parsed from samplesheet if not specified
+- `-iRUN_ID`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
+- `-iSAMPLE_NAMES`: comma separated list of sample names, to use if not providing a samplesheet
 - `-iJOB_REUSE`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This is currently only implemented for per-run analysis steps.
 
 
@@ -39,7 +45,7 @@ OR
 - `-iMISMATCH_ALLOWANCE` (default: `1`): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
 
 **Booleans**
-- `-iCREATE_PROJECT`: controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project (or use if already exists) named as `002_<RUNID>_<ASSAY_CODE>`.
+- `-iCREATE_PROJECT` (default: `false`): controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project (or use if already exists) named as `002_<RUNID>_<ASSAY_CODE>`.
 - `-iTESTING`: terminates all jobs and clears output files after launching - for testing use only
 
 
