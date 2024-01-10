@@ -60,7 +60,7 @@ The app may be run in 2 ways:
 
 - from a sentinel file uploaded by [dx-streaming-upload](dx-streaming-upload-url)
 - from a set of fastqs, if starting from fastqs other inputs are required:
-  - a samplesheet (`-iSAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
+  - a samplesheet (`-iSAMPLESHEET`) or list of sample names (`-iSAMPLE_NAMES`)
   - a `RunInfo.xml` file (`-iRUN_INFO_XML`) to parse the run ID from **or** the run ID as a string (`-iRUN_ID`)
 
 In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing the Slack/Jira/DNAnexus tokens, app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), as well as the path to the assay JSON configs in DNAnexus.
