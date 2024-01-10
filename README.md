@@ -2,22 +2,94 @@
 
 DNAnexus app for automating end to end analysis of samples through apps and workflows.
 
+---
 
 ## What are typical use cases for this app?
 Automating analysis for given samples from a config file definition. This can either be as an app triggered at the end of [dx-streaming-upload](dx-streaming-upload-url) or run as a stand-alone app with the required inputs.
 
+---
 
-## What data are required for this app to run?
+## App Inputs - Defaults & Behaviour
+
+The following describes default app input behaviour
+
+**Required**
+- `-iEGGD_CONDUCTOR_CONFIG` (`file`): config file for app containing required variables
+
+and either:
+
+- `-iupload_sentinel_record` (`record`): sentinel file created by dx-streaming-upload to use for specifying run data for analysis (*n.b. this is the only input that is lowercase as this is a fixed requirement from dx-streaming-upload*)
+
+OR
+
+- `-iFASTQS` (`array:file`): array of fastq files, to use if not providing a sentinel file
+
+
+**Optional**
+
+**Files**
+- `-iSAMPLESHEET`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
+- `-iASSAY_CONFIG`: assay specific config file, if not given will search in `-iASSAY_CONFIG_PATH` from `-iEGGD_CONDUCTOR_CONFIG` for appropriate file
+- `-iRUN_INFO_XML`: *Only required if starting from `-iFASTQS` input and not providing `-iRUN_ID`*. RunInfo.xml file for the run, used to parse RunID from for naming of DNAnexus project if `-iCREATE_PROJECT=true` and for adding to Slack notifications.
+
+
+
+**Strings**
+- `-iDEMULTIPLEX_JOB_ID`:  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
+- `-iDEMULTIPLEX_OUT`: path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
+- `-iDX_PROJECT`: project ID in which to run and store output
+- `-iRUN_ID`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
+- `-iSAMPLE_NAMES`: comma separated list of sample names, to use if not providing a samplesheet
+- `-iJOB_REUSE`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This is currently only implemented for per-run analysis steps.
+- `-iEXCLUDE_SAMPLES`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be specified as they are in the samplesheet*)
+
+
+**Integers**
+- `-iTESTING_SAMPLE_LIMIT`: no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
+- `-iMISMATCH_ALLOWANCE` (default: `1`): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
+
+**Booleans**
+- `-iCREATE_PROJECT` (default: `false`): controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project (or use if already exists) named as `002_<RUNID>_<ASSAY_CODE>`.
+- `-iTESTING`: terminates all jobs and clears output files after launching - for testing use only
+
+---
+
+## How does this app work
 
 The app may be run in 2 ways:
 
-- from a sentinel file uploaded by dx-streaming-upload
+- from a sentinel file uploaded by [dx-streaming-upload](dx-streaming-upload-url)
 - from a set of fastqs, if starting from fastqs other inputs are required:
-  - a samplesheet (`-SAMPLESHEET`) or list of sample names (`-SAMPLE_NAMES`)
-  - a `RunInfo.xml` file (`-RUN_INFO_XML`) to parse the run ID from or the run ID as a string (`-RUN_ID`)
+  - a samplesheet (`-iSAMPLESHEET`) or list of sample names (`-iSAMPLE_NAMES`)
+  - a `RunInfo.xml` file (`-iRUN_INFO_XML`) to parse the run ID from **or** the run ID as a string (`-iRUN_ID`)
 
-In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), slack API token and DNAnexus auth token, as well as the path to the assay json configs in DNAnexus.
+In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing the Slack/Jira/DNAnexus tokens, app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), as well as the path to the assay JSON configs in DNAnexus.
 
+A general outline of what the app does is as follows:
+
+- If starting from sentinel record:
+  - parse the sentinel record to get the file IDs of the upload tar data, RunInfo.xml file and samplesheet
+- If starting from FASTQs:
+  - ensure that other required inputs are provided, including:
+    - either `-iSAMPLESHEET` or `-iSAMPLE_NAMES`
+    - either `-iRUN_ID` or `-iRUN_INFO_XML` file
+- If assay config file specified to use, this is downloaded and read in to use
+- If a config file is not specified, all config files in DNAnexus are found and are filtered down to the highest version available using the `assay_code` field in the config files against the sample names
+- The project to launch analysis jobs in is determined by:
+  - If `-iCREATE_PROJECT=true` set, a new DNAnexus project is created
+  - If `-iDX_PROJECT` is specified, this project is used
+  - If neither of the above are set, jobs will be launched in the same project as eggd_conductor is running (default behaviour)
+- Jira helpdesk searched for a matching ticket against the run ID to add a comment linking it to the eggd_conductor job
+- If `-iFASTQS` or `-iDEMULTIPLEX_JOB_ID` specified the FASTQs are parsed for analysis, else if running demultiplexing this will start and eggd_conductor held until it completes
+- For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details). If `hold: true` is specified for any of the analysis steps, the eggd_conductor job is held until the given analysis completes (this is to be used when parsing output arrays -> downstream inputs where specific files must be parsed out)
+- A final Jira comment is added once all jobs have been launched
+
+
+**Notes**
+- If no Jira ticket is found, an alert will be sent but analysis will still continue
+- Slack notifications are sent when eggd_conductor starts and once it has launched all jobs, as well as for any errors that occur
+
+---
 
 ## Config file design
 
@@ -25,6 +97,7 @@ The app is built to rely on 2 config files:
 
 - an app config file to store auth tokens and app variables
 - an assay specific config file that specifies all aspects of calling the required workflows and apps for a given assay
+
 
 ### eggd_conductor app config
 
@@ -38,6 +111,8 @@ This currently must contain the following:
 - `SLACK_ALERT_CHANNEL`: Slack channel to send any alerts of fails to
 
 n.b. The default behaviour of running the app with minimum inputs specified is to search the given `ASSAY_CONFIG_PATH` above for the highest available version of config files for each assay code, as defined under `version` and `assay_code` fields in the assay config (described below). For each assay code, the highest version will be used for analysing any samples with a matching assay code in the sample name, which may be overridden with the input `-iASSAY_CONFIG`.
+
+
 
 ### Assay config file
 
@@ -191,6 +266,8 @@ Use of `extra_args` for overriding default instance types for a **workflow** req
 }
 ```
 
+---
+
 ### Dynamic instance types
 Different instance types for different types of flowcells may be defined for each executable, allowing for instances to be dynamically selected based upon the flowcell used for sequencing of the run being processed. This allows for setting optimal instances for all apps where the assay may be run on S1, S2, S4 flowcells etc and have differing compute requirements (i.e needing more storage for larger flowcells).
 This should be defined in the assay config file for each executable, with the required instance types given for each flowcell.
@@ -226,6 +303,8 @@ Examples of instance type setting for a **workflow** using Illumina flowcell ID 
     }
 }
 ```
+
+---
 
 ### Structuring the inputs dictionary
 
@@ -283,6 +362,8 @@ For hardcoded file inputs to be provided to apps / workflows, these should be fo
 }
 ```
 
+---
+
 ### Structuring the output_dirs dictionary
 
 This defines the output directory structure for the executables outputs. For workflows, each stage should have the `stage-id: /path_to_output/` defined, otherwise the output will all go to the root of the project. These may either be hardcoded strings, or optionally use either or both of the following 4 placefolders to subsitute:
@@ -310,28 +391,7 @@ This defines the output directory structure for the executables outputs. For wor
 
     ```
 
-
-## App Inputs - Defaults & Behaviour
-
-The following describe default app input behaviour:
-
-- `EGGD_CONDUCTOR_CONFIG`: config file for app containing required variables
-- `ASSAY_CONFIG` (optional): assay specific config file, if not given will search in `ASSAY_CONFIG_PATH` from `EGGD_CONDUCTOR_CONFIG` for appropriate file
-- `upload_sentinel_record` (optional): sentinel file created by dx-streaming-upload to use for specifying run data for analysis
-- `SAMPLESHEET` (optional): samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
-- `FASTQS` (optional): array of fastq files, to use if not providing a sentinel file
-- `SAMPLE_NAMES` (optional): comma separated list of sample names, to use if not providing a samplesheet
-- `CREATE_PROJECT` (optional): controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project named as `002_<RUNID>_<ASSAY_CODE>` or `003_YYMMDD_<RUNID>_<ASSAY_CODE>` if `DEVELOPMENT` is `true`
-- `DX_PROJECT` (optional):  project ID in which to run and store output
-- `RUN_ID` ( optional): ID of sequencing run used to name project, parsed from samplesheet if not specified
-- `DEVELOPMENT` (optional): Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format
-- `TESTING` (optional): terminates all jobs and clears output files after launching - for testing use only
-- `TESTING_SAMPLE_LIMIT` (optional): no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
-- `MISMATCH_ALLOWANCE` (default: 1): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
-- `DEMULTIPLEX_JOB_ID` (optional):  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
-- `DEMULTIPLEX_OUT` (optional): path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
-- `JOB_REUSE` (`string`; optional): JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{"analysis_1": "job-xxx"}'). This is currently only implemented for per-run analysis steps.
-
+---
 
 ## Demultiplexing
 
@@ -346,6 +406,8 @@ Once demultiplexing has completed, certain QC files will be copied that may be u
   - Quality_Metrics.csv
   - Adapter_Metrics.csv
   - Top_Unknown_Barcodes.csv
+
+---
 
 ## Jira Integration
 
@@ -366,10 +428,11 @@ This run was processed automatically by eggd_conductor: http://platform.dnanexus
 
 Example comment added at end of successfully launching all jobs with link to analysis project:
 ```
-All jobs sucessfully launched by eggd_conductor. 
+All jobs sucessfully launched by eggd_conductor.
 Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
 ```
 
+---
 
 ## Slack Integration
 
@@ -392,12 +455,13 @@ Any errors will be sent to the alerts channel, this may both be where an error i
 ![image](https://user-images.githubusercontent.com/45037268/205305431-8d89e519-1794-4046-9381-9d80eee90411.png)
 > Example of unhandled error occurring and traceback being parsed in notification
 
+---
 
 ## Supressing Automated Analysis
 
 If the app ID is set in the playbook YAML config for dx-streaming-upload, it will automatically be run on completion of a sequencing run upload to DNAnexus. This behaviour may be suppressed for a given run by tagging of the sentinel record file for the run with `suppress-automation` during the time taken to upload the run. This may be desired when a run is known to need processing in a different manner (i.e. for validation of changes) or if a different assay config file to those present at `ASSAY_CONFIG_PATH` from the app config is to be used.
 
-On starting, the app will check the provided sentinel record for the presence of this tag, if present an alert will be sent to the `SLACK_ALERT_CHANNEL` defined in the app config and the app will exit with a 0 status code. To then run analysis, the tag should be removed and the job relaunched, with any changes to inputs or arguments configured as needed. 
+On starting, the app will check the provided sentinel record for the presence of this tag, if present an alert will be sent to the `SLACK_ALERT_CHANNEL` defined in the app config and the app will exit with a 0 status code. To then run analysis, the tag should be removed and the job relaunched, with any changes to inputs or arguments configured as needed.
 
 - Example tagged sentinel record:
 
@@ -407,11 +471,13 @@ On starting, the app will check the provided sentinel record for the presence of
 
 ![image](https://user-images.githubusercontent.com/45037268/223140050-afb80a91-d76c-409a-8ef8-6003cb9a6d05.png)
 
+---
 
 ## Monitoring
 
 A [separate package][eggd_conductor_monitor] is available for monitoring and notifying of the state of analysis jobs launched via eggd_conductor. This parses the job IDs launched by each eggd_conductor job, and checks if all are complete, or if any have failed, and send an appropriate notification to given Slack channel(s).
 
+---
 
 [dx-streaming-upload-url]: https://github.com/dnanexus-rnd/dx-streaming-upload
 [dx-run-url]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
