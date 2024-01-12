@@ -189,8 +189,14 @@ class ManageDict():
             sample_fastqs = fastq_details
 
         # fastqs should always be named with R1/2_001
-        r1_fastqs = sorted([x for x in sample_fastqs if 'R1_001.fastq' in x[1]])
-        r2_fastqs = sorted([x for x in sample_fastqs if 'R2_001.fastq' in x[1]])
+        r1_fastqs = sorted(
+            [x for x in sample_fastqs if 'R1_001.fastq' in x[1]],
+            key=lambda x: x[1]
+        )
+        r2_fastqs = sorted(
+            [x for x in sample_fastqs if 'R2_001.fastq' in x[1]],
+            key=lambda x: x[1]
+        )
 
         log.info(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
