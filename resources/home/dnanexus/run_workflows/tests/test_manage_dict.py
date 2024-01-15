@@ -469,7 +469,7 @@ class TestAddFastqs(unittest.TestCase):
         with self.subTest():
             self.assertEqual(
                 output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs'],
-                 [
+                [
                     {'$dnanexus_link': 'file-xxx2'},
                     {'$dnanexus_link': 'file-xxx1'}
                 ]
@@ -478,7 +478,7 @@ class TestAddFastqs(unittest.TestCase):
         with self.subTest():
             self.assertEqual(
                 output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs'],
-                 [
+                [
                     {'$dnanexus_link': 'file-yyy2'},
                     {'$dnanexus_link': 'file-yyy1'}
                 ]
