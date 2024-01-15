@@ -214,7 +214,7 @@ class TestReplaceDict():
         )
 
 
-class TestAddFastqs():
+class TestAddFastqs(unittest.TestCase):
     """
     Tests for adding fastq file IDs to input dict
     """
@@ -358,7 +358,6 @@ class TestAddFastqs():
             "R1 fastqs not correctly added for given sample"
         )
 
-
     def test_adding_per_sample_r2_fastqs(self):
         """
         Test adding fastqs when a sample defined => fastqs should be for just
@@ -437,6 +436,52 @@ class TestAddFastqs():
                 ),
                 fastq_details=self.fastq_details,
                 sample='test-sample'
+            )
+
+    def test_sorting_per_lane_correct(self):
+        """
+        Test that fastqs are sorted and added in the correct order
+        by lane number, ensure we are actually sorting on the filename
+        and not the file ID
+        """
+        fastq_details = [
+            ('file-xxx2',
+            '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L001_R1_001.fastq.gz'),
+            ('file-xxx1',
+            '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L002_R1_001.fastq.gz'),
+            ('file-yyy2',
+            '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L001_R2_001.fastq.gz'),
+            ('file-yyy1',
+            '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L002_R2_001.fastq.gz')
+        ]
+
+        output = ManageDict().add_fastqs(
+            input_dict=deepcopy(
+                self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
+            ),
+            fastq_details=fastq_details,
+            sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2'
+        )
+
+        # if we were to be sorting on the file ID, we would expect the
+        # respective xxx1 and yyy1 IDs to be returned first, sorting on
+        # file name should give xxx2 and yyy2 first
+        with self.subTest():
+            self.assertEqual(
+                output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs'],
+                [
+                    {'$dnanexus_link': 'file-xxx2'},
+                    {'$dnanexus_link': 'file-xxx1'}
+                ]
+            )
+
+        with self.subTest():
+            self.assertEqual(
+                output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs'],
+                [
+                    {'$dnanexus_link': 'file-yyy2'},
+                    {'$dnanexus_link': 'file-yyy1'}
+                ]
             )
 
 

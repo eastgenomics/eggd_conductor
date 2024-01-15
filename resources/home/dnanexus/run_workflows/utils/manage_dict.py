@@ -189,8 +189,14 @@ class ManageDict():
             sample_fastqs = fastq_details
 
         # fastqs should always be named with R1/2_001
-        r1_fastqs = sorted([x for x in sample_fastqs if 'R1_001.fastq' in x[1]])
-        r2_fastqs = sorted([x for x in sample_fastqs if 'R2_001.fastq' in x[1]])
+        r1_fastqs = sorted(
+            [x for x in sample_fastqs if 'R1_001.fastq' in x[1]],
+            key=lambda x: x[1]
+        )
+        r2_fastqs = sorted(
+            [x for x in sample_fastqs if 'R2_001.fastq' in x[1]],
+            key=lambda x: x[1]
+        )
 
         log.info(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
@@ -949,14 +955,26 @@ class ManageDict():
             }.keys())
 
             if not config_stage_input:
-                # this input not present in config file, likely been removed
+                # this input not present in config file, likely been
+                # removed => skip trying to add it
                 continue
 
             config_stage_input = config_stage_input[0]
 
             # get the corresponding eggd_tso500 output files for
-            # the given stage input
-            dx_links = [job_output_ids.get(x) for x in output_fields]
+            # the given stage input, where there are 2 potential files
+            # (i.e. dna_bams and rna_bams) we expect at least one to
+            # be present, and for cvo they should always be present
+            dx_links = [
+                job_output_ids.get(x) for x in output_fields
+                if job_output_ids.get(x)
+            ]
+
+            assert dx_links, Slack().send(
+                "No output files found from eggd_tso500 job from the "
+                f"output fields: {output_fields}"
+            )
+
             file_ids = [
                 id.get('$dnanexus_link') for sublist in dx_links for id in sublist
             ]
