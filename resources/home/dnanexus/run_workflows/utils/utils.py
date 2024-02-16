@@ -56,7 +56,8 @@ class Slack():
             )
         else:
             message = (
-                f":warning: *Error - eggd_conductor*\n\n{message}\n\n"
+                f":warning: *Error - eggd_conductor*\n\nError in processing "
+                f"run *{os.environ.get('RUN_ID')}*\n\n{message}\n\n"
                 f"eggd_conductor job: {conductor_job_url}"
             )
 

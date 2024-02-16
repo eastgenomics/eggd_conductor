@@ -105,7 +105,7 @@ _parse_sentinel_file () {
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
     if [ -z "$RUN_ID" ]; then
-        RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
+        export RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
     tags=$(jq -r '.tags | .[]' <<< "$sentinel_details")
