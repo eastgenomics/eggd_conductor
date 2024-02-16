@@ -280,12 +280,6 @@ class DXExecute():
         log.info(f"\nPopulated input dict for: {executable}")
         log.info(PPRINT(input_dict))
 
-        if os.environ.get('TESTING') == 'true':
-            # running in test mode => don't actually want to run jobs =>
-            # make jobs dependent on conductor job finishing so no launched
-            # jobs actually start running
-            prev_jobs.append(os.environ.get('PARENT_JOB_ID'))
-
         if 'workflow-' in executable:
             # get common top level of each apps output destination
             # to set as output of workflow for consitency of viewing
