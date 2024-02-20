@@ -792,9 +792,11 @@ class ManageDict():
             passed
         """
         prettier_print("\nChecking input classes are valid")
+        prettier_print("Current input dict state:")
         prettier_print(input_dict)
         input_dict_copy = deepcopy(input_dict)
 
+        prettier_print("\nExpected input classes:")
         prettier_print(input_classes)
 
 
