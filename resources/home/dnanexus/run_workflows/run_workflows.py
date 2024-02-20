@@ -14,17 +14,22 @@ from collections import defaultdict
 from xml.etree import ElementTree as ET
 import json
 import os
-from packaging.version import parse as parseVersion
 import re
 import subprocess
-import sys
 
 import dxpy as dx
+from packaging.version import parse as parseVersion
 import pandas as pd
 
-from utils.dx_requests import PPRINT, DXExecute, DXManage
+from utils.dx_requests import DXExecute, DXManage
 from utils.manage_dict import ManageDict
-from utils.utils import Jira, Slack, log, select_instance_types, time_stamp
+from utils.utils import (
+    Jira,
+    Slack,
+    prettier_print,
+    select_instance_types,
+    time_stamp
+)
 
 
 def parse_sample_sheet(samplesheet) -> list:
@@ -81,7 +86,7 @@ def parse_run_info_xml(xml_file) -> str:
         # should always be present
         run_id = run_attributes[0].get('Id')
 
-    log.info(f'\nParsed run ID {run_id} from RunInfo.xml')
+    prettier_print(f'\nParsed run ID {run_id} from RunInfo.xml')
 
     return run_id
 
@@ -120,13 +125,13 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
     """
     # build a dict of assay codes from configs found to samples based off
     # matching assay_code in sample names
-    log.info("\nMatching samples to assay configs")
+    prettier_print("\nMatching samples to assay configs")
     all_config_assay_codes = sorted([
         x.get('assay_code') for x in configs.values()])
     assay_to_samples = defaultdict(list)
 
-    log.info(f'\nAll assay codes of config files: {all_config_assay_codes}')
-    log.info(f'\nAll samples parsed from samplesheet: {all_samples}')
+    prettier_print(f'\nAll assay codes of config files: {all_config_assay_codes}')
+    prettier_print(f'\nAll samples parsed from samplesheet: {all_samples}')
 
     # for each sample check each assay code if it matches, then select the
     # matching config with highest version
@@ -152,7 +157,7 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
         else:
             # no match found, just log this as an AssertionError will be raised
             # below for all samples that don't have a match
-            log.error(f"No matching config file found for {sample} !\n")
+            prettier_print(f"No matching config file found for {sample} !\n")
 
     if not testing:
         # check all samples are for the same assay, don't handle mixed runs for now
@@ -174,7 +179,7 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
                 sample_not_match = set(all_samples) - set(samples_w_codes)
                 assay_code = next(iter(assay_to_samples))
 
-                log.info(
+                prettier_print(
                     f"Not all samples matched assay codes!\nSamples not "
                     f"matching: {sample_not_match}\nTotal samples not "
                     f"matching is less than mismatch limit allowed of "
@@ -205,7 +210,7 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
             "No samples matched to available config files for testing"
         )
 
-    log.info(f"\nTotal samples per assay identified: {assay_to_samples}")
+    prettier_print(f"\nTotal samples per assay identified: {assay_to_samples}")
 
     return assay_to_samples
 
@@ -284,7 +289,7 @@ def exclude_samples_from_sample_list(exclude_samples, sample_list) -> list:
     RuntimeError
         Raised when one or more samples specified not in sample list
     """
-    log.info(
+    prettier_print(
         f"Excluding following {len(exclude_samples)} samples from "
         f"per sample analysis steps: {exclude_samples}"
     )
@@ -415,7 +420,7 @@ def parse_args() -> argparse.Namespace:
         args.samples = [
             x.replace(' ', '') for x in args.samples.split(',') if x
         ]
-        log.info(
+        prettier_print(
             f"\nsamples specified to run jobs for: \n\t{args.samples}\n"
         )
     if args.fastqs:
@@ -610,14 +615,14 @@ def main():
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())
-    log.info('\nExecutable names identified:')
-    log.info(PPRINT(exe_names))
+    prettier_print('\nExecutable names identified:')
+    prettier_print(exe_names)
 
     # build mapping of executables input fields => required types (i.e.
     # file, array:file, boolean), used to correctly build input dict
     input_classes = dx_manage.get_input_classes(config['executables'].keys())
-    log.info('\nExecutable input classes found:')
-    log.info(PPRINT(input_classes))
+    prettier_print('\nExecutable input classes found:')
+    prettier_print(input_classes)
 
     # dict to add all stage output names and job ids for every sample to,
     # used to pass correct job ids to subsequent workflow / app calls
@@ -636,7 +641,7 @@ def main():
     for executable, params in config['executables'].items():
         # for each workflow/app, check if its per sample or all samples and
         # run correspondingly
-        log.info(
+        prettier_print(
             f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
         )
 
@@ -654,7 +659,7 @@ def main():
                     '-iJOB_REUSE not yet implemented for per sample jobs'
                 )
 
-            log.info(
+            prettier_print(
                 f"Reusing provided job {previous_job} for analysis step "
                 f"{params['analysis']} for {params['name']}"
             )
@@ -663,8 +668,8 @@ def main():
 
             continue
 
-        log.info("\nParams parsed from config before modifying:")
-        log.info(PPRINT(params))
+        prettier_print("\nParams parsed from config before modifying:")
+        prettier_print(params)
 
         # log file of all jobs run for current executable, used in case
         # of failing to launch all jobs to be able to terminate all analyses
@@ -680,11 +685,11 @@ def main():
 
         if params['per_sample'] is True:
             # run workflow / app on every sample
-            log.info(f'\nCalling {params["executable_name"]} per sample')
+            prettier_print(f'\nCalling {params["executable_name"]} per sample')
 
             # loop over samples and call app / workflow
             for idx, sample in enumerate(sample_list, 1):
-                log.info(
+                prettier_print(
                     f'\n\nStarting analysis for {sample} - '
                     f'[{idx}/{len(sample_list)}]'
                 )
@@ -726,7 +731,7 @@ def main():
                 f"False ({params['per_sample']}). \n\nPlease check the config."
             )
 
-        log.info(
+        prettier_print(
             f'\n\nAll jobs for {params.get("name")} ({executable}) '
             f'launched successfully!\n\n'
         )
@@ -753,7 +758,7 @@ def main():
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(total_jobs))
 
-    log.info("\nCompleted calling jobs")
+    prettier_print("\nCompleted calling jobs")
 
     # add comment to Jira ticket for run to link to analysis project
     Jira().add_comment(

@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.manage_dict import PPRINT, ManageDict
+from utils.manage_dict import ManageDict
 from .settings import TEST_DATA_DIR
 
 
@@ -350,9 +350,6 @@ class TestAddFastqs(unittest.TestCase):
         correct_R1_fastqs = [
             {'$dnanexus_link': 'file-GGJY9704p3z9P41f80bfQ623'}
         ]
-        PPRINT(output)
-        # print(output_R1_fastqs)
-        # print(correct_R1_fastqs)
 
         assert output_R1_fastqs == correct_R1_fastqs, (
             "R1 fastqs not correctly added for given sample"
@@ -370,7 +367,6 @@ class TestAddFastqs(unittest.TestCase):
             fastq_details=self.fastq_details,
             sample='2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2'
         )
-        PPRINT(output)
         output_R2_fastqs = output['stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs']
 
         correct_R2_fastqs = [

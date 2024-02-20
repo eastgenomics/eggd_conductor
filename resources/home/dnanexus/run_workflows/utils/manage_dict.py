@@ -16,10 +16,7 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.utils import Slack, log
-
-
-PPRINT = PrettyPrinter(indent=1).pprint
+from utils.utils import Slack, prettier_print
 
 
 class ManageDict():
@@ -198,7 +195,7 @@ class ManageDict():
             key=lambda x: x[1]
         )
 
-        log.info(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
+        prettier_print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
         # sense check we have R2 fastqs before across all samples (i.e.
         # checking this isn't single end sequencing) before checking we
@@ -293,9 +290,9 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
-        log.info('\nAdding other inputs')
-        log.info('\nInput dict passed to check:')
-        log.info(PPRINT(input_dict))
+        prettier_print('\nAdding other inputs')
+        prettier_print('\nInput dict passed to check:')
+        prettier_print(input_dict)
 
         # first checking if any INPUT- in dict to fill
         other_inputs = self.search(
@@ -308,7 +305,7 @@ class ManageDict():
         if not other_inputs:
             return input_dict
         else:
-            log.info(f'\nOther inputs found to replace: {other_inputs}')
+            prettier_print(f'\nOther inputs found to replace: {other_inputs}')
 
         # removing /output/ for now to fit to MultiQC
         args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
@@ -346,7 +343,7 @@ class ManageDict():
         out_dirs = [re.search(regex, x) for x in other_inputs]
         out_dirs = [x.group(0) for x in out_dirs if x]
 
-        log.info(f'\nOut dirs found to replace: {out_dirs}')
+        prettier_print(f'\nOut dirs found to replace: {out_dirs}')
 
         for dir in out_dirs:
             # find the output directory for the given analysis
@@ -369,8 +366,8 @@ class ManageDict():
                 replace_key=False
             )
 
-        log.info('\nInput dict after adding other inputs:')
-        log.info(PPRINT(input_dict))
+        prettier_print('\nInput dict after adding other inputs:')
+        prettier_print(input_dict)
 
         return input_dict
 
@@ -450,7 +447,7 @@ class ManageDict():
                         # found ID in per run jobs dict => wait on completing
                         dependent_jobs.append(job)
 
-        log.info(f'\nDependent jobs found: {dependent_jobs}')
+        prettier_print(f'\nDependent jobs found: {dependent_jobs}')
 
         return dependent_jobs
 
@@ -492,9 +489,9 @@ class ManageDict():
         ValueError
             No job id found for given analysis stage from `job_outputs_dict`
         """
-        log.info("\nSearching input dict for inputs to link to outputs")
-        log.info("Input dict before:")
-        log.info(PPRINT(input_dict))
+        prettier_print("\nSearching input dict for inputs to link to outputs")
+        prettier_print("Input dict before:")
+        prettier_print(input_dict)
 
         if analysis == "analysis_1":
             # first analysis => no previous outputs to link to inputs
@@ -520,8 +517,8 @@ class ManageDict():
 
             job_outputs_dict = {**per_run_outputs, **sample_outputs}
 
-            log.info(f"\nOutput dict for run & sample {sample}:")
-            log.info(PPRINT(job_outputs_dict))
+            prettier_print(f"\nOutput dict for run & sample {sample}:")
+            prettier_print(job_outputs_dict)
 
         # check if input dict has any analysis_X => need to link a previous job
         all_analysis_ids = self.search(
@@ -531,10 +528,10 @@ class ManageDict():
             return_key=False
         )
 
-        log.info(f"\nFound analyses to replace: {all_analysis_ids}")
+        prettier_print(f"\nFound analyses to replace: {all_analysis_ids}")
 
-        log.info("Input dictionary before modifying")
-        log.info(PPRINT(input_dict))
+        prettier_print("Input dictionary before modifying")
+        prettier_print(input_dict)
 
         if not all_analysis_ids:
             # no inputs found to replace
@@ -578,8 +575,8 @@ class ManageDict():
                 # current executable is running on all samples => need to
                 # gather all previous jobs for all samples and build input
                 # array structure
-                log.info("\nJob outputs dict to search")
-                log.info(PPRINT(job_outputs_dict))
+                prettier_print("\nJob outputs dict to search")
+                prettier_print(job_outputs_dict)
 
                 job_ids = self.search(
                     identifier=analysis_id,
@@ -596,7 +593,7 @@ class ManageDict():
                         "same analysis as a previous job in the config"
                     ))
 
-                log.info(f"\nFound job IDs to link as inputs: {job_ids}")
+                prettier_print(f"\nFound job IDs to link as inputs: {job_ids}")
 
                 # for each input, first check if given analysis_X is present
                 # => need to link job IDs to the input. If true, turn that
@@ -672,7 +669,7 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
-        log.info(f"\nPopulating output dict for {executable}, dict before:")
+        prettier_print(f"\nPopulating output dict for {executable}, dict before:")
 
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
@@ -699,8 +696,8 @@ class ManageDict():
 
             output_dict[stage] = dir
 
-        log.info(f'\nOutput dict for {executable}:')
-        log.info(PPRINT(output_dict))
+        prettier_print(f'\nOutput dict for {executable}:')
+        prettier_print(output_dict)
 
         return output_dict
 
@@ -734,11 +731,11 @@ class ManageDict():
             # no filter pattens to apply
             return outputs_dict
 
-        log.info(f'\nFiltering job outputs dict by sample name patterns for {stage}')
-        log.info('\nJob outputs dict before filtering:')
-        log.info(PPRINT(outputs_dict))
-        log.info('\nFilter dict:')
-        log.info(PPRINT(filter_dict))
+        prettier_print(f'\nFiltering job outputs dict by sample name patterns for {stage}')
+        prettier_print('\nJob outputs dict before filtering:')
+        prettier_print(outputs_dict)
+        prettier_print('\nFilter dict:')
+        prettier_print(filter_dict)
 
         new_outputs = {}
         stage_match = False
@@ -754,14 +751,14 @@ class ManageDict():
 
         if not stage_match:
             # stage has no filters to apply => just return the outputs dict
-            log.info(f'\nNo filters to apply for stage: {stage}')
+            prettier_print(f'\nNo filters to apply for stage: {stage}')
             return outputs_dict
         else:
             # there was a filter for given stage to apply, if no
             # matches were found against the given pattern(s) this
             # will be an empty dict
-            log.info('\nJob outputs dict after filtering')
-            log.info(PPRINT(new_outputs))
+            prettier_print('\nJob outputs dict after filtering')
+            prettier_print(new_outputs)
 
             return new_outputs
 
@@ -795,16 +792,16 @@ class ManageDict():
             Raised when an input is non-optional and an empty list has been
             passed
         """
-        log.info("\nChecking input classes are valid")
-        log.info(PPRINT(input_dict))
+        prettier_print("\nChecking input classes are valid")
+        prettier_print(input_dict)
         input_dict_copy = deepcopy(input_dict)
 
-        log.info(input_classes)
+        prettier_print(input_classes)
 
 
         for input_field, configured_input in input_dict.items():
-            log.info(input_field)
-            log.info(configured_input)
+            prettier_print(input_field)
+            prettier_print(configured_input)
             input_details = input_classes.get(input_field)
             expected_class = input_details.get('class')
             optional = input_details.get('optional')

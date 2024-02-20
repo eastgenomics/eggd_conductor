@@ -17,9 +17,6 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../')
 ))
 
-from utils.dx_log import dx_log
-
-log = dx_log()
 
 class Slack():
     """
@@ -61,7 +58,7 @@ class Slack():
                 f"eggd_conductor job: {conductor_job_url}"
             )
 
-        log.info(f"\nSending message to Slack channel {channel}\n\n{message}")
+        prettier_print(f"\nSending message to Slack channel {channel}\n\n{message}")
 
         http = requests.Session()
         retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
@@ -77,9 +74,9 @@ class Slack():
 
             if not response['ok']:
                 # error in sending slack notification
-                log.error(f"Error in sending slack notification: {response.get('error')}")
+                prettier_print(f"Error in sending slack notification: {response.get('error')}")
         except Exception as err:
-            log.error(f"Error in sending post request for slack notification: {err}")
+            prettier_print(f"Error in sending post request for slack notification: {err}")
 
         if exit_fail:
             # write file to know in bash script a fail alert already sent
@@ -131,7 +128,7 @@ class Jira():
         -------
         list : list of all tickets with details for given queue
         """
-        log.info(f"\nGetting all Jira tickets from endpoint: {self.queue_url}")
+        prettier_print(f"\nGetting all Jira tickets from endpoint: {self.queue_url}")
         start = 0
         response_data = []
 
@@ -142,7 +139,7 @@ class Jira():
                 auth=self.auth
             )
 
-            log.info(response)
+            print(response)
 
             if not response.ok:
                 self.send_slack_alert(
@@ -161,7 +158,7 @@ class Jira():
             response_data.extend(response['values'])
             start += 50
 
-        log.info(f"Found {len(response_data)} tickets")
+        prettier_print(f"Found {len(response_data)} tickets")
 
         return response_data
 
@@ -183,11 +180,11 @@ class Jira():
         str
             ticket ID
         """
-        log.info("Filtering Jira tickets for current run")
+        prettier_print("Filtering Jira tickets for current run")
         run_ticket = list(set([
             x['id'] for x in tickets if run_id in x['fields']['summary']
         ]))
-        log.info(f"Run ticket(s) found: {run_ticket}")
+        prettier_print(f"Run ticket(s) found: {run_ticket}")
 
         if not run_ticket:
             # didn't find a ticket -> either a typo in the name or ticket
@@ -230,7 +227,7 @@ class Jira():
                 warn=True
             )
         else:
-            log.info(
+            prettier_print(
                 "Slack notification for fail with Jira already sent, "
                 f"won't send current error: {message}"
             )
@@ -252,7 +249,7 @@ class Jira():
         if not any([self.queue_url, self.issue_url, self.token, self.email]):
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
-            log.info(
+            prettier_print(
                 "No required Jira variables set in config, continuinung "
                 "without using Jira"
             )
@@ -282,10 +279,10 @@ class Jira():
         try:
             # put whole thing in a try execept to not cause analysis to stop
             # if there's an issue with Jira, just send an alert to slack
-            log.info("\nFinding Jira ticket to add comment to")
+            prettier_print("Finding Jira ticket to add comment to")
             tickets = self.get_all_tickets(run_id=run_id)
             ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
-            log.info(f"Found Jira ticket ID {ticket_id} for run {run_id}")
+            prettier_print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
         except Exception:
             self.send_slack_alert(
                 f"Error finding Jira ticket for given run (`{run_id}`).\n"
@@ -350,6 +347,40 @@ class Jira():
             )
 
 
+def prettier_print(thing) -> None:
+    """
+    Pretty print for nicer viewing in the logs since pprint does not
+    do an amazing job visualising big dicts and long strings.
+
+    Bonus: we're indenting using the Braille Pattern Blank U+2800
+    unicode character since the new DNAnexus UI (as of Dec. 2023)
+    strips leading tabs and spaces in the logs, which makes viewing
+    the pretty dicts terrible. Luckily they don't strip other
+    whitespace characters, so we can get around them yet again making
+    their UI worse.
+
+    Parameters
+    ----------
+    thing : anything json dumpable
+        thing to print
+    """
+    start = end = ''
+
+    if isinstance(thing, str):
+        if thing.startswith('\n'):
+            start = '\n'
+            thing = thing.lstrip('\n')
+
+        if thing.endswith('\n'):
+            end = '\n'
+            thing = thing.rstrip('\n')
+
+    print(
+        f"{start}[{datetime.now().strftime('%H:%M:%S')}] - "
+        f"{json.dumps(thing, indent='⠀⠀')}{end}"
+    )
+
+
 def time_stamp() -> str:
     """
     Returns string of date & time formatted as YYMMDD_HHMM
@@ -375,7 +406,7 @@ def select_instance_types(run_id, instance_types) -> dict:
         - 'S1/S2/S4' -> human readable flowcell type, map back to IDs
         - 'xxxxxDRxx' -> Illumina ID format, use regex to match
         - '*' -> default to use for flowcell where no others match
-    
+
     Matching will be done in the above order (i.e. if S1 and xxxxxDRxx are
     defined, S1 will be preferentially used). If no matches are found then
     None is returned.
@@ -394,15 +425,15 @@ def select_instance_types(run_id, instance_types) -> dict:
         single instance type is defined, or dict if it is a mapping (i.e for
         multiple stages of a workflow)
     """
-    log.info('Selecting instance types from assay config file')
+    prettier_print('Selecting instance types from assay config file')
     if not instance_types:
         # empty dict provided => no user defined instances in config
-        log.info('No instance types set to use from config')
+        prettier_print('No instance types set to use from config')
         return None
 
     if isinstance(instance_types, str):
         # instance types is string => single instance type
-        log.info(f"Single instance type set: {instance_types}")
+        prettier_print(f"Single instance type set: {instance_types}")
         return instance_types
 
     # mapping of flowcell ID patterns for NovaSeq flowcells from:
@@ -415,7 +446,7 @@ def select_instance_types(run_id, instance_types) -> dict:
     matches = []
     flowcell_id = re.split('[_-]', run_id)[-1]  # flowcell ID is last part of run ID
 
-    log.info(f"Instance types set for the following keys:\n\t{instance_types}")
+    prettier_print(f"Instance types set for the following keys:\n\t{instance_types}")
 
     for type in instance_types.keys():
         if type not in ["SP", "S1", "S2", "S4", "*"]:
@@ -423,7 +454,7 @@ def select_instance_types(run_id, instance_types) -> dict:
             # since the patterns aren't correct and can have more characters
             # than x's, we turn it into a regex pattern matching >= n x's if
             # there are alphanumeric characters at start or end
-            log.info(f"Illumina flowcell pattern found: {type}")
+            prettier_print(f"Illumina flowcell pattern found: {type}")
             start_x = re.search(r'^x*', type).group()
             end_x = re.search(r'x*$', type).group()
 
@@ -445,14 +476,14 @@ def select_instance_types(run_id, instance_types) -> dict:
             "More than one set of instance types set for the same flowcell:"
             f"\n\t{matches}"
         )
-        log.info(f"Found instance types for flowcell: {matches[0]}")
-        log.info("The following instance types will be used:")
-        log.info(instance_types.get(matches[0]))
+        prettier_print(f"Found instance types for flowcell: {matches[0]}")
+        prettier_print("The following instance types will be used:")
+        prettier_print(instance_types.get(matches[0]))
         return instance_types.get(matches[0])
-    
+
     # no match against Illumina patterns found in instances types dict and
     # the current flowcell ID, check for SP / S1 / S2 / S4
-    log.info(
+    prettier_print(
         'No matches found for Illumina flowcell patterns, '
         'checking for SP, S1, S2 and S4'
     )
@@ -461,42 +492,42 @@ def select_instance_types(run_id, instance_types) -> dict:
         # therefore try select S1 first from the instance types since
         # we can't differetiate the two
         if instance_types.get('S1'):
-            log.info("Match found for S1 instances")
+            prettier_print("Match found for S1 instances")
             return instance_types['S1']
         elif instance_types.get('SP'):
-            log.info("Match found for SP instances")
+            prettier_print("Match found for SP instances")
             return instance_types['SP']
         else:
             # no instance types defined for SP/S1 flowcell
-            log.info('SP/S1 flowcell used but no instance types specified')
+            prettier_print('SP/S1 flowcell used but no instance types specified')
 
     if 'DM' in flowcell_id:
         # this is an S2 flowcell, check for S2
         if instance_types.get('S2'):
-            log.info("Match found for S2 instances")
+            prettier_print("Match found for S2 instances")
             return instance_types['S2']
         else:
             # no instance type defined for S2 flowcell
-            log.info('S2 flowcell used but no isntance types specified')
-    
+            prettier_print('S2 flowcell used but no isntance types specified')
+
     if 'DS' in flowcell_id:
         # this is an S4 flowcell, check for S4
         if instance_types.get('S4'):
-            log.info("Match found for S4 instances")
+            prettier_print("Match found for S4 instances")
             return instance_types['S4']
         else:
             # no instance type defined for S2 flowcell
-            log.info('S4 flowcell used but no isntance types specified')
+            prettier_print('S4 flowcell used but no isntance types specified')
 
     # if we get here then we haven't identified a match for the flowcell
     # used for sequencing against what we have defined in the config,
     # check for '*' being present (i.e. the catch all instances), else
     # return None to use app / workflow defaults
     if instance_types.get('*'):
-        log.info("Match found for default (*) instances")
+        prettier_print("Match found for default (*) instances")
         return instance_types['*']
     else:
-        log.info(
+        prettier_print(
             'No defined instances types found for flowcell used, will use '
             'app / workflow defaults'
         )
