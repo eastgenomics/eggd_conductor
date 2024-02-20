@@ -417,7 +417,7 @@ class DXExecute():
         extra_args = params.get("extra_args", {})
 
         if params['executable_name'].startswith('TSO500_reports_workflow'):
-            # handle specific inputs of eggd_TSO500 -> TSO500 workflow\
+            # handle specific inputs of eggd_TSO500 -> TSO500 workflow
 
             # get the job ID for previous eggd_tso500 job, this _should_ just
             # be analysis_1, but check anyway incase other apps added in future
