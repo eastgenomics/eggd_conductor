@@ -668,7 +668,7 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
-        prettier_print(f"\nPopulating output dict for {executable}, dict before:")
+        prettier_print(f"\nPopulating output dict for {executable}")
 
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
