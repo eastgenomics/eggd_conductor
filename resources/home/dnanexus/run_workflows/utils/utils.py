@@ -367,6 +367,7 @@ def prettier_print(thing) -> None:
     start = end = ''
 
     if isinstance(thing, str):
+        # nicely handle line breaks for spacing in logs
         if thing.startswith('\n'):
             start = '\n'
             thing = thing.lstrip('\n')
