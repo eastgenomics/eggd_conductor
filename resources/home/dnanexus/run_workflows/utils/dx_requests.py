@@ -428,7 +428,7 @@ class DXExecute():
             ]
             jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
             tso500_id = [
-                v for k, v in jobs.items if k.startswith('eggd_tso500')
+                v for k, v in jobs.items() if k.startswith('eggd_tso500')
             ]
 
             assert len(tso500_id) == 1, (
