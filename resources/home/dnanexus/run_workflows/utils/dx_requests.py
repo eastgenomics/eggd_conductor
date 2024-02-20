@@ -338,7 +338,10 @@ class DXExecute():
         job_details = job_handle.describe()
         job_id = job_details.get('id')
 
-        prettier_print(f'Started analysis in project {self.args.dx_project_id}, job: {job_id}')
+        prettier_print(
+            f'Started analysis in project {self.args.dx_project_id}, '
+            f'job: {job_id}'
+        )
 
         with open('job_id.log', 'a') as fh:
             # log of current executable jobs
@@ -518,7 +521,7 @@ class DXExecute():
             )
 
         if input_dict.keys:
-            prettier_print(f'\nInput dict: {prettier_print(input_dict)}')
+            prettier_print(f'\nInput dict: {input_dict}')
 
         job_id = self.call_dx_run(
             executable=executable,
@@ -762,7 +765,6 @@ class DXManage():
         ------
         AssertionError
             Raised when config file has missing assay_code or version field
-        
         """
         # filter all config files to just get full config data for the
         # highest version of each full assay code

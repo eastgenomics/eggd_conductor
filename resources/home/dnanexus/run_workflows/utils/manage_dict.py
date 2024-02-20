@@ -290,8 +290,7 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
-        prettier_print('\nAdding other inputs')
-        prettier_print('\nInput dict passed to check:')
+        prettier_print('\nAdding other inputs, input dict passed to check:')
         prettier_print(input_dict)
 
         # first checking if any INPUT- in dict to fill
@@ -731,11 +730,11 @@ class ManageDict():
             # no filter pattens to apply
             return outputs_dict
 
-        prettier_print(f'\nFiltering job outputs dict by sample name patterns for {stage}')
-        prettier_print('\nJob outputs dict before filtering:')
-        prettier_print(outputs_dict)
-        prettier_print('\nFilter dict:')
-        prettier_print(filter_dict)
+        prettier_print(
+            f'\nFiltering job outputs dict by sample name patterns for {stage}'
+        )
+        prettier_print(f'\nJob outputs dict before filtering: {outputs_dict}')
+        prettier_print(f'\nFilter dict:{filter_dict}')
 
         new_outputs = {}
         stage_match = False
@@ -800,8 +799,6 @@ class ManageDict():
 
 
         for input_field, configured_input in input_dict.items():
-            prettier_print(input_field)
-            prettier_print(configured_input)
             input_details = input_classes.get(input_field)
             expected_class = input_details.get('class')
             optional = input_details.get('optional')
