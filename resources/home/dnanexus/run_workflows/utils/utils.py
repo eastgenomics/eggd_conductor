@@ -347,7 +347,7 @@ class Jira():
             )
 
 
-def prettier_print(thing) -> None:
+def prettier_print(log_data) -> None:
     """
     Pretty print for nicer viewing in the logs since pprint does not
     do an amazing job visualising big dicts and long strings.
@@ -361,24 +361,24 @@ def prettier_print(thing) -> None:
 
     Parameters
     ----------
-    thing : anything json dumpable
-        thing to print
+    log_data : anything json dumpable
+        data to print
     """
     start = end = ''
 
-    if isinstance(thing, str):
+    if isinstance(log_data, str):
         # nicely handle line breaks for spacing in logs
-        if thing.startswith('\n'):
+        if log_data.startswith('\n'):
             start = '\n'
-            thing = thing.lstrip('\n')
+            log_data = log_data.lstrip('\n')
 
-        if thing.endswith('\n'):
+        if log_data.endswith('\n'):
             end = '\n'
-            thing = thing.rstrip('\n')
+            log_data = log_data.rstrip('\n')
 
     print(
         f"{start}[{datetime.now().strftime('%H:%M:%S')}] - "
-        f"{json.dumps(thing, indent='⠀⠀')}{end}"
+        f"{json.dumps(log_data, indent='⠀⠀')}{end}"
     )
 
 
