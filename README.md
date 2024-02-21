@@ -327,7 +327,9 @@ Inputs dependent on the output of a previous job should be defined as shown belo
 
 n.b. where any inputs are linked to previous job outputs, the `depends_on` key should be given in the executable keys, with the value as a list of `analysis_X` to hold for the completion of that job.
 
-- For workflows:
+For workflow inputs, these should be defined as `stage-xxx.input_field`, and for app inputs this should be `app-xxx.input_field`. To link these to previous job outputs, these should be defined as [job-based / analysis-based object references](https://documentation.dnanexus.com/developer/api/running-analyses/job-input-and-output#analysis-and-job-based-object-references).
+
+- Analysis-based job references (i.e. workflows):
 
     ```
     "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
@@ -339,16 +341,15 @@ n.b. where any inputs are linked to previous job outputs, the `depends_on` key s
                     },
      ```
 
-- For apps / applets:
+- Job-based references (i.e. apps / applets):
 
     ```
-    "applet-G48VfX8433GypYP8418pPfq7.panel_bed": {
-                        "$dnanexus_link": {
-                            "analysis": "analysis_2",
-                            "stage": "applet-G49452Q433GzX0jy3Gg60vz6",
-                            "field": "bed_file"
-                        }
-                    },
+    "stage-G0QQ8jj433Gxyx2K8xfPyV7B.panel_bed": {
+        "$dnanexus_link": {
+            "job": "analysis_2",
+            "field": "bed_file"
+        }
+    },
     ```
 
 For hardcoded file inputs to be provided to apps / workflows, these should be formatted as `$dnanexus_link` dictionaries:
