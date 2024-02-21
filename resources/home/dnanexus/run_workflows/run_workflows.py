@@ -534,7 +534,9 @@ def main():
 
     # set parent output directory, each app will have sub dir in here
     # use argparse Namespace for laziness to pass to dx_manage functions
-    parent_out_dir = f"/output/{args.assay_name}-{run_time}"
+    parent_out_dir = (
+        f"{os.environ.get('DESTINATION', '')}/output/{args.assay_name}-{run_time}"
+    )
     args.parent_out_dir = parent_out_dir
 
     # get upload tars from sentinel file, abuse argparse Namespace object
