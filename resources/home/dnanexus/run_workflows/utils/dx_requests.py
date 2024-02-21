@@ -427,9 +427,16 @@ class DXExecute():
                 job_outputs_dict[x] for x in job_outputs_dict if x.startswith('analysis_')
             ]
             jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
-            tso500_id = jobs.get('eggd_tso500')
+            tso500_id = [
+                v for k, v in jobs.items() if k.startswith('eggd_tso500')
+            ]
 
-            assert tso500_id, "Could not find prior eggd_tso500 job"
+            assert len(tso500_id) == 1, (
+                "Could not correctly find prior eggd_tso500 "
+                f"job, jobs found: {jobs}"
+            )
+
+            tso500_id = tso500_id[0]
 
             # get details of the job to pull files from
             all_output_files, job_output_ids = DXManage(
