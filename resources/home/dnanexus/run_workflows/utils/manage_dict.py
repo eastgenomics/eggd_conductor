@@ -2,9 +2,7 @@
 Functions related to populating and formatting input and output
 dictionaries for passing to dx run.
 """
-
 from copy import deepcopy
-from pprint import PrettyPrinter
 import os
 import re
 import sys
@@ -306,8 +304,8 @@ class ManageDict():
         else:
             prettier_print(f'\nOther inputs found to replace: {other_inputs}')
 
-        # removing /output/ for now to fit to MultiQC
-        args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
+        # removing /output prefix for now to fit to MultiQC
+        args.parent_out_dir = re.sub(r'^/output', '', args.parent_out_dir)
 
         samplesheet = ""
         if os.environ.get('SAMPLESHEET_ID'):
