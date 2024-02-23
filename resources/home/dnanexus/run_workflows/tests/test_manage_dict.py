@@ -605,7 +605,7 @@ class TestAddOtherInputs():
         Test for finding INPUT-parent_out_dir and replacing with parent output
         directory from args Namespace object
         """
-        assert self.output['all_analysis_output'] == 'some_assay-220930-1200', (
+        assert self.output['all_analysis_output'] == '/some_assay-220930-1200', (
             'INPUT-parent_out_dir not correctly replaced'
         )
 
