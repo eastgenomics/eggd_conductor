@@ -679,11 +679,6 @@ class ManageDict():
                 app_name = exe_names[executable]['stages'][stage]
                 dir = dir.replace("STAGE-NAME", app_name)
 
-            destination = os.environ.get('DESTINATION')
-            if destination:
-                # add app destination as top level output if given
-                dir = f"/{destination}/{dir}"
-
             # ensure we haven't accidentally got double slashes in path
             dir = dir.replace('//', '/')
 
