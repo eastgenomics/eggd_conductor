@@ -1371,8 +1371,8 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             'stage-mosdepth.index': {'$dnanexus_link': 'file-d1'},
             'stage-vcf_rescue.gvcf': {'$dnanexus_link': 'file-f1'},
             'stage-generate_variant_workbook.additional_files': [
-                {'$dnanexus_link': 'file-i1'},
-                {'$dnanexus_link': 'file-h1'}
+                {'$dnanexus_link': 'file-h1'},
+                {'$dnanexus_link': 'file-i1'}
             ]
         }
 
@@ -1400,8 +1400,8 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             'stage-mosdepth.index': {'$dnanexus_link': 'file-e1'},
             'stage-vcf_rescue.gvcf': {'$dnanexus_link': 'file-g1'},
             'stage-generate_variant_workbook.additional_files': [
-                {'$dnanexus_link': 'file-i1'},
-                {'$dnanexus_link': 'file-h3'}
+                {'$dnanexus_link': 'file-h3'},
+                {'$dnanexus_link': 'file-i1'}
             ]
         }
 
