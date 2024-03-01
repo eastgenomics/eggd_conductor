@@ -1005,7 +1005,7 @@ class ManageDict():
 
             cvo_dnanexus_link = input_dict[additional_files_stage]
             input_dict[additional_files_stage] = [
-                metrics_output, cvo_dnanexus_link
+                cvo_dnanexus_link, metrics_output
             ]
 
         print(f"Inputs added to input dict:\n\n{input_dict}")
