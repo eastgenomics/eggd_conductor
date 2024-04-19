@@ -1,6 +1,7 @@
 import os
 import pytest
 import sys
+import unittest
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
@@ -10,9 +11,13 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../../')
 ))
 
-from tests import TEST_DATA_DIR
+from .settings import TEST_DATA_DIR
 from run_workflows.run_workflows import (
-    match_samples_to_assays, parse_run_info_xml, parse_sample_sheet)
+    match_samples_to_assays,
+    parse_run_info_xml,
+    parse_sample_sheet,
+    exclude_samples_from_sample_list
+)
 
 
 def test_parse_sample_sheet():
@@ -247,6 +252,36 @@ class TestMatchSamplesToAssays():
                 testing=False,
                 mismatch=0
             )
+
+
+class TestExcludeSamplesFromSampleList(unittest.TestCase):
+    """
+    Function removes the specified samples from the given list of sample
+    names, and will raise error on any not present in the sample list
+    """
+    def test_valid_samples_excluded(self):
+        """
+        Test when valid samples specified to exclude they are correctly
+        removed from the sample list
+        """
+        sample_list = exclude_samples_from_sample_list(
+            sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
+            exclude_samples=['sample1', 'sample2']
+        )
+
+        self.assertEqual(sorted(sample_list), ['sample3', 'sample4'])
+
+
+    def test_invalid_sample_raises_runtime_error(self):
+        """
+        Test if invalid samples provided to exclude that this correctly
+        raises RuntimeError
+        """
+        with pytest.raises(RuntimeError):
+            exclude_samples_from_sample_list(
+            sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
+            exclude_samples=['sample6']
+        )
 
 
 if __name__=="__main__":

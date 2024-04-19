@@ -19,6 +19,10 @@ _set_environment () {
     export PROJECT_ID=$DX_PROJECT_CONTEXT_ID
     export PARENT_JOB_ID=$DX_JOB_ID
 
+    # get the destination path (if set) to conductor to use
+    # as top level of launched jobs output
+    export DESTINATION=$(jq -r '.folder' dnanexus-job.json)
+
     # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
     dx cd $DX_PROJECT_CONTEXT_ID:
@@ -35,6 +39,18 @@ _set_environment () {
     while IFS= read -r line; do export "${line?}"; done < conductor.cfg
     dx login --noprojects --token "$AUTH_TOKEN"
     set -x
+
+    # check we can still describe the project we are in, if not this means
+    # the project was not shared with the token account and won't have correct
+    # permissions to run jobs => error here
+    {
+        dx describe "$PROJECT_ID" > /dev/null
+    } || {
+        message=":warning: *Error - eggd_conductor*%0A%0APermissions error accessing "
+        message+="\`${PROJECT_NAME}\` (\`${PROJECT_ID}\`) using supplied token in "
+        message+="config. Check project permissions and rerun."
+        _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+    }
 }
 
 _exit () {
@@ -89,7 +105,7 @@ _parse_sentinel_file () {
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
     if [ -z "$RUN_ID" ]; then
-        RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
+        export RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
     tags=$(jq -r '.tags | .[]' <<< "$sentinel_details")
@@ -269,7 +285,7 @@ main () {
 
         # add file ID of config as output field to easily audit what configs used for analyses
         ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
-        dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=file
+        dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=string
     fi
     if [[ "$CREATE_PROJECT" == 'false' && -z "$DX_PROJECT" ]]; then
         # default behaviour to not create analysis project and use same as
@@ -290,6 +306,8 @@ main () {
     if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
     if [ "$MISMATCH_ALLOWANCE" ]; then optional_args+="--mismatch_allowance ${MISMATCH_ALLOWANCE} "; fi
+    if [ "$JOB_REUSE" ]; then optional_args+="--job_reuse ${JOB_REUSE/ /} "; fi
+    if [ "$EXCLUDE_SAMPLES" ]; then optional_args+="--exclude_samples ${EXCLUDE_SAMPLES} "; fi
 
     echo $optional_args
 
@@ -309,7 +327,7 @@ main () {
             # non empty log => jobs to terminate
             echo "Terminating jobs"
             jobs=$(cat job_id.log)
-            dx terminate "$jobs"
+            dx terminate $jobs
         fi
 
         if [ -f slack_fail_sent.log ]; then

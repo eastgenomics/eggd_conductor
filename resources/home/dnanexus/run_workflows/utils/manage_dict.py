@@ -2,18 +2,19 @@
 Functions related to populating and formatting input and output
 dictionaries for passing to dx run.
 """
-
 from copy import deepcopy
-from pprint import PrettyPrinter
 import os
 import re
+import sys
 
+import dxpy as dx
 from flatten_json import flatten, unflatten_list
 
-from utils.utils import Slack, log
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.realpath(__file__), '../../')
+))
 
-
-PPRINT = PrettyPrinter(indent=1).pprint
+from utils.utils import Slack, prettier_print
 
 
 class ManageDict():
@@ -183,10 +184,16 @@ class ManageDict():
             sample_fastqs = fastq_details
 
         # fastqs should always be named with R1/2_001
-        r1_fastqs = sorted([x for x in sample_fastqs if 'R1_001.fastq' in x[1]])
-        r2_fastqs = sorted([x for x in sample_fastqs if 'R2_001.fastq' in x[1]])
+        r1_fastqs = sorted(
+            [x for x in sample_fastqs if 'R1_001.fastq' in x[1]],
+            key=lambda x: x[1]
+        )
+        r2_fastqs = sorted(
+            [x for x in sample_fastqs if 'R2_001.fastq' in x[1]],
+            key=lambda x: x[1]
+        )
 
-        log.info(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
+        prettier_print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
 
         # sense check we have R2 fastqs before across all samples (i.e.
         # checking this isn't single end sequencing) before checking we
@@ -263,7 +270,7 @@ class ManageDict():
         args : argparse.Namespace
             namespace object of passed cmd line arguments
         executable_out_dirs : dict
-            dict of analsysis stage to its output dir path, used to pass output of
+            dict of analysis stage to its output dir path, used to pass output of
             an analysis to input of another (i.e. analysis_1 : /path/to/output)
         sample : str, default None
             optional, sample name used to filter list of fastqs
@@ -281,9 +288,8 @@ class ManageDict():
             Raised when no output dir has been given where a downsteam analysis
             requires it as an input
         """
-        log.info('\nAdding other inputs')
-        log.info('\nInput dict passed to check:')
-        log.info(PPRINT(input_dict))
+        prettier_print('\nAdding other inputs, input dict passed to check:')
+        prettier_print(input_dict)
 
         # first checking if any INPUT- in dict to fill
         other_inputs = self.search(
@@ -296,10 +302,10 @@ class ManageDict():
         if not other_inputs:
             return input_dict
         else:
-            log.info(f'\nOther inputs found to replace: {other_inputs}')
+            prettier_print(f'\nOther inputs found to replace: {other_inputs}')
 
-        # removing /output/ for now to fit to MultiQC
-        args.parent_out_dir = args.parent_out_dir.replace('/output/', '')
+        # removing /output prefix for now to fit to MultiQC
+        args.parent_out_dir = re.sub(r'^/output', '', args.parent_out_dir)
 
         samplesheet = ""
         if os.environ.get('SAMPLESHEET_ID'):
@@ -334,7 +340,7 @@ class ManageDict():
         out_dirs = [re.search(regex, x) for x in other_inputs]
         out_dirs = [x.group(0) for x in out_dirs if x]
 
-        log.info(f'\nOut dirs found to replace: {out_dirs}')
+        prettier_print(f'\nOut dirs found to replace: {out_dirs}')
 
         for dir in out_dirs:
             # find the output directory for the given analysis
@@ -357,8 +363,8 @@ class ManageDict():
                 replace_key=False
             )
 
-        log.info('\nInput dict after adding other inputs:')
-        log.info(PPRINT(input_dict))
+        prettier_print('\nInput dict after adding other inputs:')
+        prettier_print(input_dict)
 
         return input_dict
 
@@ -409,7 +415,7 @@ class ManageDict():
         if sample:
             # running per sample, assume we only wait on the samples previous
             # job and not all instances of the given executable for all samples
-            job_outputs_dict = job_outputs_dict[sample]
+            job_outputs_dict = job_outputs_dict.get(sample, {})
 
         # check if job depends on previous jobs to hold till complete
         dependent_analyses = params.get("depends_on")
@@ -438,7 +444,7 @@ class ManageDict():
                         # found ID in per run jobs dict => wait on completing
                         dependent_jobs.append(job)
 
-        log.info(f'\nDependent jobs found: {dependent_jobs}')
+        prettier_print(f'\nDependent jobs found: {dependent_jobs}')
 
         return dependent_jobs
 
@@ -464,7 +470,7 @@ class ManageDict():
             (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
             filter sample IDs by
         sample : str, default None
-            (optional) sample name used to limit searching for previous analyes
+            (optional) sample name used to limit searching for previous analyses
 
         Returns
         -------
@@ -473,8 +479,6 @@ class ManageDict():
 
         Raises
         ------
-        KeyError
-            Sample missing from `job_outputs_dict`
         RuntimeError
             Raised if an input is not an analysis id (i.e analysis_2)
         RuntimeError
@@ -482,9 +486,9 @@ class ManageDict():
         ValueError
             No job id found for given analysis stage from `job_outputs_dict`
         """
-        log.info("\nSearching input dict for inputs to link to outputs")
-        log.info("Input dict before:")
-        log.info(PPRINT(input_dict))
+        prettier_print("\nSearching input dict for inputs to link to outputs")
+        prettier_print("Input dict before:")
+        prettier_print(input_dict)
 
         if analysis == "analysis_1":
             # first analysis => no previous outputs to link to inputs
@@ -492,17 +496,26 @@ class ManageDict():
 
         if sample:
             # ensure we only use outputs for given sample
-            job_outputs_dict = job_outputs_dict.get(sample)
-            if not job_outputs_dict:
-                raise KeyError((
-                    f'{sample} not found in output dict. This is most likely '
-                    'from this being the first executable called and having '
-                    'a misconfigured input section in config (i.e. misspelt '
-                    'input) that should have been parsed earlier. Check '
-                    f'config and try again. Input dict given: {input_dict}'
-                ))
-            log.info(f"\nOutput dict for sample {sample}:")
-            log.info(PPRINT(job_outputs_dict))
+            sample_outputs = job_outputs_dict.get(sample, {})
+            if not sample_outputs:
+                print(
+                    f"Sample key {sample} not found in previous outputs, this "
+                    "is expected if all previous steps were only from per run "
+                    "jobs. Will continue with checking for analysis inputs."
+                )
+
+            # get any per run jobs to select from if an output is to be
+            # parsed from there, these will be in the top level of the
+            # job _outputs dict (i.e. {'analysis_1': "job-xxx"})
+            per_run_outputs = {
+                k: v for k, v  in job_outputs_dict.items()
+                if k.startswith('analysis_')
+            }
+
+            job_outputs_dict = {**per_run_outputs, **sample_outputs}
+
+            prettier_print(f"\nOutput dict for run & sample {sample}:")
+            prettier_print(job_outputs_dict)
 
         # check if input dict has any analysis_X => need to link a previous job
         all_analysis_ids = self.search(
@@ -512,10 +525,10 @@ class ManageDict():
             return_key=False
         )
 
-        log.info(f"\nFound analyses to replace: {all_analysis_ids}")
+        prettier_print(f"\nFound analyses to replace: {all_analysis_ids}")
 
-        log.info("Input dictionary before modifying")
-        log.info(PPRINT(input_dict))
+        prettier_print("Input dictionary before modifying")
+        prettier_print(input_dict)
 
         if not all_analysis_ids:
             # no inputs found to replace
@@ -559,8 +572,8 @@ class ManageDict():
                 # current executable is running on all samples => need to
                 # gather all previous jobs for all samples and build input
                 # array structure
-                log.info("\nJob outputs dict to search")
-                log.info(PPRINT(job_outputs_dict))
+                prettier_print("\nJob outputs dict to search")
+                prettier_print(job_outputs_dict)
 
                 job_ids = self.search(
                     identifier=analysis_id,
@@ -577,7 +590,7 @@ class ManageDict():
                         "same analysis as a previous job in the config"
                     ))
 
-                log.info(f"\nFound job IDs to link as inputs: {job_ids}")
+                prettier_print(f"\nFound job IDs to link as inputs: {job_ids}")
 
                 # for each input, first check if given analysis_X is present
                 # => need to link job IDs to the input. If true, turn that
@@ -653,7 +666,7 @@ class ManageDict():
         output_dict : dict
             populated dict of output directory paths
         """
-        log.info(f"\nPopulating output dict for {executable}, dict before:")
+        prettier_print(f"\nPopulating output dict for {executable}")
 
         for stage, dir in output_dict.items():
             if "OUT-FOLDER" in dir:
@@ -669,14 +682,14 @@ class ManageDict():
             # ensure we haven't accidentally got double slashes in path
             dir = dir.replace('//', '/')
 
-            # ensure we don't end up with double /ouput if given in config and
+            # ensure we don't end up with double /output if given in config and
             # using OUT-FOLDER
             dir = dir.replace('output/output', 'output')
 
             output_dict[stage] = dir
 
-        log.info(f'\nOutput dict for {executable}:')
-        log.info(PPRINT(output_dict))
+        prettier_print(f'\nOutput dict for {executable}:')
+        prettier_print(output_dict)
 
         return output_dict
 
@@ -710,11 +723,11 @@ class ManageDict():
             # no filter pattens to apply
             return outputs_dict
 
-        log.info(f'\nFiltering job outputs dict by sample name patterns for {stage}')
-        log.info('\nJob outputs dict before filtering:')
-        log.info(PPRINT(outputs_dict))
-        log.info('\nFilter dict:')
-        log.info(PPRINT(filter_dict))
+        prettier_print(
+            f'\nFiltering job outputs dict by sample name patterns for {stage}'
+        )
+        prettier_print(f'\nJob outputs dict before filtering: {outputs_dict}')
+        prettier_print(f'\nFilter dict:{filter_dict}')
 
         new_outputs = {}
         stage_match = False
@@ -730,14 +743,14 @@ class ManageDict():
 
         if not stage_match:
             # stage has no filters to apply => just return the outputs dict
-            log.info(f'\nNo filters to apply for stage: {stage}')
+            prettier_print(f'\nNo filters to apply for stage: {stage}')
             return outputs_dict
         else:
             # there was a filter for given stage to apply, if no
             # matches were found against the given pattern(s) this
             # will be an empty dict
-            log.info('\nJob outputs dict after filtering')
-            log.info(PPRINT(new_outputs))
+            prettier_print('\nJob outputs dict after filtering')
+            prettier_print(new_outputs)
 
             return new_outputs
 
@@ -771,16 +784,16 @@ class ManageDict():
             Raised when an input is non-optional and an empty list has been
             passed
         """
-        log.info("\nChecking input classes are valid")
-        log.info(PPRINT(input_dict))
+        prettier_print("\nChecking input classes are valid")
+        prettier_print("Current input dict state:")
+        prettier_print(input_dict)
         input_dict_copy = deepcopy(input_dict)
 
-        log.info(input_classes)
+        prettier_print("\nExpected input classes:")
+        prettier_print(input_classes)
 
 
         for input_field, configured_input in input_dict.items():
-            log.info(input_field)
-            log.info(configured_input)
             input_details = input_classes.get(input_field)
             expected_class = input_details.get('class')
             optional = input_details.get('optional')
@@ -856,3 +869,145 @@ class ManageDict():
             f"unparsed `analysis-` still in config, please check readme for "
             f"valid input parameters. \nUnparsed analyses: `{unparsed_inputs}`"
         )
+
+
+    def populate_tso500_reports_workflow(
+            self,
+            input_dict,
+            sample,
+            all_output_files,
+            job_output_ids
+        ) -> dict:
+        """
+        Handle the irritating running of the TSO500 reports workflow
+        after eggd_TSO500 app runs.
+
+        This is a pain as the eggd_TSO500 runs once per run, and outputs
+        an array of files for each file type (i.e BAMs, VCFs, CVOs etc.).
+        In addition, if the run is a mix of DNA and RNA samples, these
+        are different output fields (job-xxx.dna_bams vs job-xxx.rna_bams).
+        Therefore, we will handle parsing of these inputs separately from
+        the standard functions, and maybe one day this can all go away...
+
+        Outline of what we expect to handle here:
+            - get all output files for the given sample from the
+                eggd_TSO500 app output
+            - get either the DNA BAM or RNA BAM output and respective index
+                as inputs for mosdepth
+            - get either gVCF (for DNA) or SpliceVariants VCF (for RNA)
+                as inputs for vcf rescue -> vep -> workbooks
+            - get the CombinedVariantOutput tsv for the sample and the
+                metricsOutput for the run as inputs for input to
+                generate_variant_workbook.additional_files
+
+
+        Parameters
+        ----------
+        input_dict : dict
+            input dict parsed from the config
+        sample : str
+            name of current sample
+        all_output_files : list
+            list of dicts of all output files from eggd_tso500 job
+        job_output_ids : dict mapping output field -> list of file IDs
+            (e.g. {'vcf': [{'$dnanexus_link': 'file-xxx', ...}]})
+
+        Returns
+        -------
+        dict
+            populated input dict
+        """
+        print("Adding input files for TSO500 reports workflow")
+
+        # mapping of the value expected in the input dict parsed from
+        # the config file -> the eggd_tso500 app output fields to select from
+        tso500_input_fields = {
+            "eggd_tso500.fastqs": ['fastqs'],
+            "eggd_tso500.bam": ['dna_bams', 'rna_bams'],
+            "eggd_tso500.idx": ['dna_bam_index', 'rna_bam_index'],
+            "eggd_tso500.vcf": ['gvcfs', 'splice_variants_vcfs'],
+            "eggd_tso500.cvo": ['cvo']
+        }
+
+        for stage_input, output_fields in tso500_input_fields.items():
+            # get the actual stage.field from input dict, we will
+            # have something like this from the config:
+            # inputs: {
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.bam": "eggd_tso500.bam",
+            #   "stage-GF22j384b0bpYgYB5fjkk34X.index": "eggd_tso500.idx"
+            # }
+            # the value strings are pretty arbitrary but the main thing is
+            # we're not hardcoding the actual stage IDs here in case they
+            # change, and then we can just change them in the config
+            config_stage_input = list({
+                k: v for k, v in input_dict.items() if v == stage_input
+            }.keys())
+
+            if not config_stage_input:
+                # this input not present in config file, likely been
+                # removed => skip trying to add it
+                continue
+
+            config_stage_input = config_stage_input[0]
+
+            # get the corresponding eggd_tso500 output files for
+            # the given stage input, where there are 2 potential files
+            # (i.e. dna_bams and rna_bams) we expect at least one to
+            # be present, and for cvo they should always be present
+            dx_links = [
+                job_output_ids.get(x) for x in output_fields
+                if job_output_ids.get(x)
+            ]
+
+            assert dx_links, Slack().send(
+                "No output files found from eggd_tso500 job from the "
+                f"output fields: {output_fields}"
+            )
+
+            file_ids = [
+                id.get('$dnanexus_link') for sublist in dx_links for id in sublist
+            ]
+            file_details = [
+                x for x in all_output_files if x['id'] in file_ids
+            ]
+            sample_file = [
+                x for x in file_details if x['describe']['name'].startswith(sample)
+            ]
+
+            assert sample_file, (
+                f"No eggd_tso500 files found for sample {sample} for "
+                f"input {stage_input}"
+            )
+
+            if output_fields == ['fastqs']:
+                # handle fastqs separately since they should be an array
+                input_dict[config_stage_input] = [
+                    {'$dnanexus_link': x['id']} for x in sample_file
+                ]
+            else:
+                input_dict[config_stage_input] = {
+                    '$dnanexus_link': sample_file[0]['id']
+                }
+
+        # get the dnanexus_link we already added for the cvo, and turn
+        # this into an array input with the metricsOutput
+        additional_files_stage = [
+            x for x in input_dict if x.endswith('.additional_files')
+        ]
+
+        if additional_files_stage:
+            additional_files_stage = additional_files_stage[0]
+
+            # make additional files for generate_workbook also take in the
+            # per run metricsOutput file, should already have the sample cvo
+            metrics_output = job_output_ids.get('metricsOutput')
+            assert metrics_output, "No metrics output file found from tso500 job"
+
+            cvo_dnanexus_link = input_dict[additional_files_stage]
+            input_dict[additional_files_stage] = [
+                cvo_dnanexus_link, metrics_output
+            ]
+
+        print(f"Inputs added to input dict:\n\n{input_dict}")
+
+        return input_dict
