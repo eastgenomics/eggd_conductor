@@ -537,6 +537,7 @@ def main():
     parent_out_dir = (
         f"{os.environ.get('DESTINATION', '')}/output/{args.assay_name}-{run_time}"
     )
+    parent_out_dir = parent_out_dir.replace('//', '/')
     args.parent_out_dir = parent_out_dir
 
     # get upload tars from sentinel file, abuse argparse Namespace object
