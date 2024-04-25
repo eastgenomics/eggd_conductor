@@ -305,7 +305,7 @@ class ManageDict():
             prettier_print(f'\nOther inputs found to replace: {other_inputs}')
 
         # removing /output prefix for now to fit to MultiQC
-        args.parent_out_dir = re.sub(r'^/output', '', args.parent_out_dir)
+        args.parent_out_dir = re.sub(r'^/output/', '', args.parent_out_dir)
 
         samplesheet = ""
         if os.environ.get('SAMPLESHEET_ID'):
