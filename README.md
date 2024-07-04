@@ -159,7 +159,7 @@ Example top level of config:
     }
     "demultiplex": true,
     "demultiplex_config": {
-        "app_name": "app-eggd_bclconvert",
+        "app_name": "eggd_bclconvert",
         "additional_args": "--strict-mode true",
         "instance_type": "mem1_ssd1_v2_x36"
     }
