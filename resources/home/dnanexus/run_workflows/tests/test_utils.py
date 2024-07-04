@@ -1,11 +1,15 @@
 import os
+import re
 import sys
+import unittest
+
+import pytest
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.utils import select_instance_types
+from utils.utils import select_instance_types, subset_samplesheet_samples
 
 
 class TestSelectInstanceTypes():
@@ -201,3 +205,54 @@ class TestSelectInstanceTypes():
             "Wrong instance type returned where return type should be a string"
         )
 
+
+class TestSubsetSamplesheetSamples(unittest.TestCase):
+    """
+    Tests for utils.subset_samplesheet_samples
+
+    Function takes a list of sample names parsed from the samplesheet and
+    a regex pattern against which to filter them down and retain samples
+    """
+    samples = ['sample-1-123-foo', 'sample-2-567-bar', 'sample-3-789-baz']
+
+    def test_subset_correct(self):
+        """
+        Test that the subset is returned correctly
+        """
+        subset_samples = subset_samplesheet_samples(
+            samples=self.samples,
+            subset=r'-123-|-567-'
+        )
+
+        expected_subset = ['sample-1-123-foo', 'sample-2-567-bar']
+
+        assert sorted(subset_samples) == expected_subset, (
+            'expected sample subset incorret'
+        )
+
+
+    def test_no_samples_retained_raises_assertion_error(self):
+        """
+        Test that when no samples are left after subet that we correctly
+        raise an AssertionError
+        """
+        expected_error = 'No samples left after filtering using pattern blarg'
+
+        with pytest.raises(AssertionError, match=expected_error):
+            subset_samplesheet_samples(
+            samples=self.samples,
+            subset='blarg'
+        )
+
+    def test_invalid_regex_pattern_raises_regex_error(self):
+        """
+        Test that when an invalid regex pattern is provided that a
+        re.error is raised
+        """
+        expected_error = 'Invalid subset pattern provided'
+
+        with pytest.raises(re.error, match=expected_error):
+            subset_samplesheet_samples(
+            samples=self.samples,
+            subset='[invalid'
+        )
