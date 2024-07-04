@@ -256,7 +256,7 @@ main () {
     fi
 
     if [[ "$upload_sentinel_record" ]]; then
-        printf "\nParsing sentinel file"
+        printf "\nParsing sentinel file\n"
         _parse_sentinel_file
     else
         # app run manually without sentinel file
