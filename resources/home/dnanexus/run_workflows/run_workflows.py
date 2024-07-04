@@ -506,12 +506,12 @@ def main():
             sample_list=sample_list
         )
 
-    if config_data.get('subset_samplesheet'):
+    if config.get('subset_samplesheet'):
         # subset the sample list from the samplesheet against the
         # pattern provided from the config
         sample_list = subset_samplesheet_samples(
             samples=sample_list,
-            subset=config_data.get('subset_samplesheet')
+            subset=config.get('subset_samplesheet')
         )
 
 
