@@ -781,7 +781,7 @@ def main():
             "\nAnalysis project: "
         ),
         url=(
-            "http://platform.dnanexus.com/projects/"
+            "http://platform.dnanexus.com/panx/projects/"
             f"{args.dx_project_id.replace('project-', '')}/monitor/"
         )
     )
