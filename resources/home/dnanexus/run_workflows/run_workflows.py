@@ -28,6 +28,7 @@ from utils.utils import (
     Slack,
     prettier_print,
     select_instance_types,
+    subset_samplesheet_samples,
     time_stamp
 )
 
@@ -504,6 +505,15 @@ def main():
             exclude_samples=args.exclude_samples,
             sample_list=sample_list
         )
+
+    if config_data.get('subset_samplesheet'):
+        # subset the sample list from the samplesheet against the
+        # pattern provided from the config
+        sample_list = subset_samplesheet_samples(
+            samples=sample_list,
+            subset=config_data.get('subset_samplesheet')
+        )
+
 
     if not args.assay_name:
         args.assay_name = config.get('assay')

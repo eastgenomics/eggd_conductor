@@ -534,3 +534,47 @@ def select_instance_types(run_id, instance_types) -> dict:
         )
         return None
 
+
+def subset_samplesheet_samples(samples, subset) -> list:
+    """
+    Subsets the sample list parsed from the samplesheet against the
+    provided regex pattern.
+
+    This is used to limit what is run for per sample jobs that would
+    use all samples from the samplesheet.
+
+    Parameters
+    ----------
+    samples : list
+        list of samples
+    subset : string
+        regex pattern against which to filter
+
+    Returns
+    -------
+    list
+        subset of sample list
+    """
+    printable_samples = '\n\t'.join(samples)
+    print(
+        f"Subsetting {len(samples)} samples from sample sheet, sample list "
+        f"before:\n\t{printable_samples}"
+    )
+
+    # check that a valid pattern has been provided
+    try:
+        re.compile(subset)
+    except re.error:
+        raise re.error('Invalid subset pattern provided')
+
+    samples = [x for x in samples if re.search(subset, x)]
+
+    assert samples, f"No samples left after filtering using pattern {subset}"
+
+    printable_samples = '\n\t'.join(samples)
+    print(
+        f"Retained {len(samples)} after subsetting with {subset}:"
+        f"\n\t{printable_samples}"
+    )
+
+    return samples
