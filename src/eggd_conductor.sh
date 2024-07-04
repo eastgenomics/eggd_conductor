@@ -102,6 +102,7 @@ _parse_sentinel_file () {
     # get json of details to parse required info from
     sentinel_details=$(dx describe --json "$upload_sentinel_record")
     sentinel_id=$(jq -r '.id' <<< "$sentinel_details")
+    sentinel_project=$(jq -r '.project' <<< "$sentinel_details")
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
     if [ -z "$RUN_ID" ]; then
@@ -113,10 +114,10 @@ _parse_sentinel_file () {
         # sentinel file has been tagged to not run automated analysis
         # send Slack alert and exit without error
         local message=":warning: eggd_conductor: Sentinel file for run *${RUN_ID}* "
-        message+="tagged with \`suppress-automation\` and will not be processed.%0A"
+        message+="tagged with \`suppress-automation\` and will not be processed.%0A%0A"
         message+="To run analysis, remove the tag and relaunch this job:%0A"
-        message+="- \`dx untag ${sentinel_id} 'suppress-automation'\`%0A"
-        message+="- \`dx run --clone ${PARENT_JOB_ID}\`%0A"
+        message+=":black_medium_small_square: \`dx untag ${sentinel_project}:${sentinel_id} 'suppress-automation'\`%0A"
+        message+=":black_medium_small_square: \`dx run --clone ${PARENT_JOB_ID}\`%0A"
         message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
 
