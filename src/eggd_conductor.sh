@@ -117,7 +117,7 @@ _parse_sentinel_file () {
         message+="tagged with \`suppress-automation\` and will not be processed.%0A%0A"
         message+="To run analysis, remove the tag and relaunch this job:%0A"
         message+=":black_medium_small_square: \`dx untag ${sentinel_project}:${sentinel_id} 'suppress-automation'\`%0A"
-        message+=":black_medium_small_square: \`dx run --clone ${PARENT_JOB_ID}\`%0A"
+        message+=":black_medium_small_square: \`dx run --clone ${PARENT_JOB_ID}\`%0A%0A"
         message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
 
