@@ -137,6 +137,7 @@ As the config file is a JSON, several fields may be added to enhance readability
 **Optional keys in top level of assay config include**:
 
 - `changelog` (dict): optional recording of changes for each version of config file, useful for quickly identifying what has changed between versions
+- `subset_samplesheet` (str): optional regex pattern against which the list of samples parsed from the samplesheet will be filtered against to control launching per sample apps / workflows (i.e used to exclude samples present that do not match the given pattern)
 - `demultiplex_config` (dict): a set of config values for the demultiplexing job. This may contain the following keys:
   - `app_id` : app- ID of demultiplexing app to use, this will override the one in the app config if specified.
   - `app_name`: app name of demultiplexing app to use, this will override both the ID in the app config and `app_id` above if specified.
@@ -158,7 +159,7 @@ Example top level of config:
     }
     "demultiplex": true,
     "demultiplex_config": {
-        "app_name": "app-eggd_bclconvert",
+        "app_name": "eggd_bclconvert",
         "additional_args": "--strict-mode true",
         "instance_type": "mem1_ssd1_v2_x36"
     }
