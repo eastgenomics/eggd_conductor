@@ -92,7 +92,7 @@ def parse_run_info_xml(xml_file) -> str:
     return run_id
 
 
-def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
+def match_samples_to_assays(configs, all_samples, testing) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
@@ -105,11 +105,6 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
         list of samples parsed from samplesheet or specified with --samples
     testing : bool
         if running in test mode, if not will perform checks on samples
-    mismatch : int
-        number of samples allowed to not match to a given assay code. If the
-        total no. of samples not matching an assay code is <= the given
-        allowed no. of mismatches, these will use the same assay config
-        as all other samples on the run
 
     Returns
     -------
@@ -161,37 +156,8 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
             prettier_print(f"No matching config file found for {sample} !\n")
 
     if not testing:
-        # check all samples are for the same assay, don't handle mixed runs for now
-        assert len(assay_to_samples.keys()) == 1, Slack().send(
-            f"more than one assay found in given sample list: {assay_to_samples}"
-        )
-
         # check all samples have an assay code in one of the configs
         samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
-
-        if mismatch:
-            if (
-                sorted(all_samples) != sorted(samples_w_codes)
-            ) and (
-                (len(all_samples) - len(samples_w_codes)) <= int(mismatch)
-            ):
-                # not all samples matched a code and the total not matching
-                # is less than we allow => force the mismatch to use code
-                sample_not_match = set(all_samples) - set(samples_w_codes)
-                assay_code = next(iter(assay_to_samples))
-
-                prettier_print(
-                    f"Not all samples matched assay codes!\nSamples not "
-                    f"matching: {sample_not_match}\nTotal samples not "
-                    f"matching is less than mismatch limit allowed of "
-                    f"{mismatch}, therefore analysis will continue using "
-                    f"assay code of other samples ({assay_code})."
-                )
-
-                # add in sample(s) to the assay code match
-                assay_to_samples[assay_code].extend(sample_not_match)
-                samples_w_codes.extend(sample_not_match)
-
         samples_without_codes = '\n\t\t'.join([
             f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
         ])
