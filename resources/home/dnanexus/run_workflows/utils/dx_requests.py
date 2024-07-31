@@ -15,6 +15,7 @@ from typing import Tuple
 import dxpy as dx
 from packaging.version import Version, parse
 
+from utils.dx_utils import find_dx_project
 from utils.manage_dict import ManageDict
 from utils.utils import (
     Slack,
@@ -547,7 +548,6 @@ class DXExecute():
 
         return job_outputs_dict
 
-
     def call_per_run(
         self, executable, exe_names, input_classes, params, config,
         out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
@@ -672,64 +672,6 @@ class DXManage():
     def __init__(self, args) -> None:
         self.args = args
 
-    def get_or_create_dx_project(self, config) -> str:
-        """
-        Create new project in DNAnexus if one with given name doesn't
-        already exist.
-
-        Parameters
-        ----------
-        config : dict
-            low level assay config read from json file
-
-        Returns
-        -------
-        str : ID of DNAnexus project
-        """
-        if self.args.development:
-            prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
-        else:
-            prefix = '002_'
-
-        suffix = ''
-        if self.args.testing:
-            suffix = '-EGGD_CONDUCTOR_TESTING'
-
-        output_project = (
-            f'{prefix}{self.args.run_id}_{config.get("assay")}{suffix}'
-        )
-        project_id = self.find_dx_project(output_project)
-
-        if not project_id:
-            # create new project and capture returned project id and store
-            project_id = dx.bindings.dxproject.DXProject().new(
-                name=output_project,
-                summary=(
-                    f'Analysis of run {self.args.run_id} with '
-                    f'{config.get("assay")} {config.get("version")} config'
-                ),
-                description=(
-                    "This project was automatically created by eggd_conductor "
-                    f"from {os.environ.get('PARENT_JOB_ID')}"
-                )
-            )
-            prettier_print(
-                f'\nCreated new project for output: {output_project} ({project_id})'
-            )
-        else:
-            prettier_print(f'\nUsing existing found project: {output_project} ({project_id})')
-
-        users = config.get('users')
-        if users:
-            # users specified in config to grant access to project
-            for user, access_level in users.items():
-                dx.bindings.dxproject.DXProject(dxid=project_id).invite(
-                    user, access_level, send_email=False
-                )
-                prettier_print(f"\nGranted {access_level} priviledge to {user}")
-
-        return project_id
-
     def create_dx_folder(self, out_folder) -> str:
         """
         Create output folder in DNAnexus project for storing analysis output
@@ -818,6 +760,12 @@ class DXBuilder():
         self.configs = []
         self.samples = []
         self.config_to_samples = None
+        self.project_files = []
+
+    def get_assays(self):
+        return sorted(
+            [config.get('assay_code') for config in self.configs.values()]
+        )
 
     def add_args(self, **kwargs):
         """ Add args in an agnostic way """
@@ -907,3 +855,69 @@ class DXBuilder():
             for samples in self.config_to_samples.values()
             for sample in samples
         ]
+
+    def get_or_create_dx_project(self) -> str:
+        """
+        Create new project in DNAnexus if one with given name doesn't
+        already exist.
+
+        Returns
+        -------
+        str : ID of DNAnexus project
+        """
+
+        run_id = self.args.get("run_id")
+
+        if self.args.get("development", None):
+            prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
+        else:
+            prefix = '002_'
+
+        suffix = ''
+
+        if self.args.get("testing", None):
+            suffix = '-EGGD_CONDUCTOR_TESTING'
+
+        for config in self.config_to_samples:
+            assay = config.get("assay")
+            version = config.get("version")
+            output_project = f'{prefix}{run_id}_{assay}{suffix}'
+
+            project_id = find_dx_project(output_project)
+
+            if not project_id:
+                # create new project and capture returned project id and store
+                project_id = dx.bindings.dxproject.DXProject().new(
+                    name=output_project,
+                    summary=(
+                        f'Analysis of run {run_id} with '
+                        f'{assay} {version} config'
+                    ),
+                    description=(
+                        "This project was automatically created by "
+                        f"eggd_conductor from {os.environ.get('PARENT_JOB_ID')}"
+                    )
+                )
+                prettier_print(
+                    f"\nCreated new project for output: {output_project} "
+                    f"({project_id})"
+                )
+            else:
+                prettier_print(
+                    f"\nUsing existing found project: {output_project} "
+                    f"({project_id})"
+                )
+
+            users = config.get('users')
+
+            if users:
+                # users specified in config to grant access to project
+                for user, access_level in users.items():
+                    dx.bindings.dxproject.DXProject(dxid=project_id).invite(
+                        user, access_level, send_email=False
+                    )
+                    prettier_print(
+                        f"\nGranted {access_level} priviledge to {user}"
+                    )
+
+        return project_id
