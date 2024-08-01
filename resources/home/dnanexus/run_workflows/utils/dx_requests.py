@@ -923,3 +923,21 @@ class DXBuilder():
                     prettier_print(
                         f"\nGranted {access_level} priviledge to {user}"
                     )
+
+    def create_analysis_project_logs(self):
+        """ Create an analysis project log per config file contained in the
+        DXBuilder object """
+
+        for config, data in self.config_to_samples.items():
+            log_file_name = (
+                f"{data['project'].describe()['name']}.log"
+            )
+            # write analysis project to file to pick up at end to send Slack message
+            with open(log_file_name, 'w') as fh:
+                fh.write(
+                    f"{data['project'].describe()['id']} "
+                    f"{config.get('assay_code')} "
+                    f"{config.get('version')}\n"
+                )
+
+        # TODO handle the bash part to send the slack message
