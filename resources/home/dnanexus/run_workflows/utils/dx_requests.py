@@ -783,11 +783,9 @@ class DXBuilder():
 
         for config, samples in config_to_samples.items():
             self.configs.append(config)
-
-            for sample in samples:
-                self.samples.append(sample)
-
-        self.config_to_samples = config_to_samples
+            self.samples.extend(samples)
+            self.config_to_samples.setdefault(config, {})
+            self.config_to_samples["samples"] = samples
 
     def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
         """ Limit samples using a number or specific names
@@ -806,12 +804,14 @@ class DXBuilder():
 
         d = {}
 
-        for assay, samples in self.config_to_samples.items():
-            for sample in samples:
+        # limit samples in the config_to_samples dict
+        for config, data in self.config_to_samples.items():
+            for sample in data["samples"]:
                 # limit samples to put in the config_to_samples variable using
                 # the limiting number and the samples to exclude
                 if sample in self.samples and sample not in samples_to_exclude:
-                    d.setdefault(assay, []).append(sample)
+                    d.setdefault(config, {})
+                    d[config].setdefault("samples", []).append(sample)
 
         self.config_to_samples = d
         self.samples = [
@@ -847,7 +847,8 @@ class DXBuilder():
                     f"No samples left after filtering using pattern {subset}"
                 )
 
-                d[config] = subsetted_samples
+                d.setdefault(config, {})
+                d[config]["samples"] = subsetted_samples
 
         self.config_to_samples = d
         self.samples = [
@@ -908,6 +909,9 @@ class DXBuilder():
                     f"({project_id})"
                 )
 
+            # link project id to config and samples
+            self.config_to_samples[config]["project"] = dx.bindings.dxproject.DXProject(dxid=project_id)
+
             users = config.get('users')
 
             if users:
@@ -919,5 +923,3 @@ class DXBuilder():
                     prettier_print(
                         f"\nGranted {access_level} priviledge to {user}"
                     )
-
-        return project_id
