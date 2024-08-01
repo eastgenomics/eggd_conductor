@@ -941,3 +941,35 @@ class DXBuilder():
                 )
 
         # TODO handle the bash part to send the slack message
+
+    def get_upload_tars(self) -> list:
+        """
+        Get list of upload tar file IDs from given sentinel file,
+        and return formatted as a list of $dnanexus_link dicts
+
+        Returns
+        -------
+        list
+            list of file ids formated as {"$dnanexus_link": file-xxx}
+        """
+
+        sentinel_file = self.args.get("sentinel_file", None)
+
+        if not sentinel_file:
+            # sentinel file not provided as input -> no tars to parse
+            self.upload_tars = None
+
+        details = dx.bindings.dxrecord.DXRecord(dxid=sentinel_file).describe(
+            incl_details=True
+        )
+
+        upload_tars = details['details']['tar_file_ids']
+
+        prettier_print(
+            f"\nFollowing upload tars found to add as input: {upload_tars}"
+        )
+
+        # format in required format for a dx input
+        self.upload_tars = [
+            {"$dnanexus_link": x} for x in upload_tars
+        ]
