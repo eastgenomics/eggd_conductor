@@ -973,3 +973,17 @@ class DXBuilder():
         self.upload_tars = [
             {"$dnanexus_link": x} for x in upload_tars
         ]
+
+    def set_parent_out_dir(self, run_time):
+        """ Set the parent output directory for each config/assay/project
+
+        Args:
+            run_time (str): String to represent execution time in YYMMDD_HHMM format
+        """
+
+        for config in self.config_to_samples:
+            parent_out_dir = (
+                f"{os.environ.get('DESTINATION', '')}/output/"
+                f"{config.get('assay')}-{run_time}"
+            )
+            self.config_to_samples[config]["parent_out_dir"] = parent_out_dir.replace('//', '/')
