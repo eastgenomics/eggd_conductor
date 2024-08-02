@@ -802,7 +802,7 @@ class DXBuilder():
             # to a single config in testing
             self.samples = random.sample(self.samples, limit_nb)
 
-        d = {}
+        tmp_data = {}
 
         # limit samples in the config_to_samples dict
         for config, data in self.config_to_samples.items():
@@ -810,10 +810,10 @@ class DXBuilder():
                 # limit samples to put in the config_to_samples variable using
                 # the limiting number and the samples to exclude
                 if sample in self.samples and sample not in samples_to_exclude:
-                    d.setdefault(config, {})
-                    d[config].setdefault("samples", []).append(sample)
+                    tmp_data.setdefault(config, {})
+                    tmp_data[config].setdefault("samples", []).append(sample)
 
-        self.config_to_samples = d
+        self.config_to_samples = tmp_data
         self.samples = [
             sample
             for samples in self.config_to_samples.values()
@@ -827,7 +827,7 @@ class DXBuilder():
             re.error: Invalid regex pattern provided
         """
 
-        d = {}
+        tmp_data = {}
 
         for config, samples in self.config_to_samples.items():
             subset = config.get("subset_samplesheet", None)
@@ -847,10 +847,10 @@ class DXBuilder():
                     f"No samples left after filtering using pattern {subset}"
                 )
 
-                d.setdefault(config, {})
-                d[config]["samples"] = subsetted_samples
+                tmp_data.setdefault(config, {})
+                tmp_data[config]["samples"] = subsetted_samples
 
-        self.config_to_samples = d
+        self.config_to_samples = tmp_data
         self.samples = [
             sample
             for samples in self.config_to_samples.values()
