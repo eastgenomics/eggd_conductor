@@ -113,14 +113,9 @@ class Jira():
         http.mount("https://", HTTPAdapter(max_retries=retries))
         return http
 
-    def get_all_tickets(self, run_id) -> list:
+    def get_all_tickets(self) -> list:
         """
         Get all tickets from given queue URL endpoint
-
-        Parameters
-        ----------
-        run_id : str
-            ID of current run
 
         Returns
         -------
@@ -139,7 +134,7 @@ class Jira():
 
             if not response.ok:
                 self.send_slack_alert(
-                    f"Error querying Jira for tickets for current run `{run_id}`"
+                    f"Error querying Jira for tickets."
                     f"\nAPI endpoint: {self.queue_url}/issue?start={start}\n"
                     f"Status code: *{response.status_code}*\n"
                     f"Error:```{response.content.decode()}```\n"
@@ -190,18 +185,19 @@ class Jira():
                 f"*{run_id}*.\n\nContinuing with analysis without linking to Jira."
             )
 
-            return None
+            self.run_ticket_id = None
 
-        if len(run_ticket) > 1:
+        elif len(run_ticket) > 1:
             # found multiple tickets, this should not happen so send us an
             # alert and don't touch the tickets
             self.send_slack_alert(
                 f"Found more than one Jira ticket for given run (`{run_id}`)"
                 f"\n{run_ticket}"
             )
-            return None
+            self.run_ticket_id = None
 
-        return run_ticket[0]
+        else:
+            self.run_ticket_id = run_ticket[0]
 
     def send_slack_alert(self, message) -> None:
         """
@@ -226,7 +222,7 @@ class Jira():
                 f"won't send current error: {message}"
             )
 
-    def add_comment(self, run_id, comment, url) -> None:
+    def add_comment(self, comment, url) -> None:
         """
         Find Jira ticket for given run ID and add internal comment
 
@@ -259,7 +255,6 @@ class Jira():
                 f"`JIRA_ISSUE_URL: {self.issue_url}`\n"
                 f"`JIRA_TOKEN: {self.token}`\n"
                 f"`JIRA_EMAIL: {self.email}`\n"
-
             )
 
             self.send_slack_alert(
@@ -269,27 +264,7 @@ class Jira():
             )
             return
 
-        try:
-            # put whole thing in a try execept to not cause analysis to stop
-            # if there's an issue with Jira, just send an alert to slack
-            prettier_print("Finding Jira ticket to add comment to")
-            tickets = self.get_all_tickets(run_id=run_id)
-            ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
-            prettier_print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
-        except Exception:
-            self.send_slack_alert(
-                f"Error finding Jira ticket for given run (`{run_id}`).\n"
-                f"Continuing analysis without linking to Jira ticket.\n"
-                f"Error: ```{traceback.format_exc()}```"
-            )
-            return
-
-        if not ticket_id:
-            # no ticket found or more than one ticket found, Slack alert
-            # will have been sent in get_run_ticket_id()
-            return
-
-        comment_url = f"{self.issue_url}/{ticket_id}/comment"
+        comment_url = f"{self.issue_url}/{self.run_ticket_id}/comment"
 
         payload = json.dumps({
             "body": {
@@ -334,7 +309,7 @@ class Jira():
             # some kind of error occurred adding Jira comment =>
             # send a non-exiting Slack alert
             self.send_slack_alert(
-                f"failed to add comment to Jira ticket ({ticket_id})\n\n"
+                f"failed to add comment to Jira ticket ({self.run_ticket_id})\n\n"
                 f"Status code: {response.status_code}\n\n"
                 f"Error response: `{response.text}`"
             )
