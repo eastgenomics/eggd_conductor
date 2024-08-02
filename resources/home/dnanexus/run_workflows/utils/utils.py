@@ -88,11 +88,11 @@ class Jira():
     Jira related functions for getting sequencing run ticket for a given
     run to tag analysis links to
     """
-    def __init__(self) -> None:
-        self.queue_url = os.environ.get('JIRA_QUEUE_URL')
-        self.issue_url = os.environ.get('JIRA_ISSUE_URL')
-        self.token = os.environ.get('JIRA_TOKEN')
-        self.email = os.environ.get('JIRA_EMAIL')
+    def __init__(self, queue_url, issue_url, token, email) -> None:
+        self.queue_url = queue_url
+        self.issue_url = issue_url
+        self.token = token
+        self.email = email
         self.headers = {
             "Accept": "application/json",
             "Content-Type": "application/json"
