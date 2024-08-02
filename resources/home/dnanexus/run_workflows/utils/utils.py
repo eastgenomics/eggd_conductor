@@ -100,7 +100,6 @@ class Jira():
         self.auth = HTTPBasicAuth(self.email, self.token)
         self.http = self.create_session()
 
-
     def create_session(self):
         """
         Create session adapter object to use for queries
@@ -113,7 +112,6 @@ class Jira():
         retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
         http.mount("https://", HTTPAdapter(max_retries=retries))
         return http
-
 
     def get_all_tickets(self, run_id) -> list:
         """
@@ -139,8 +137,6 @@ class Jira():
                 auth=self.auth
             )
 
-            print(response)
-
             if not response.ok:
                 self.send_slack_alert(
                     f"Error querying Jira for tickets for current run `{run_id}`"
@@ -161,7 +157,6 @@ class Jira():
         prettier_print(f"Found {len(response_data)} tickets")
 
         return response_data
-
 
     def get_run_ticket_id(self, run_id, tickets) -> str:
         """
@@ -208,7 +203,6 @@ class Jira():
 
         return run_ticket[0]
 
-
     def send_slack_alert(self, message) -> None:
         """
         Send warning alert to Slack that there was an issue with querying Jira
@@ -231,7 +225,6 @@ class Jira():
                 "Slack notification for fail with Jira already sent, "
                 f"won't send current error: {message}"
             )
-
 
     def add_comment(self, run_id, comment, url) -> None:
         """
@@ -533,48 +526,3 @@ def select_instance_types(run_id, instance_types) -> dict:
             'app / workflow defaults'
         )
         return None
-
-
-def subset_samplesheet_samples(samples, subset) -> list:
-    """
-    Subsets the sample list parsed from the samplesheet against the
-    provided regex pattern.
-
-    This is used to limit what is run for per sample jobs that would
-    use all samples from the samplesheet.
-
-    Parameters
-    ----------
-    samples : list
-        list of samples
-    subset : string
-        regex pattern against which to filter
-
-    Returns
-    -------
-    list
-        subset of sample list
-    """
-    printable_samples = '\n\t'.join(samples)
-    print(
-        f"Subsetting {len(samples)} samples from sample sheet, sample list "
-        f"before:\n\t{printable_samples}"
-    )
-
-    # check that a valid pattern has been provided
-    try:
-        re.compile(subset)
-    except re.error:
-        raise re.error('Invalid subset pattern provided')
-
-    samples = [x for x in samples if re.search(subset, x)]
-
-    assert samples, f"No samples left after filtering using pattern {subset}"
-
-    printable_samples = '\n\t'.join(samples)
-    print(
-        f"Retained {len(samples)} after subsetting with {subset}:"
-        f"\n\t{printable_samples}"
-    )
-
-    return samples
