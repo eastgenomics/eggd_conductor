@@ -300,28 +300,28 @@ class Jira():
 
         payload = json.dumps({
             "body": {
-            "type": "doc",
-            "version": 1,
-            "content": [{
-                "type": "paragraph",
-                "content": [
-                    {
-                        "text": f"{comment}",
-                        "type": "text"
-                    },
-                    {
-                        "text": f"{url}",
-                        "type": "text",
-                        "marks": [{
-                            "type": "link",
-                            "attrs": {
-                                "href": f"{url}"
-                            }
-                        }]
-                    }
-                ]
-            }]
-        },
+                "type": "doc",
+                "version": 1,
+                "content": [{
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "text": f"{comment}",
+                            "type": "text"
+                        },
+                        {
+                            "text": f"{url}",
+                            "type": "text",
+                            "marks": [{
+                                "type": "link",
+                                "attrs": {
+                                    "href": f"{url}"
+                                }
+                            }]
+                        }
+                    ]
+                }]
+            },
             "properties": [{
                 "key": "sd.public.comment",
                 "value": {
