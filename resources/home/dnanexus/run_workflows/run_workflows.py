@@ -21,14 +21,14 @@ import dxpy as dx
 from packaging.version import parse as parseVersion
 import pandas as pd
 
-from utils.dx_requests import DXExecute, DXManage
+from utils.dx_utils import get_json_configs, filter_highest_config_version
+from utils.dx_requests import DXExecute, DXManage, DXBuilder
 from utils.manage_dict import ManageDict
 from utils.utils import (
     Jira,
     Slack,
     prettier_print,
     select_instance_types,
-    subset_samplesheet_samples,
     time_stamp
 )
 
@@ -92,7 +92,7 @@ def parse_run_info_xml(xml_file) -> str:
     return run_id
 
 
-def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
+def match_samples_to_assays(configs, all_samples, testing) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
@@ -105,11 +105,6 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
         list of samples parsed from samplesheet or specified with --samples
     testing : bool
         if running in test mode, if not will perform checks on samples
-    mismatch : int
-        number of samples allowed to not match to a given assay code. If the
-        total no. of samples not matching an assay code is <= the given
-        allowed no. of mismatches, these will use the same assay config
-        as all other samples on the run
 
     Returns
     -------
@@ -161,37 +156,8 @@ def match_samples_to_assays(configs, all_samples, testing, mismatch) -> dict:
             prettier_print(f"No matching config file found for {sample} !\n")
 
     if not testing:
-        # check all samples are for the same assay, don't handle mixed runs for now
-        assert len(assay_to_samples.keys()) == 1, Slack().send(
-            f"more than one assay found in given sample list: {assay_to_samples}"
-        )
-
         # check all samples have an assay code in one of the configs
         samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
-
-        if mismatch:
-            if (
-                sorted(all_samples) != sorted(samples_w_codes)
-            ) and (
-                (len(all_samples) - len(samples_w_codes)) <= int(mismatch)
-            ):
-                # not all samples matched a code and the total not matching
-                # is less than we allow => force the mismatch to use code
-                sample_not_match = set(all_samples) - set(samples_w_codes)
-                assay_code = next(iter(assay_to_samples))
-
-                prettier_print(
-                    f"Not all samples matched assay codes!\nSamples not "
-                    f"matching: {sample_not_match}\nTotal samples not "
-                    f"matching is less than mismatch limit allowed of "
-                    f"{mismatch}, therefore analysis will continue using "
-                    f"assay code of other samples ({assay_code})."
-                )
-
-                # add in sample(s) to the assay code match
-                assay_to_samples[assay_code].extend(sample_not_match)
-                samples_w_codes.extend(sample_not_match)
-
         samples_without_codes = '\n\t\t'.join([
             f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
         ])
@@ -440,9 +406,10 @@ def parse_args() -> argparse.Namespace:
         except json.decoder.JSONDecodeError:
             raise SyntaxError(
                 Slack().send(
-                   '`-iJOB_REUSE` provided does not appear to be valid '
-                   f'JSON format: `{args.job_reuse}`'
-            ))
+                    '`-iJOB_REUSE` provided does not appear to be valid '
+                    f'JSON format: `{args.job_reuse}`'
+                )
+            )
     else:
         args.job_reuse = {}
 
@@ -460,6 +427,8 @@ def main():
     """
     args = parse_args()
 
+    dx_builder = DXBuilder(vars(args))
+
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
         open('testing_job_id.log', 'w').close()
@@ -467,108 +436,81 @@ def main():
     if args.assay_config:
         # using user defined config file
         config = load_config(args.assay_config)
-        assay_code = config.get('assay_code')
         sample_list = args.samples.copy()
+        dx_builder.add_sample_data({config: sample_list})
     else:
         # get all json assay configs from path in conductor config
-        config_data = DXManage(args).get_json_configs()
-        config_data = DXManage.filter_highest_config_version(config_data)
+        config_data = get_json_configs()
+        config_data = filter_highest_config_version(config_data)
 
         assay_to_samples = match_samples_to_assays(
             configs=config_data,
             all_samples=args.samples,
             testing=args.testing,
-            mismatch=args.mismatch_allowance
         )
 
-        # select config to use by assay code from all samples
-        # TODO : if/when there are mixed runs this should be looped over for
-        # all of the below, will currently exit in match_samples_to_assays()
-        # where more than one assay is present from the sample names
-        assay_code = next(iter(assay_to_samples))
-        config = config_data[assay_code]
-        sample_list = assay_to_samples[assay_code]
+        dx_builder.add_sample_data(assay_to_samples)
 
         # add the file ID of assay config file used as job output, this
         # is to make it easier to audit what configs were used for analysis
         subprocess.run(
             "dx-jobutil-add-output assay_config_file_id "
-            f"{config_data[assay_code]['file_id']} --class=string",
+            f"{'|'.join(dx_builder.get_assays())} --class=string",
             shell=True, check=False
         )
 
     if args.testing_sample_limit:
-        sample_list = sample_list[:int(args.testing_sample_limit)]
+        dx_builder.limit_nb_samples(limit_nb=args.testing_sample_limit)
 
     if args.exclude_samples:
-        sample_list = exclude_samples_from_sample_list(
-            exclude_samples=args.exclude_samples,
-            sample_list=sample_list
-        )
+        dx_builder.limit_nb_samples(samples_to_exclude=args.exclude_samples)
 
-    if config.get('subset_samplesheet'):
-        # subset the sample list from the samplesheet against the
-        # pattern provided from the config
-        sample_list = subset_samplesheet_samples(
-            samples=sample_list,
-            subset=config.get('subset_samplesheet')
-        )
-
+    dx_builder.subset_samples()
 
     if not args.assay_name:
         args.assay_name = config.get('assay')
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        args.dx_project_id = DXManage(args).get_or_create_dx_project(config)
+        dx_builder.get_or_create_dx_project()
 
-    # write analysis project to file to pick up at end to send Slack message
-    with open('analysis_project.log', 'w') as fh:
-        fh.write(
-            f'{args.dx_project_id} {args.assay_name} {config.get("version")}\n'
-        )
+    dx_builder.create_analysis_project_logs()
 
-    output_project = dx.bindings.dxproject.DXProject(
-        dxid=args.dx_project_id).describe().get('name')
-    args.dx_project_name = output_project
-
-    print(
-        f"\nUsing project {output_project} ({args.dx_project_id}) "
-        "for launching analysis jobs in\n"
-    )
-
+    # TODO will need to move this to when the jobs will be launched
     # set context to project for running jobs
     dx.set_workspace_id(args.dx_project_id)
 
     run_time = time_stamp()
 
     # set parent output directory, each app will have sub dir in here
-    # use argparse Namespace for laziness to pass to dx_manage functions
-    parent_out_dir = (
-        f"{os.environ.get('DESTINATION', '')}/output/{args.assay_name}-{run_time}"
-    )
-    parent_out_dir = parent_out_dir.replace('//', '/')
-    args.parent_out_dir = parent_out_dir
+    dx_builder.set_parent_out_dir(run_time)
 
-    # get upload tars from sentinel file, abuse argparse Namespace object
-    # again to make it simpler to pass through to DXExecute / DXManage
-    args.upload_tars = DXManage(args).get_upload_tars()
-
-    dx_execute = DXExecute(args)
-    dx_manage = DXManage(args)
+    # get upload tars from sentinel file
+    dx_builder.get_upload_tars()
 
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
     # it is launched correctly
-    for executable, params in config['executables'].items():
-        assert 'per_sample' in params.keys(), Slack().send(
-            f"per_sample key missing from {executable} in config, check config"
-            "and re-run"
-        )
+    for config in dx_builder.configs:
+        for executable, params in config['executables'].items():
+            assert 'per_sample' in params.keys(), Slack().send(
+                f"per_sample key missing from {executable} in config, check "
+                "config and re-run"
+            )
 
+    jira = Jira(
+        os.environ.get('JIRA_QUEUE_URL'),
+        os.environ.get('JIRA_ISSUE_URL'),
+        os.environ.get('JIRA_TOKEN'),
+        os.environ.get('JIRA_EMAIL'),
+    )
+
+    all_tickets = jira.get_all_tickets()
+    jira.get_run_ticket_id(
+        dx_builder.args["run_id"], all_tickets
+    )
     # add comment to Jira ticket for run to link to this eggd_conductor job
-    Jira().add_comment(
-        run_id=args.run_id,
+    jira.add_comment(
         comment="This run was processed automatically by eggd_conductor: ",
         url=f"http://{os.environ.get('conductor_job_url')}"
     )
@@ -773,6 +715,7 @@ def main():
 
     prettier_print("\nCompleted calling jobs")
 
+    # TODO add comment per analysis project
     # add comment to Jira ticket for run to link to analysis project
     Jira().add_comment(
         run_id=args.run_id,
