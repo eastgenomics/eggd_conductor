@@ -987,3 +987,20 @@ class DXBuilder():
                 f"{config.get('assay')}-{run_time}"
             )
             self.config_to_samples[config]["parent_out_dir"] = parent_out_dir.replace('//', '/')
+
+    def set_instance_type_for_demultiplexing(self):
+        """ Select the instance type that will be used in the demultiplexing
+        job """
+
+        instance_types = []
+        core_nbs = []
+
+        for config in self.configs:
+            instance_type = config.get("instance_type")
+            instance_types.append(instance_type)
+            core_nbs.append(instance_type.split("_")[-1])
+
+        bigger_core_nb = max(core_nbs)
+        self.instance_type = instance_types[
+            instance_types.index(bigger_core_nb)
+        ]
