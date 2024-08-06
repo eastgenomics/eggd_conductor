@@ -3,25 +3,16 @@ Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
 from collections import defaultdict
-from copy import deepcopy
-from datetime import datetime
 import json
 import os
-from pprint import PrettyPrinter
-import random
 import re
 from typing import Tuple
 
 import dxpy as dx
 from packaging.version import Version, parse
 
-from utils.manage_dict import ManageDict
-from utils.utils import (
-    Slack,
-    prettier_print,
-    select_instance_types,
-    time_stamp
-)
+from utils import prettier_print
+from request_objects import Slack
 
 
 def get_json_configs() -> dict:
