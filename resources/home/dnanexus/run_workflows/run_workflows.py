@@ -463,8 +463,6 @@ def main():
             shell=True, check=False
         )
 
-    dx_builder.set_instance_type_for_demultiplexing()
-
     if args.testing_sample_limit:
         dx_builder.limit_nb_samples(limit_nb=args.testing_sample_limit)
 
@@ -541,6 +539,7 @@ def main():
     elif any([config.get('demultiplex') for config in dx_builder.configs]):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run demultiplexing app
+        dx_builder.set_instance_type_for_demultiplexing()
 
         # config and app ID for demultiplex is optional in assay config
         demultiplex_config = dx_builder.demultiplex_config
