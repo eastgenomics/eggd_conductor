@@ -21,7 +21,11 @@ import dxpy as dx
 from packaging.version import parse as parseVersion
 import pandas as pd
 
-from utils.dx_utils import get_json_configs, filter_highest_config_version
+from utils.dx_utils import (
+    get_json_configs,
+    filter_highest_config_version,
+    get_demultiplex_job_details
+)
 from utils.dx_requests import DXExecute, DXManage, DXBuilder
 from utils.manage_dict import ManageDict
 from utils.utils import (
@@ -459,6 +463,8 @@ def main():
             shell=True, check=False
         )
 
+    dx_builder.set_instance_type_for_demultiplexing()
+
     if args.testing_sample_limit:
         dx_builder.limit_nb_samples(limit_nb=args.testing_sample_limit)
 
@@ -519,7 +525,7 @@ def main():
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
-        fastq_details = dx_manage.get_demultiplex_job_details(args.demultiplex_job_id)
+        fastq_details = get_demultiplex_job_details(args.demultiplex_job_id)
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
@@ -532,12 +538,12 @@ def main():
     elif args.test_samples:
         # test files of fastq names : file ids given
         fastq_details = load_test_data(args.test_samples)
-    elif config.get('demultiplex'):
+    elif any([config.get('demultiplex') for config in dx_builder.configs]):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run demultiplexing app
 
         # config and app ID for demultiplex is optional in assay config
-        demultiplex_config = config.get('demultiplex_config', {})
+        demultiplex_config = dx_builder.demultiplex_config
         demultiplex_app_id = demultiplex_config.get('app_id', '')
         demultiplex_app_name = demultiplex_config.get('app_name', '')
 
@@ -546,18 +552,17 @@ def main():
             # app config
             demultiplex_app_id = os.environ.get('DEMULTIPLEX_APP_ID')
 
-        job_id = dx_execute.demultiplex(
+        job_id = dx_builder.demultiplex(
             app_id=demultiplex_app_id,
             app_name=demultiplex_app_name,
-            config=demultiplex_config
         )
-        fastq_details = dx_manage.get_demultiplex_job_details(job_id)
+        fastq_details = get_demultiplex_job_details(job_id)
     elif ManageDict().search(
-            identifier='INPUT-UPLOAD_TARS',
-            input_dict=config,
-            check_key=False,
-            return_key=False
-        ):
+        identifier='INPUT-UPLOAD_TARS',
+        input_dict=config,
+        check_key=False,
+        return_key=False
+    ):
         # an app / workflow takes upload tars as an input => valid start point
         pass
     else:
@@ -566,7 +571,8 @@ def main():
         raise RuntimeError(
             Slack().send(
                 'No fastqs passed or demultiplexing specified. Exiting now'
-        ))
+            )
+        )
 
     # build a dict mapping executable names to human readable names
     exe_names = dx_manage.get_executable_names(config['executables'].keys())
