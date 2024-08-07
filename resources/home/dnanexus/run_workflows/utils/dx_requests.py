@@ -2,6 +2,8 @@
 Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
+
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 import os
@@ -448,95 +450,6 @@ class DXExecute():
         job_outputs_dict[params['analysis']] = job_id
 
         return job_outputs_dict
-
-
-class DXManage():
-    """
-    Methods for generic handling of dx related things
-    """
-    def __init__(self, args) -> None:
-        self.args = args
-
-    def create_dx_folder(self, out_folder) -> str:
-        """
-        Create output folder in DNAnexus project for storing analysis output
-
-        Parameters
-        ----------
-        out_folder : str
-            name for analysis output folder
-
-        Returns
-        -------
-        dx_folder : str
-            name of created output directory in given project
-
-        Raises
-        ------
-        RuntimeError
-            If >100 output directories found with given name, very unlikely
-            for this to happen and is used as a sanity check to stop any
-            ambiguous downstream errors
-        """
-        for i in range(1, 100):
-            # sanity check, should only be 1 or 2 already existing at most
-            dx_folder = f'{out_folder}-{i}'
-
-            try:
-                dx.api.project_list_folder(
-                    self.args.dx_project_id,
-                    input_params={"folder": dx_folder, "only": "folders"},
-                    always_retry=True
-                )
-            except dx.exceptions.ResourceNotFound:
-                # can't find folder => create one
-                dx.api.project_new_folder(
-                    self.args.dx_project_id, input_params={
-                        'folder': dx_folder, "parents": True
-                    }
-                )
-                prettier_print(f'Created output folder: {dx_folder}')
-                return dx_folder
-            else:
-                # folder already exists, increase _i suffix on folder name
-                # and check again
-                prettier_print(f'{dx_folder} already exists, incrementing suffix integer')
-                continue
-
-        # got to end of loop, highly unlikely we would ever run this many in a
-        # project but catch it here to stop some ambiguous downstream error
-        raise RuntimeError(
-            "Found 100 output directories in project, exiting now as "
-            "there is likely an issue in the project."
-        )
-
-    def get_upload_tars(self) -> list:
-        """
-        Get list of upload tar file IDs from given sentinel file,
-        and return formatted as a list of $dnanexus_link dicts
-
-        Returns
-        -------
-        list
-            list of file ids formated as {"$dnanexus_link": file-xxx}
-        """
-        if not self.args.sentinel_file:
-            # sentinel file not provided as input -> no tars to parse
-            return None
-
-        details = dx.bindings.dxrecord.DXRecord(
-            dxid=self.args.sentinel_file).describe(incl_details=True)
-
-        upload_tars = details['details']['tar_file_ids']
-
-        prettier_print(f"\nFollowing upload tars found to add as input: {upload_tars}")
-
-        # format in required format for a dx input
-        upload_tars = [
-            {"$dnanexus_link": x} for x in upload_tars
-        ]
-
-        return upload_tars
 
 
 class DXBuilder():
@@ -1012,3 +925,141 @@ class DXBuilder():
                 fh.write(f'{job_id} ')
 
         return job_id
+
+    def get_executable_names_per_config(self) -> dict:
+        """
+        Build a dict of all executable IDs parsed from config to human
+        readable names, used for naming outputs needing workflow/app names
+
+        Sets
+        -------
+        dict
+            mapping of executable -> human readable name, for workflows this
+            will be workflow_id -> workflow_name + each stage_id -> stage_name
+
+            {
+                'workflow-1' : {
+                    'name' : 'my_workflow_v1.0.0',
+                    'stages' : {
+                        'stage1' : 'first_app-v1.0.0'
+                        'stage2' : 'second_app-v1.0.0'
+                    }
+                },
+                'app-1' : {
+                    'name': 'myapp-v1.0.0'
+                }
+            }
+        """
+
+        for config in self.configs:
+            executables = config.get("executables").keys()
+            prettier_print(
+                f'\nGetting names for all executables: {executables}'
+            )
+            execution_mapping = defaultdict(dict)
+
+            # sense check everything is a valid dx executable
+            assert all([
+                x.startswith('workflow-')
+                or x.startswith('app')
+                or x.startswith('applet-')
+                for x in executables
+            ]), Slack().send(
+                f'Executable(s) from the config not valid: {executables}'
+            )
+
+            for exe in executables:
+                if exe.startswith('workflow-'):
+                    workflow_details = dx.api.workflow_describe(exe)
+                    workflow_name = workflow_details.get('name')
+                    workflow_name.replace('/', '-')
+                    execution_mapping[exe]['name'] = workflow_name
+                    execution_mapping[exe]['stages'] = defaultdict(dict)
+
+                    for stage in workflow_details.get('stages'):
+                        stage_id = stage.get('id')
+                        stage_name = stage.get('executable')
+
+                        if stage_name.startswith('applet-'):
+                            # need an extra describe for applets
+                            stage_name = dx.api.workflow_describe(
+                                stage_name).get('name')
+
+                        if stage_name.startswith('app-'):
+                            # apps are prefixed with app- which is ugly
+                            stage_name = stage_name.replace('app-', '')
+
+                        # app names will be in format app-id/version
+                        stage_name = stage_name.replace('/', '-')
+                        execution_mapping[exe]['stages'][stage_id] = stage_name
+
+                elif exe.startswith('app-') or exe.startswith('applet-'):
+                    app_details = dx.api.workflow_describe(exe)
+                    app_name = app_details['name'].replace('/', '-')
+
+                    if app_name.startswith('app-'):
+                        app_name = app_name.replace('app-', '')
+                    execution_mapping[exe] = {'name': app_name}
+
+            self.config_to_samples[config]["execution_mapping"] = execution_mapping
+
+    def get_input_classes_per_config(self) -> dict:
+        """
+        Get classes of all inputs for each app / workflow stage, used
+        when building out input dict to ensure correct type set
+
+        Sets
+        -------
+        dict
+            mapping of exectuable / stage to outputs with types
+            {
+                'applet-FvyXygj433GbKPPY0QY8ZKQG': {
+                    'adapters_txt': {
+                        'class': 'file',
+                        'optional': False
+                    },
+                    'contaminants_txt': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'nogroup': {
+                        'class': 'boolean',
+                        'optional': False
+                    }
+            },
+                'workflow-GB12vxQ433GygFZK6pPF75q8': {
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': {
+                        'class': 'string',
+                        'optional': True
+                    }
+            },
+            ......
+        """
+
+        for config in self.configs:
+            executables = config.get("executables").keys()
+            input_class_mapping = defaultdict(dict)
+
+            for exe in executables:
+                describe = dx.describe(exe)
+
+                for input_spec in describe['inputSpec']:
+                    input_class_mapping[exe][input_spec['name']] = defaultdict(
+                        dict
+                    )
+                    input_class_mapping[exe][input_spec['name']]['class'] = input_spec['class']
+                    input_class_mapping[exe][input_spec['name']]['optional'] = input_spec.get('optional', False)
+
+            self.config_to_samples[config]["input_class_mapping"] = input_class_mapping
