@@ -21,8 +21,7 @@ class ManageDict():
     """
     Methods to handle parsing and populating input and output dictionaries
     """
-    def search(
-        self, identifier, input_dict, check_key, return_key) -> list:
+    def search(self, identifier, input_dict, check_key, return_key) -> list:
         """
         Searches nested dictionary for given identifier string in either
         the dict keys or values, and returns the key or value of the match.
@@ -66,10 +65,10 @@ class ManageDict():
 
         return list(set(found))
 
-
     def replace(
         self, input_dict, to_replace, replacement,
-        search_key, replace_key) -> dict:
+        search_key, replace_key
+    ) -> dict:
         """
         Recursively traverse through nested dictionary and replace any matching
         job_input with given DNAnexus job/file/project id
@@ -133,7 +132,6 @@ class ManageDict():
                 new_dict[key] = value
 
         return unflatten_list(new_dict, '|')
-
 
     def add_fastqs(self, input_dict, fastq_details, sample=None) -> dict:
         """
@@ -226,7 +224,6 @@ class ManageDict():
 
         return input_dict
 
-
     def add_upload_tars(self, input_dict, upload_tars) -> dict:
         """
         Add list of upload tars parsed from sentinel record as input
@@ -248,10 +245,10 @@ class ManageDict():
 
         return input_dict
 
-
     def add_other_inputs(
-            self, input_dict, args, executable_out_dirs,
-            sample=None, sample_prefix=None) -> dict:
+        self, input_dict, args, executable_out_dirs,
+        sample=None, sample_prefix=None
+    ) -> dict:
         """
         Generalised function for adding other INPUT-s, currently handles
         parsing:
@@ -368,7 +365,6 @@ class ManageDict():
 
         return input_dict
 
-
     def get_dependent_jobs(self, params, job_outputs_dict, sample=None) -> list:
         """
         If app / workflow depends on previous job(s) completing these will be
@@ -448,10 +444,10 @@ class ManageDict():
 
         return dependent_jobs
 
-
     def link_inputs_to_outputs(
-            self, job_outputs_dict, input_dict, analysis, per_sample,
-            input_filter_dict=None, sample=None) -> dict:
+        self, job_outputs_dict, input_dict, analysis, per_sample,
+        input_filter_dict=None, sample=None
+    ) -> dict:
         """
         Check input dict for 'analysis_', these will be for linking outputs of
         previous jobs and stored in the job_outputs_dict to input of next job.
@@ -640,9 +636,9 @@ class ManageDict():
 
         return input_dict
 
-
     def populate_output_dir_config(
-            self, executable, exe_names, output_dict, out_folder) -> dict:
+        self, executable, exe_names, output_dict, out_folder
+    ) -> dict:
         """
         Loops over stages in dict for output directory naming and adds
         worlflow app name.
@@ -693,9 +689,9 @@ class ManageDict():
 
         return output_dict
 
-
     def filter_job_outputs_dict(
-            self, stage, outputs_dict, filter_dict) -> dict:
+        self, stage, outputs_dict, filter_dict
+    ) -> dict:
         """
         Filter given dict of sample names -> job IDs to only keep job IDs
         of jobs for those sample(s) matching given pattern(s).
@@ -753,7 +749,6 @@ class ManageDict():
             prettier_print(new_outputs)
 
             return new_outputs
-
 
     def check_input_classes(self, input_dict, input_classes) -> dict:
         """
@@ -836,7 +831,6 @@ class ManageDict():
 
         return input_dict_copy
 
-
     def check_all_inputs(self, input_dict) -> None:
         """
         Check for any remaining INPUT- or analysis_, should be none.
@@ -870,14 +864,13 @@ class ManageDict():
             f"valid input parameters. \nUnparsed analyses: `{unparsed_inputs}`"
         )
 
-
     def populate_tso500_reports_workflow(
-            self,
-            input_dict,
-            sample,
-            all_output_files,
-            job_output_ids
-        ) -> dict:
+        self,
+        input_dict,
+        sample,
+        all_output_files,
+        job_output_ids
+    ) -> dict:
         """
         Handle the irritating running of the TSO500 reports workflow
         after eggd_TSO500 app runs.
