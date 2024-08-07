@@ -782,7 +782,7 @@ class DXBuilder():
         demultiplex_configs = []
         core_nbs = []
 
-        for config in self.demultiplex_configs:
+        for config in self.configs:
             demultiplex_config = config.get("demultiplex_config", None)
 
             if demultiplex_config:
