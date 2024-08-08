@@ -22,7 +22,7 @@ from packaging.version import parse as parseVersion
 import pandas as pd
 
 from utils.calling_jobs import call_per_sample, call_per_run
-from utils.dx_requests import DXBuilder, DXJobManager
+from utils.dx_requests import DXBuilder
 from utils.dx_utils import (
     get_json_configs,
     filter_highest_config_version,
@@ -432,8 +432,7 @@ def main():
     """
     args = parse_args()
 
-    dx_builder = DXBuilder(vars(args))
-    dx_job_manager = DXJobManager()
+    dx_builder = DXBuilder()
 
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
@@ -512,9 +511,8 @@ def main():
     )
 
     all_tickets = jira.get_all_tickets()
-    jira.get_run_ticket_id(
-        dx_builder.args["run_id"], all_tickets
-    )
+    jira.get_run_ticket_id(args.run_id, all_tickets)
+
     # add comment to Jira ticket for run to link to this eggd_conductor job
     jira.add_comment(
         comment="This run was processed automatically by eggd_conductor: ",
@@ -523,7 +521,7 @@ def main():
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
-        dx_job_manager.fastqs_details = get_demultiplex_job_details(
+        dx_builder.fastqs_details = get_demultiplex_job_details(
             args.demultiplex_job_id
         )
 
@@ -535,11 +533,11 @@ def main():
                 fastq_id, input_params={'fields': {'name': True}}
             )
             fastq_name = fastq_name['name']
-            dx_job_manager.fastqs_details.append((fastq_id, fastq_name))
+            dx_builder.fastqs_details.append((fastq_id, fastq_name))
 
     elif args.test_samples:
         # test files of fastq names : file ids given
-        dx_job_manager.fastqs_details = load_test_data(args.test_samples)
+        dx_builder.fastqs_details = load_test_data(args.test_samples)
 
     elif any([config.get('demultiplex') for config in dx_builder.configs]):
         # not using previous demultiplex job, fastqs or test sample list and
@@ -558,7 +556,7 @@ def main():
             # app config
             demultiplex_app_id = os.environ.get('DEMULTIPLEX_APP_ID')
 
-        dx_job_manager.demultiplex(
+        dx_builder.demultiplex(
             app_id=demultiplex_app_id,
             app_name=demultiplex_app_name,
             testing=args.testing,
@@ -571,12 +569,12 @@ def main():
 
         for config in dx_builder.config_to_samples:
             per_config_info = dx_builder.config_to_samples[config]
-            dx_job_manager.move_demultiplex_qc_files(
+            dx_builder.move_demultiplex_qc_files(
                 per_config_info["project"]
             )
 
-        dx_job_manager.fastqs_details = get_demultiplex_job_details(
-            dx_job_manager.demultiplexing_job
+        dx_builder.fastqs_details = get_demultiplex_job_details(
+            dx_builder.demultiplexing_job
         )
 
     elif manage_dict.search(
@@ -625,8 +623,7 @@ def main():
         # store data together / access specific dirs of data
         executable_out_dirs = {}
 
-        dx_job_manager.configs.append(config)
-        dx_job_manager.job_outputs[config] = {}
+        dx_builder.job_outputs[config] = {}
 
         for executable, params in config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
@@ -659,7 +656,7 @@ def main():
                 # dict to add all stage output names and job ids for every
                 # sample to used to pass correct job ids to subsequent
                 # workflow / app calls
-                dx_job_manager.job_outputs[params["analysis"]] = previous_job
+                dx_builder.job_outputs[params["analysis"]] = previous_job
 
                 continue
 
