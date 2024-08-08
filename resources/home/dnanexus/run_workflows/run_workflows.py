@@ -345,7 +345,7 @@ def parse_args() -> argparse.Namespace:
         help='id of job from running demultiplexing (if run)'
     )
     parser.add_argument(
-        '--demultiplex_output', default=None,
+        '--demultiplex_output',
         help=(
             'dx path to store output from demultiplexing, defaults to parent '
             'of sentinel file if not specified'
