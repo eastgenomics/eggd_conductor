@@ -245,7 +245,7 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
 
 
 def add_other_inputs(
-    input_dict, args, executable_out_dirs,
+    input_dict, parent_out_dir, project_id, project_name, executable_out_dirs,
     sample=None, sample_prefix=None
 ) -> dict:
     """
@@ -301,7 +301,7 @@ def add_other_inputs(
         prettier_print(f'\nOther inputs found to replace: {other_inputs}')
 
     # removing /output prefix for now to fit to MultiQC
-    args.parent_out_dir = re.sub(r'^/output/', '', args.parent_out_dir)
+    parent_out_dir = re.sub(r'^/output/', '', parent_out_dir)
 
     samplesheet = ""
     if os.environ.get('SAMPLESHEET_ID'):
@@ -315,9 +315,9 @@ def add_other_inputs(
     to_replace = [
         ('INPUT-SAMPLE-NAME', sample),
         ('INPUT-SAMPLE-PREFIX', sample_prefix),
-        ('INPUT-dx_project_id', args.dx_project_id),
-        ('INPUT-dx_project_name', args.dx_project_name),
-        ('INPUT-parent_out_dir', args.parent_out_dir),
+        ('INPUT-dx_project_id', project_id),
+        ('INPUT-dx_project_name', project_name),
+        ('INPUT-parent_out_dir', parent_out_dir),
         ('INPUT-SAMPLESHEET', samplesheet)
     ]
 
