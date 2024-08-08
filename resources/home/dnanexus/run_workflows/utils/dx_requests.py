@@ -474,14 +474,16 @@ class DXJobManager():
                     f'{dx_project_id}:/demultiplex_{time_stamp()}'
                 )
 
-        demultiplex_project, demultiplex_folder = demultiplex_output.split(':')
+        (
+            self.demultiplex_project, self.demultiplex_folder
+        ) = demultiplex_output.split(':')
 
         prettier_print(f'demultiplex app ID set: {app_id}')
         prettier_print(f'demultiplex app name set: {app_name}')
         prettier_print(f'optional config specified for demultiplexing: {demultiplex_config}')
         prettier_print(f'demultiplex out: {demultiplex_output}')
-        prettier_print(f'demultiplex project: {demultiplex_project}')
-        prettier_print(f'demultiplex folder: {demultiplex_folder}')
+        prettier_print(f'demultiplex project: {self.demultiplex_project}')
+        prettier_print(f'demultiplex folder: {self.demultiplex_folder}')
 
         instance_type = demultiplex_config.get("instance_type", None)
 
@@ -526,13 +528,13 @@ class DXJobManager():
         fastqs = list(dx.find_data_objects(
             name="*.fastq*",
             name_mode='glob',
-            project=demultiplex_project,
-            folder=demultiplex_folder
+            project=self.demultiplex_project,
+            folder=self.demultiplex_folder
         ))
 
         assert not fastqs, Slack().send(
             "FastQs already present in output directory for demultiplexing: "
-            f"`{demultiplex_output}`.\n\n
+            f"`{demultiplex_output}`.\n\n"
             "Exiting now to not potentially pollute a previous demultiplex "
             "job output. \n\n"
             "Please either move the sentinel file or set the demultiplex "
@@ -542,8 +544,8 @@ class DXJobManager():
         if app_id.startswith('applet-'):
             job = dx.bindings.dxapplet.DXApplet(dxid=app_id).run(
                 applet_input=inputs,
-                project=demultiplex_project,
-                folder=demultiplex_folder,
+                project=self.demultiplex_project,
+                folder=self.demultiplex_folder,
                 priority='high',
                 instance_type=instance_type
             )
@@ -557,8 +559,8 @@ class DXJobManager():
 
             job = dx.bindings.dxapp.DXApp(dxid=app_id, name=app_name).run(
                 app_input=inputs,
-                project=demultiplex_project,
-                folder=demultiplex_folder,
+                project=self.demultiplex_project,
+                folder=self.demultiplex_folder,
                 priority='high',
                 instance_type=instance_type
             )
@@ -586,7 +588,8 @@ class DXJobManager():
             # dx job error raised (i.e. failed, timed out, terminated)
             job_url = (
                 f"platform.dnanexus.com/projects/"
-                f"{demultiplex_project.replace('project-', '')}/monitor/job/"
+                f"{self.demultiplex_project.replace('project-', '')}"
+                "/monitor/job/"
                 f"{job_id}"
             )
 
@@ -597,6 +600,17 @@ class DXJobManager():
             raise dx.exceptions.DXJobFailureError()
 
         prettier_print("Demuliplexing completed!")
+
+        if testing:
+            with open('testing_job_id.log', 'a') as fh:
+                fh.write(f'{job_id} ')
+
+    def move_demultiplex_qc_files(self, project_id):
+        """ Move demultiplexing QC files to the given project
+
+        Args:
+            project_id (str): DNAnexus project id to move the QC files to
+        """
 
         # check for and copy / move the required files for multiQC from
         # bclfastq or bclconvert into a folder in root of the analysis project
@@ -611,7 +625,7 @@ class DXJobManager():
 
         # need to first create destination folder
         dx.api.project_new_folder(
-            object_id=dx_project_id,
+            object_id=project_id,
             input_params={
                 'folder': '/demultiplex_multiqc_files',
                 'parents': True
@@ -621,8 +635,8 @@ class DXJobManager():
         for file in qc_files:
             dx_object = list(dx.bindings.search.find_data_objects(
                 name=file,
-                project=demultiplex_project,
-                folder=demultiplex_folder
+                project=self.demultiplex_project,
+                folder=self.demultiplex_folder
             ))
 
             if dx_object:
@@ -631,19 +645,13 @@ class DXJobManager():
                     project=dx_object[0]['project']
                 )
 
-                if dx_project_id == demultiplex_project:
+                if project_id == self.demultiplex_project:
                     # demultiplex output in the analysis project => need to move
                     # instead of cloning (this is most likely just for testing)
                     dx_file.move(folder='/demultiplex_multiqc_files')
                 else:
                     # copying to separate analysis project
                     dx_file.clone(
-                        project=dx_project_id,
+                        project=project_id,
                         folder='/demultiplex_multiqc_files'
                     )
-
-        if testing:
-            with open('testing_job_id.log', 'a') as fh:
-                fh.write(f'{job_id} ')
-
-        return job_id
