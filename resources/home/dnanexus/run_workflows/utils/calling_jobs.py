@@ -3,7 +3,7 @@ import dxpy as dx
 import os
 
 from dx_utils import get_job_output_details
-from manage_dict import ManageDict
+import manage_dict
 from utils import prettier_print
 
 
@@ -94,7 +94,7 @@ def call_per_sample(
         all_output_files, job_output_ids = get_job_output_details(tso500_id)
 
         # try add all eggd_tso500 app outputs to reports workflow input
-        input_dict = ManageDict().populate_tso500_reports_workflow(
+        input_dict = manage_dict.populate_tso500_reports_workflow(
             input_dict=input_dict,
             sample=sample,
             all_output_files=all_output_files,
@@ -103,7 +103,7 @@ def call_per_sample(
 
     # check if stage requires fastqs passing
     if params["process_fastqs"] is True:
-        input_dict = ManageDict().add_fastqs(
+        input_dict = manage_dict.add_fastqs(
             input_dict=input_dict,
             fastq_details=fastq_details,
             sample=sample
@@ -111,7 +111,7 @@ def call_per_sample(
 
     # find all jobs for previous analyses if next job depends on them
     if params.get("depends_on"):
-        dependent_jobs = ManageDict().get_dependent_jobs(
+        dependent_jobs = manage_dict.get_dependent_jobs(
             params=params,
             job_outputs_dict=job_outputs_dict,
             sample=sample
@@ -135,7 +135,7 @@ def call_per_sample(
 
     # handle other inputs defined in config to add to inputs
     # sample_prefix passed to pass to INPUT-SAMPLE_NAME
-    input_dict = ManageDict().add_other_inputs(
+    input_dict = manage_dict.add_other_inputs(
         input_dict=input_dict,
         args=args,
         executable_out_dirs=executable_out_dirs,
@@ -144,7 +144,7 @@ def call_per_sample(
     )
 
     # check any inputs dependent on previous job outputs to add
-    input_dict = ManageDict().link_inputs_to_outputs(
+    input_dict = manage_dict.link_inputs_to_outputs(
         job_outputs_dict=job_outputs_dict,
         input_dict=input_dict,
         analysis=params["analysis"],
@@ -153,19 +153,19 @@ def call_per_sample(
     )
 
     # check input types correctly set in input dict
-    input_dict = ManageDict().check_input_classes(
+    input_dict = manage_dict.check_input_classes(
         input_dict=input_dict,
         input_classes=input_classes[executable]
     )
 
     # check that all INPUT- have been parsed in config
-    ManageDict().check_all_inputs(input_dict)
+    manage_dict.check_all_inputs(input_dict)
 
     # set job name as executable name and sample name
     job_name = f"{params['executable_name']}-{sample}"
 
     # create output directory structure in config
-    ManageDict().populate_output_dir_config(
+    manage_dict.populate_output_dir_config(
         executable=executable,
         exe_names=exe_names,
         output_dict=output_dict,
@@ -256,17 +256,17 @@ def call_per_run(
     extra_args = params.get("extra_args", {})
 
     if params["process_fastqs"] is True:
-        input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
+        input_dict = manage_dict.add_fastqs(input_dict, fastq_details)
 
     # add upload tars as input if INPUT-UPLOAD_TARS present
     if upload_tars:
-        input_dict = ManageDict().add_upload_tars(
+        input_dict = manage_dict.add_upload_tars(
             input_dict=input_dict,
             upload_tars=upload_tars
         )
 
     # handle other inputs defined in config to add to inputs
-    input_dict = ManageDict().add_other_inputs(
+    input_dict = manage_dict.add_other_inputs(
         input_dict=input_dict,
         args=args,
         executable_out_dirs=executable_out_dirs
@@ -276,7 +276,7 @@ def call_per_run(
     input_filter_dict = config['executables'][executable].get('inputs_filter')
 
     # check any inputs dependent on previous job outputs to add
-    input_dict = ManageDict().link_inputs_to_outputs(
+    input_dict = manage_dict.link_inputs_to_outputs(
         job_outputs_dict=job_outputs_dict,
         input_dict=input_dict,
         analysis=params["analysis"],
@@ -285,14 +285,14 @@ def call_per_run(
     )
 
     # check input types correctly set in input dict
-    input_dict = ManageDict().check_input_classes(
+    input_dict = manage_dict.check_input_classes(
         input_dict=input_dict,
         input_classes=input_classes[executable]
     )
 
     # find all jobs for previous analyses if next job depends on them
     if params.get("depends_on"):
-        dependent_jobs = ManageDict().get_dependent_jobs(
+        dependent_jobs = manage_dict.get_dependent_jobs(
             params=params,
             job_outputs_dict=job_outputs_dict
         )
@@ -300,10 +300,10 @@ def call_per_run(
         dependent_jobs = []
 
     # check that all INPUT- have been parsed in config
-    ManageDict().check_all_inputs(input_dict)
+    manage_dict.check_all_inputs(input_dict)
 
     # create output directory structure in config
-    ManageDict().populate_output_dir_config(
+    manage_dict.populate_output_dir_config(
         executable=executable,
         exe_names=exe_names,
         output_dict=output_dict,
