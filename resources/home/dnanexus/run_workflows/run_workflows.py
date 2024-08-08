@@ -26,9 +26,10 @@ from utils.dx_requests import DXBuilder, DXJobManager
 from utils.dx_utils import (
     get_json_configs,
     filter_highest_config_version,
-    get_demultiplex_job_details
+    get_demultiplex_job_details,
+    wait_on_done
 )
-from utils.manage_dict import ManageDict
+from utils import manage_dict
 from utils.request_objects import Jira, Slack
 from utils.utils import (
     prettier_print,
@@ -520,11 +521,12 @@ def main():
         url=f"http://{os.environ.get('conductor_job_url')}"
     )
 
-    fastq_details = []
-
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
-        fastq_details = get_demultiplex_job_details(args.demultiplex_job_id)
+        dx_job_manager.fastqs_details = get_demultiplex_job_details(
+            args.demultiplex_job_id
+        )
+
     elif args.fastqs:
         # fastqs specified to start analysis from, call describe on
         # files to get name and build list of tuples of (file id, name)
@@ -533,10 +535,12 @@ def main():
                 fastq_id, input_params={'fields': {'name': True}}
             )
             fastq_name = fastq_name['name']
-            fastq_details.append((fastq_id, fastq_name))
+            dx_job_manager.fastqs_details.append((fastq_id, fastq_name))
+
     elif args.test_samples:
         # test files of fastq names : file ids given
-        fastq_details = load_test_data(args.test_samples)
+        dx_job_manager.fastqs_details = load_test_data(args.test_samples)
+
     elif any([config.get('demultiplex') for config in dx_builder.configs]):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run demultiplexing app
@@ -571,10 +575,11 @@ def main():
                 per_config_info["project"]
             )
 
-        fastq_details = get_demultiplex_job_details(
+        dx_job_manager.fastqs_details = get_demultiplex_job_details(
             dx_job_manager.demultiplexing_job
         )
-    elif ManageDict().search(
+
+    elif manage_dict.search(
         identifier='INPUT-UPLOAD_TARS',
         input_dict=config,
         check_key=False,
@@ -616,13 +621,12 @@ def main():
     open('all_job_ids.log', 'w').close()
 
     for config in dx_builder.configs:
-        # dict to add all stage output names and job ids for every sample to,
-        # used to pass correct job ids to subsequent workflow / app calls
-        job_outputs_dict = {}
-
         # storing output folders used for each workflow/app, might be needed to
         # store data together / access specific dirs of data
         executable_out_dirs = {}
+
+        dx_job_manager.configs.append(config)
+        dx_job_manager.job_outputs[config] = {}
 
         for executable, params in config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
@@ -652,7 +656,10 @@ def main():
                     f"{params['analysis']} for {params['name']}"
                 )
 
-                job_outputs_dict[params["analysis"]] = previous_job
+                # dict to add all stage output names and job ids for every
+                # sample to used to pass correct job ids to subsequent
+                # workflow / app calls
+                dx_job_manager.job_outputs[params["analysis"]] = previous_job
 
                 continue
 
@@ -664,7 +671,7 @@ def main():
             open('job_id.log', 'w').close()
 
             # save name to params to access later to name job
-            params['executable_name'] = exe_names[executable]['name']
+            params['executable_name'] = dx_builder.config_to_samples[config]["execution_mapping"][executable]['name']
 
             # get instance types to use for executable from config for flowcell
             instance_types = select_instance_types(
@@ -744,13 +751,16 @@ def main():
                 ])
                 conductor_job.add_tags(hold_tag)
 
-                DXManage.wait_on_done(
+                wait_on_done(
                     analysis=params['analysis'],
                     analysis_name=params['executable_name'],
                     all_job_ids=job_outputs_dict
                 )
 
                 conductor_job.remove_tags(hold_tag)
+
+        # TODO dx run with extra args
+        extra_args = executable_param.get("extra_args", {})
 
         # TODO add comment per analysis project
         # add comment to Jira ticket for run to link to analysis project
