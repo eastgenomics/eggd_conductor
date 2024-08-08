@@ -255,7 +255,7 @@ class DXBuilder():
             )
             self.config_to_samples[config]["parent_out_dir"] = parent_out_dir.replace('//', '/')
 
-    def set_instance_type_for_demultiplexing(self):
+    def set_config_for_demultiplexing(self):
         """ Select the config parameters that will be used in the
         demultiplexing job using the biggest instance type as the tie breaker.
         This also allows selection of additional args that could be
@@ -269,7 +269,7 @@ class DXBuilder():
 
             if demultiplex_config:
                 instance_type = demultiplex_config.get("instance_type", 0)
-                demultiplex_configs.append(demultiplex_config)
+                demultiplex_configs.append(config)
                 core_nbs.append(int(instance_type.split("_")[-1]))
 
         if core_nbs:
