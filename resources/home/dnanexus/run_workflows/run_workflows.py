@@ -21,16 +21,16 @@ import dxpy as dx
 from packaging.version import parse as parseVersion
 import pandas as pd
 
+from utils.calling_jobs import call_per_sample, call_per_run
+from utils.dx_requests import DXBuilder, DXJobManager
 from utils.dx_utils import (
     get_json_configs,
     filter_highest_config_version,
     get_demultiplex_job_details
 )
-from utils.dx_requests import DXExecute, DXManage, DXBuilder
 from utils.manage_dict import ManageDict
+from utils.request_objects import Jira, Slack
 from utils.utils import (
-    Jira,
-    Slack,
     prettier_print,
     select_instance_types,
     time_stamp
@@ -344,7 +344,7 @@ def parse_args() -> argparse.Namespace:
         help='id of job from running demultiplexing (if run)'
     )
     parser.add_argument(
-        '--demultiplex_output',
+        '--demultiplex_output', default=None,
         help=(
             'dx path to store output from demultiplexing, defaults to parent '
             'of sentinel file if not specified'
@@ -432,6 +432,7 @@ def main():
     args = parse_args()
 
     dx_builder = DXBuilder(vars(args))
+    dx_job_manager = DXJobManager()
 
     if args.testing:
         # if testing, log all jobs to one file to terminate and clean up
@@ -539,10 +540,12 @@ def main():
     elif any([config.get('demultiplex') for config in dx_builder.configs]):
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run demultiplexing app
-        dx_builder.set_instance_type_for_demultiplexing()
+        dx_builder.set_config_for_demultiplexing()
 
         # config and app ID for demultiplex is optional in assay config
-        demultiplex_config = dx_builder.demultiplex_config
+        demultiplex_config = dx_builder.demultiplex_config.get(
+            "demultiplex_config"
+        )
         demultiplex_app_id = demultiplex_config.get('app_id', '')
         demultiplex_app_name = demultiplex_config.get('app_name', '')
 
@@ -551,11 +554,26 @@ def main():
             # app config
             demultiplex_app_id = os.environ.get('DEMULTIPLEX_APP_ID')
 
-        job_id = dx_builder.demultiplex(
+        dx_job_manager.demultiplex(
             app_id=demultiplex_app_id,
             app_name=demultiplex_app_name,
+            testing=args.testing,
+            demultiplex_config=demultiplex_config,
+            demultiplex_output=args.demultiplex_output,
+            sentinel_file=args.sentinel_file,
+            run_id=args.run_id,
+            dx_project_id=args.dx_project_id
         )
-        fastq_details = get_demultiplex_job_details(job_id)
+
+        for config in dx_builder.config_to_samples:
+            per_config_info = dx_builder.config_to_samples[config]
+            dx_job_manager.move_demultiplex_qc_files(
+                per_config_info["project"]
+            )
+
+        fastq_details = get_demultiplex_job_details(
+            dx_job_manager.demultiplexing_job
+        )
     elif ManageDict().search(
         identifier='INPUT-UPLOAD_TARS',
         input_dict=config,
@@ -574,23 +592,22 @@ def main():
         )
 
     # build a dict mapping executable names to human readable names
-    exe_names = dx_manage.get_executable_names(config['executables'].keys())
+    dx_builder.get_executable_names_per_config()
+
     prettier_print('\nExecutable names identified:')
-    prettier_print(exe_names)
+    prettier_print([
+        info["execution_mapping"].keys()
+        for config, info in dx_builder.config_to_samples.items()
+    ])
 
     # build mapping of executables input fields => required types (i.e.
     # file, array:file, boolean), used to correctly build input dict
-    input_classes = dx_manage.get_input_classes(config['executables'].keys())
+    dx_builder.get_input_classes_per_config()
     prettier_print('\nExecutable input classes found:')
-    prettier_print(input_classes)
-
-    # dict to add all stage output names and job ids for every sample to,
-    # used to pass correct job ids to subsequent workflow / app calls
-    job_outputs_dict = {}
-
-    # storing output folders used for each workflow/app, might be needed to
-    # store data together / access specific dirs of data
-    executable_out_dirs = {}
+    prettier_print([
+        info["input_class_mapping"].keys()
+        for config, info in dx_builder.config_to_samples.items()
+    ])
 
     total_jobs = 0  # counter to write to final Slack message
 
@@ -598,141 +615,161 @@ def main():
     # by separate monitoring script
     open('all_job_ids.log', 'w').close()
 
-    for executable, params in config['executables'].items():
-        # for each workflow/app, check if its per sample or all samples and
-        # run correspondingly
-        prettier_print(
-            f'\n\nConfiguring {params.get("name")} ({executable}) to start jobs'
-        )
+    for config in dx_builder.configs:
+        # dict to add all stage output names and job ids for every sample to,
+        # used to pass correct job ids to subsequent workflow / app calls
+        job_outputs_dict = {}
 
-        # first check if specified to reuse a previous job for this step
-        if args.job_reuse.get(params["analysis"]):
-            previous_job = args.job_reuse.get(params["analysis"])
+        # storing output folders used for each workflow/app, might be needed to
+        # store data together / access specific dirs of data
+        executable_out_dirs = {}
 
-            assert re.match(r'(job|analysis)-[\w]+', previous_job), (
-                f"Job specified to reuse does not appear valid: {previous_job}"
-            )
-
-            if params['per_sample']:
-                # ensure we're only doing this for per run jobs for now
-                raise NotImplementedError(
-                    '-iJOB_REUSE not yet implemented for per sample jobs'
-                )
-
+        for executable, params in config['executables'].items():
+            # for each workflow/app, check if its per sample or all samples and
+            # run correspondingly
             prettier_print(
-                f"Reusing provided job {previous_job} for analysis step "
-                f"{params['analysis']} for {params['name']}"
+                f'\n\nConfiguring {params.get("name")} ({executable}) to '
+                "start jobs"
             )
 
-            job_outputs_dict[params["analysis"]] = previous_job
+            # first check if specified to reuse a previous job for this step
+            if args.job_reuse.get(params["analysis"]):
+                previous_job = args.job_reuse.get(params["analysis"])
 
-            continue
-
-        prettier_print("\nParams parsed from config before modifying:")
-        prettier_print(params)
-
-        # log file of all jobs run for current executable, used in case
-        # of failing to launch all jobs to be able to terminate all analyses
-        open('job_id.log', 'w').close()
-
-        # save name to params to access later to name job
-        params['executable_name'] = exe_names[executable]['name']
-
-        # get instance types to use for executable from config for flowcell
-        instance_types = select_instance_types(
-            run_id=args.run_id,
-            instance_types=params.get('instance_types'))
-
-        if params['per_sample'] is True:
-            # run workflow / app on every sample
-            prettier_print(f'\nCalling {params["executable_name"]} per sample')
-
-            # loop over samples and call app / workflow
-            for idx, sample in enumerate(sample_list, 1):
-                prettier_print(
-                    f'\n\nStarting analysis for {sample} - '
-                    f'[{idx}/{len(sample_list)}]'
+                assert re.match(r'(job|analysis)-[\w]+', previous_job), (
+                    "Job specified to reuse does not appear valid: "
+                    f"{previous_job}"
                 )
-                job_outputs_dict = dx_execute.call_per_sample(
-                    executable,
-                    exe_names=exe_names,
-                    input_classes=input_classes,
+
+                if params['per_sample']:
+                    # ensure we're only doing this for per run jobs for now
+                    raise NotImplementedError(
+                        '-iJOB_REUSE not yet implemented for per sample jobs'
+                    )
+
+                prettier_print(
+                    f"Reusing provided job {previous_job} for analysis step "
+                    f"{params['analysis']} for {params['name']}"
+                )
+
+                job_outputs_dict[params["analysis"]] = previous_job
+
+                continue
+
+            prettier_print("\nParams parsed from config before modifying:")
+            prettier_print(params)
+
+            # log file of all jobs run for current executable, used in case of
+            # failing to launch all jobs to be able to terminate all analyses
+            open('job_id.log', 'w').close()
+
+            # save name to params to access later to name job
+            params['executable_name'] = exe_names[executable]['name']
+
+            # get instance types to use for executable from config for flowcell
+            instance_types = select_instance_types(
+                run_id=dx_builder.args.get("run_id"),
+                instance_types=params.get('instance_types'))
+
+            if params['per_sample'] is True:
+                # run workflow / app on every sample
+                prettier_print(
+                    f'\nCalling {params["executable_name"]} per sample'
+                )
+
+                # loop over samples and call app / workflow
+                for idx, sample in enumerate(
+                    dx_builder.config_to_samples[config]["samples"], 1
+                ):
+                    sample_list = dx_builder.config_to_samples[config]["samples"]
+                    prettier_print(
+                        f'\n\nStarting analysis for {sample} - '
+                        f'[{idx}/{len(sample_list)}]'
+                    )
+
+                    job_outputs_dict = call_per_sample(
+                        executable=executable,
+                        exe_names=dx_builder.config_to_samples[config]["execution_mapping"],
+                        input_classes=dx_builder.config_to_samples[config]["input_class_mapping"],
+                        params=params,
+                        sample=sample,
+                        config=config,
+                        out_folder=dx_builder.config_to_samples[config]["parent_out_dir"],
+                        job_outputs_dict=job_outputs_dict,
+                        executable_out_dirs=executable_out_dirs,
+                        fastq_details=fastq_details,
+                        instance_types=instance_types,
+                        args=dx_builder.args
+                    )
+                    total_jobs += 1
+
+            elif params['per_sample'] is False:
+                # run workflow / app on all samples at once
+                job_outputs_dict = call_per_run(
+                    executable=executable,
+                    exe_names=dx_builder.config_to_samples[config]["execution_mapping"],
+                    input_classes=dx_builder.config_to_samples[config]["input_class_mapping"],
                     params=params,
-                    sample=sample,
                     config=config,
-                    out_folder=parent_out_dir,
+                    out_folder=dx_builder.config_to_samples[config]["parent_out_dir"],
                     job_outputs_dict=job_outputs_dict,
                     executable_out_dirs=executable_out_dirs,
                     fastq_details=fastq_details,
-                    instance_types=instance_types
+                    instance_types=instance_types,
+                    args=dx_builder.args,
+                    upload_tars=dx_builder.upload_tars,
                 )
                 total_jobs += 1
 
-        elif params['per_sample'] is False:
-            # run workflow / app on all samples at once
-            job_outputs_dict = dx_execute.call_per_run(
-                executable=executable,
-                exe_names=exe_names,
-                input_classes=input_classes,
-                params=params,
-                config=config,
-                out_folder=parent_out_dir,
-                job_outputs_dict=job_outputs_dict,
-                executable_out_dirs=executable_out_dirs,
-                fastq_details=fastq_details,
-                instance_types=instance_types
-            )
-            total_jobs += 1
+            else:
+                # per_sample is not True or False, exit
+                raise ValueError(
+                    f"per_sample declaration for {executable} is not True or "
+                    f"False ({params['per_sample']}). \n\nPlease check the "
+                    "config."
+                )
 
-        else:
-            # per_sample is not True or False, exit
-            raise ValueError(
-                f"per_sample declaration for {executable} is not True or "
-                f"False ({params['per_sample']}). \n\nPlease check the config."
+            prettier_print(
+                f'\n\nAll jobs for {params.get("name")} ({executable}) '
+                f'launched successfully!\n\n'
             )
 
-        prettier_print(
-            f'\n\nAll jobs for {params.get("name")} ({executable}) '
-            f'launched successfully!\n\n'
+            if params.get('hold'):
+                # specified to hold => wait for all jobs to complete
+
+                # tag conductor whilst waiting to make it clear its being held
+                conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
+                hold_tag = ([
+                    f'Holding job until {params["executable_name"]} job(s) complete'
+                ])
+                conductor_job.add_tags(hold_tag)
+
+                DXManage.wait_on_done(
+                    analysis=params['analysis'],
+                    analysis_name=params['executable_name'],
+                    all_job_ids=job_outputs_dict
+                )
+
+                conductor_job.remove_tags(hold_tag)
+
+        # TODO add comment per analysis project
+        # add comment to Jira ticket for run to link to analysis project
+        Jira().add_comment(
+            run_id=dx_builder.args.get("run_id"),
+            comment=(
+                "All jobs successfully launched by eggd_conductor. "
+                "\nAnalysis project: "
+            ),
+            url=(
+                "http://platform.dnanexus.com/panx/projects/"
+                f"{dx_builder.config_to_samples[config]['project'].replace('project-', '')}/monitor/"
+            )
         )
-
-        if params.get('hold'):
-            # specified to hold => wait for all jobs to complete
-
-            # tag conductor whilst waiting to make it clear its being held
-            conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
-            hold_tag = ([
-                f'Holding job until {params["executable_name"]} job(s) complete'
-            ])
-            conductor_job.add_tags(hold_tag)
-
-            DXManage.wait_on_done(
-                analysis=params['analysis'],
-                analysis_name=params['executable_name'],
-                all_job_ids=job_outputs_dict
-            )
-
-            conductor_job.remove_tags(hold_tag)
-
 
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(total_jobs))
 
     prettier_print("\nCompleted calling jobs")
-
-    # TODO add comment per analysis project
-    # add comment to Jira ticket for run to link to analysis project
-    Jira().add_comment(
-        run_id=args.run_id,
-        comment=(
-            "All jobs successfully launched by eggd_conductor. "
-            "\nAnalysis project: "
-        ),
-        url=(
-            "http://platform.dnanexus.com/panx/projects/"
-            f"{args.dx_project_id.replace('project-', '')}/monitor/"
-        )
-    )
 
 
 if __name__ == "__main__":
