@@ -4,6 +4,7 @@ as running jobs.
 """
 
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime
 import os
 import random
@@ -11,8 +12,8 @@ import re
 
 import dxpy as dx
 
-from utils.dx_utils import find_dx_project
-from utils.manage_dict import ManageDict
+from utils.dx_utils import find_dx_project, get_job_output_details
+from utils import manage_dict
 from utils.utils import (
     Slack,
     prettier_print,
@@ -23,22 +24,18 @@ from utils.utils import (
 
 class DXBuilder():
     def __init__(self):
-        self.args = {}
         self.configs = []
         self.samples = []
         self.config_to_samples = None
         self.project_files = []
+        self.total_jobs = 0
+        self.fastqs_details = []
+        self.job_outputs = {}
 
     def get_assays(self):
         return sorted(
             [config.get('assay_code') for config in self.configs.values()]
         )
-
-    def add_args(self, **kwargs):
-        """ Add args in an agnostic way """
-
-        for k, v in kwargs.items():
-            self.args[k] = v
 
     def add_sample_data(self, config_to_samples):
         """ Add sample data
@@ -124,7 +121,7 @@ class DXBuilder():
             for sample in samples
         ]
 
-    def get_or_create_dx_project(self) -> str:
+    def get_or_create_dx_project(self, run_id, development, testing) -> str:
         """
         Create new project in DNAnexus if one with given name doesn't
         already exist.
@@ -134,16 +131,14 @@ class DXBuilder():
         str : ID of DNAnexus project
         """
 
-        run_id = self.args.get("run_id")
-
-        if self.args.get("development", None):
+        if development:
             prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
         else:
             prefix = '002_'
 
         suffix = ''
 
-        if self.args.get("testing", None):
+        if testing:
             suffix = '-EGGD_CONDUCTOR_TESTING'
 
         for config in self.config_to_samples:
@@ -209,7 +204,7 @@ class DXBuilder():
 
         # TODO handle the bash part to send the slack message
 
-    def get_upload_tars(self) -> list:
+    def get_upload_tars(self, sentinel_file) -> list:
         """
         Get list of upload tar file IDs from given sentinel file,
         and return formatted as a list of $dnanexus_link dicts
@@ -219,8 +214,6 @@ class DXBuilder():
         list
             list of file ids formated as {"$dnanexus_link": file-xxx}
         """
-
-        sentinel_file = self.args.get("sentinel_file", None)
 
         if not sentinel_file:
             # sentinel file not provided as input -> no tars to parse
@@ -417,11 +410,6 @@ class DXBuilder():
                     input_class_mapping[exe][input_spec['name']]['optional'] = input_spec.get('optional', False)
 
             self.config_to_samples[config]["input_class_mapping"] = input_class_mapping
-
-
-class DXJobManager():
-    def __init__(self) -> None:
-        self.total_jobs = 0
 
     def demultiplex(
         self,
@@ -655,3 +643,128 @@ class DXJobManager():
                         project=project_id,
                         folder='/demultiplex_multiqc_files'
                     )
+
+    def build_job_inputs_per_sample(
+        self, executable, config, executable_param, sample
+    ):
+        job_outputs_config = self.job_outputs[config]
+
+        # select input and output dict from config for current workflow / app
+        config_copy = deepcopy(config)
+        input_dict = config_copy['executables'][executable]['inputs']
+        output_dict = config_copy['executables'][executable]['output_dirs']
+
+        if executable_param['executable_name'].startswith('TSO500_reports_workflow'):
+            # handle specific inputs of eggd_TSO500 -> TSO500 workflow
+
+            # get the job ID for previous eggd_tso500 job, this _should_ just
+            # be analysis_1, but check anyway incase other apps added in future
+            # per sample jobs would be stored in prev_jobs dict under sample key,
+            # so we can just check for analysis_ for prior apps run once per run
+            jobs = [
+                job_outputs_config[x]
+                for x in job_outputs_config
+                if x.startswith('analysis_')
+            ]
+            jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
+            tso500_id = [
+                v for k, v in jobs.items() if k.startswith('eggd_tso500')
+            ]
+
+            assert len(tso500_id) == 1, (
+                "Could not correctly find prior eggd_tso500 "
+                f"job, jobs found: {jobs}"
+            )
+
+            tso500_id = tso500_id[0]
+
+            # get details of the job to pull files from
+            all_output_files, job_output_ids = get_job_output_details(tso500_id)
+
+            # try add all eggd_tso500 app outputs to reports workflow input
+            input_dict = manage_dict.populate_tso500_reports_workflow(
+                input_dict=input_dict,
+                sample=sample,
+                all_output_files=all_output_files,
+                job_output_ids=job_output_ids
+            )
+
+        # check if stage requires fastqs passing
+        if executable_param["process_fastqs"] is True:
+            input_dict = manage_dict.add_fastqs(
+                input_dict=input_dict,
+                fastq_details=self.fastq_details,
+                sample=sample
+            )
+
+        # find all jobs for previous analyses if next job depends on them
+        if executable_param.get("depends_on"):
+            dependent_jobs = manage_dict.get_dependent_jobs(
+                param=executable_param,
+                job_outputs_dict=job_outputs_config,
+                sample=sample
+            )
+        else:
+            dependent_jobs = []
+
+        sample_prefix = sample
+
+        if executable_param.get("sample_name_delimeter"):
+            # if delimeter specified to split sample name on, use it
+            delim = executable_param.get("sample_name_delimeter")
+
+            if delim in sample:
+                sample_prefix = sample.split(delim)[0]
+            else:
+                prettier_print((
+                    f'Specified delimeter ({delim}) is not in sample name '
+                    f'({sample}), ignoring and continuing...'
+                ))
+
+        # handle other inputs defined in config to add to inputs
+        # sample_prefix passed to pass to INPUT-SAMPLE_NAME
+        input_dict = manage_dict.add_other_inputs(
+            input_dict=input_dict,
+            args=args,
+            executable_out_dirs=executable_out_dirs,
+            sample=sample,
+            sample_prefix=sample_prefix
+        )
+
+        # check any inputs dependent on previous job outputs to add
+        input_dict = manage_dict.link_inputs_to_outputs(
+            job_outputs_dict=job_outputs_config,
+            input_dict=input_dict,
+            analysis=executable_param["analysis"],
+            per_sample=True,
+            sample=sample
+        )
+
+        # check input types correctly set in input dict
+        input_dict = manage_dict.check_input_classes(
+            input_dict=input_dict,
+            input_classes=input_classes[executable]
+        )
+
+        # check that all INPUT- have been parsed in config
+        manage_dict.check_all_inputs(input_dict)
+
+        # set job name as executable name and sample name
+        job_name = f"{executable_param['executable_name']}-{sample}"
+
+        # create output directory structure in config
+        manage_dict.populate_output_dir_config(
+            executable=executable,
+            exe_names=exe_names,
+            output_dict=output_dict,
+            out_folder=out_folder
+        )
+
+        # call dx run to start jobs
+        prettier_print(
+            f"\nCalling {executable_param['executable_name']} ({executable}) "
+            f"on sample {sample}"
+            )
+
+        if input_dict.keys:
+            prettier_print(f'\nInput dict: {input_dict}')
