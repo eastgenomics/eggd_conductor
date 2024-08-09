@@ -483,6 +483,7 @@ def link_inputs_to_outputs(
     ValueError
         No job id found for given analysis stage from `job_outputs_dict`
     """
+
     prettier_print("\nSearching input dict for inputs to link to outputs")
     prettier_print("Input dict before:")
     prettier_print(input_dict)
