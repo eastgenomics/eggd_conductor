@@ -506,7 +506,7 @@ def link_inputs_to_outputs(
         # parsed from there, these will be in the top level of the
         # job _outputs dict (i.e. {'analysis_1': "job-xxx"})
         per_run_outputs = {
-            k: v for k, v  in job_outputs_dict.items()
+            k: v for k, v in job_outputs_dict.items()
             if k.startswith('analysis_')
         }
 
