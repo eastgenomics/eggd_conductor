@@ -31,6 +31,7 @@ class DXBuilder():
         self.total_jobs = 0
         self.fastqs_details = []
         self.job_inputs_per_sample = {}
+        self.job_inputs_per_run = {}
         self.job_outputs = {}
 
     def get_assays(self):
@@ -791,3 +792,125 @@ class DXBuilder():
             prettier_print(f'\nInput dict: {input_dict}')
 
         self.job_inputs_per_sample[sample][executable]["inputs"] = input_dict
+        self.job_inputs_per_sample[sample][executable]["outputs"] = output_dict
+
+    def build_jobs_per_run(
+        self,
+        executable,
+        params,
+        config,
+        job_outputs_dict,
+        executable_out_dirs,
+        args,
+    ) -> dict:
+        """
+        Populates input and output dicts from config for given workflow,
+        returns dx job id and stores in dict to map workflow -> dx job id.
+
+        Parameters
+        ----------
+        executable : str
+            human readable name of dx executable (workflow-, app- or applet-)
+        exe_names : dict
+            mapping of executable IDs to human readable names
+        input_classes : dict
+            mapping of executable inputs -> expected types
+        params : dict
+            dictionary of parameters specified in config for running analysis
+        config : dict
+            low level assay config read from json file
+        out_folder : str
+            name of parent dir path
+        job_outputs_dict : dict
+            dictionary of previous job outputs
+        executable_out_dirs : dict
+            dict of analysis stage to its output dir path, used to pass
+            output of an analysis to input of another (i.e.
+            analysis_1 : /path/to/output)
+        fastq_details : list of tuples
+            list with tuple per fastq containing (DNAnexus file id, filename)
+        instance_types : dict
+            mapping of instances to use for apps
+
+        Returns
+        -------
+        job_outputs_dict : dict
+            dictionary of analysis stages to dx job ids created
+        """
+        # select input and output dict from config for current workflow / app
+        input_dict = config['executables'][executable]['inputs']
+        output_dict = config['executables'][executable]['output_dirs']
+
+        self.job_inputs_per_run[executable]["extra_args"] = params.get(
+            "extra_args", {}
+        )
+
+        if params["process_fastqs"] is True:
+            input_dict = manage_dict.add_fastqs(input_dict, self.fastq_details)
+
+        # add upload tars as input if INPUT-UPLOAD_TARS present
+        if self.upload_tars:
+            input_dict = manage_dict.add_upload_tars(
+                input_dict=input_dict,
+                upload_tars=self.upload_tars
+            )
+
+        project_info = self.config_to_samples[config]["project"].describe()
+        project_id = project_info.get("id")
+        project_name = project_info.get("name")
+
+        # handle other inputs defined in config to add to inputs
+        input_dict = manage_dict.add_other_inputs(
+            input_dict=input_dict,
+            parent_out_dir=self.config_to_samples[config]["parent_out_dir"],
+            project_id=project_id,
+            project_name=project_name,
+            executable_out_dirs=executable_out_dirs
+        )
+
+        # get any filters from config to apply to job inputs
+        input_filter_dict = config['executables'][executable].get('inputs_filter')
+
+        # check any inputs dependent on previous job outputs to add
+        input_dict = manage_dict.link_inputs_to_outputs(
+            job_outputs_dict=job_outputs_dict,
+            input_dict=input_dict,
+            analysis=params["analysis"],
+            input_filter_dict=input_filter_dict,
+            per_sample=False
+        )
+
+        # check input types correctly set in input dict
+        input_dict = manage_dict.check_input_classes(
+            input_dict=input_dict,
+            input_classes=self.config_to_samples[config]["input_class_mapping"][executable]
+        )
+
+        # find all jobs for previous analyses if next job depends on them
+        if params.get("depends_on"):
+            dependent_jobs = manage_dict.get_dependent_jobs(
+                params=params,
+                job_outputs_dict=job_outputs_dict
+            )
+        else:
+            dependent_jobs = []
+
+        self.job_inputs_per_run[executable]["dependent_jobs"] = dependent_jobs
+
+        # check that all INPUT- have been parsed in config
+        manage_dict.check_all_inputs(input_dict)
+
+        # create output directory structure in config
+        manage_dict.populate_output_dir_config(
+            executable=executable,
+            exe_names=self.config_to_samples[config]["execution_mapping"],
+            output_dict=output_dict,
+            out_folder=self.config_to_samples[config]["parent_out_dir"]
+        )
+
+        # TODO move in correct location
+        # map workflow id to created dx job id
+        # job_outputs_dict[params['analysis']] = job_id
+
+        self.job_inputs_per_run[executable]["inputs"] = input_dict
+        self.job_inputs_per_run[executable]["outputs"] = output_dict
