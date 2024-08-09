@@ -605,7 +605,7 @@ def link_inputs_to_outputs(
                         # input is not a previous output format
                         continue
 
-                    if not analysis_id in stage_input.values():
+                    if analysis_id not in stage_input.values():
                         # analysis id not present as any input
                         continue
 
