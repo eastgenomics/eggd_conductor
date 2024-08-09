@@ -801,7 +801,7 @@ def check_input_classes(input_dict, input_classes) -> dict:
         expected_class = input_details.get('class')
         optional = input_details.get('optional')
 
-        if not expected_class in ['file', 'array:file']:
+        if expected_class not in ['file', 'array:file']:
             # we only care about single files and arrays as they are the
             # only ones likely to be wrongly formatted
             continue
