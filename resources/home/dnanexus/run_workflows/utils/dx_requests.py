@@ -30,7 +30,7 @@ class DXBuilder():
         self.project_files = []
         self.total_jobs = 0
         self.fastqs_details = []
-        self.job_inputs = {}
+        self.job_inputs_per_sample = {}
         self.job_outputs = {}
 
     def get_assays(self):
@@ -648,8 +648,8 @@ class DXBuilder():
     def build_job_inputs_per_sample(
         self, executable, config, param, sample, executable_out_dirs
     ):
-        self.job_inputs.setdefault(sample, {})
-        self.job_inputs[sample].setdefault(executable, {})
+        self.job_inputs_per_sample.setdefault(sample, {})
+        self.job_inputs_per_sample[sample].setdefault(executable, {})
 
         job_outputs_config = self.job_outputs[config]
 
@@ -658,7 +658,7 @@ class DXBuilder():
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
 
-        self.job_inputs[sample][executable]["extra_args"] = param.get(
+        self.job_inputs_per_sample[sample][executable]["extra_args"] = param.get(
             "extra_args", {}
         )
 
@@ -718,7 +718,7 @@ class DXBuilder():
         else:
             dependent_jobs = []
 
-        self.job_inputs[sample][executable]["dependent_jobs"] = dependent_jobs
+        self.job_inputs_per_sample[sample][executable]["dependent_jobs"] = dependent_jobs
 
         sample_prefix = sample
 
@@ -771,7 +771,7 @@ class DXBuilder():
         # set job name as executable name and sample name
         job_name = f"{param['executable_name']}-{sample}"
 
-        self.job_inputs[sample][executable]["job_name"] = job_name
+        self.job_inputs_per_sample[sample][executable]["job_name"] = job_name
 
         # create output directory structure in config
         manage_dict.populate_output_dir_config(
@@ -790,4 +790,4 @@ class DXBuilder():
         if input_dict.keys:
             prettier_print(f'\nInput dict: {input_dict}')
 
-        self.job_inputs[sample][executable]["inputs"] = input_dict
+        self.job_inputs_per_sample[sample][executable]["inputs"] = input_dict
