@@ -495,6 +495,7 @@ def link_inputs_to_outputs(
     if sample:
         # ensure we only use outputs for given sample
         sample_outputs = job_outputs_dict.get(sample, {})
+
         if not sample_outputs:
             print(
                 f"Sample key {sample} not found in previous outputs, this "
