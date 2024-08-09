@@ -821,20 +821,24 @@ def check_input_classes(input_dict, input_classes) -> dict:
                 if optional:
                     input_dict_copy.pop(input_field)
                     continue
+
                 else:
                     raise RuntimeError(
                         "Non-optional input found and no input has been "
                         "provided or parsed as input.\nInput field: "
                         f"{input_field}\nInput found: {configured_input}"
                     )
+
             if len(configured_input) == 1:
                 configured_input = configured_input[0]
+
             else:
                 raise RuntimeError((
                     "Input expects to be a single file but multiple "
                     f"files were found and provided.\nInput field: "
                     f"{input_field}\nInput found: {configured_input}"
                 ))
+
         input_dict_copy[input_field] = configured_input
 
     return input_dict_copy
