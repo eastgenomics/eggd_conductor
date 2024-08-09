@@ -464,8 +464,8 @@ def link_inputs_to_outputs(
         all job IDs for the linked analysis will be gathered and used
         as input
     input_filter_dict : dict, default None
-        (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
-        filter sample IDs by
+        (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s)
+        to filter sample IDs by
     sample : str, default None
         (optional) sample name used to limit searching for previous analyses
 
