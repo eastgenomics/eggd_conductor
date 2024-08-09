@@ -646,7 +646,7 @@ class DXBuilder():
                     )
 
     def build_job_inputs_per_sample(
-        self, executable, config, executable_param, sample, executable_out_dirs
+        self, executable, config, param, sample, executable_out_dirs
     ):
         self.job_inputs.setdefault(sample, {})
         self.job_inputs[sample].setdefault(executable, {})
@@ -658,7 +658,11 @@ class DXBuilder():
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
 
-        if executable_param['executable_name'].startswith('TSO500_reports_workflow'):
+        self.job_inputs[sample][executable]["extra_args"] = param.get(
+            "extra_args", {}
+        )
+
+        if param['executable_name'].startswith('TSO500_reports_workflow'):
             # handle specific inputs of eggd_TSO500 -> TSO500 workflow
 
             # get the job ID for previous eggd_tso500 job, this _should_ just
@@ -697,7 +701,7 @@ class DXBuilder():
             )
 
         # check if stage requires fastqs passing
-        if executable_param["process_fastqs"] is True:
+        if param["process_fastqs"] is True:
             input_dict = manage_dict.add_fastqs(
                 input_dict=input_dict,
                 fastq_details=self.fastq_details,
@@ -705,9 +709,9 @@ class DXBuilder():
             )
 
         # find all jobs for previous analyses if next job depends on them
-        if executable_param.get("depends_on"):
+        if param.get("depends_on"):
             dependent_jobs = manage_dict.get_dependent_jobs(
-                param=executable_param,
+                param=param,
                 job_outputs_dict=job_outputs_config,
                 sample=sample
             )
@@ -718,9 +722,9 @@ class DXBuilder():
 
         sample_prefix = sample
 
-        if executable_param.get("sample_name_delimeter"):
+        if param.get("sample_name_delimeter"):
             # if delimeter specified to split sample name on, use it
-            delim = executable_param.get("sample_name_delimeter")
+            delim = param.get("sample_name_delimeter")
 
             if delim in sample:
                 sample_prefix = sample.split(delim)[0]
@@ -750,7 +754,7 @@ class DXBuilder():
         input_dict = manage_dict.link_inputs_to_outputs(
             job_outputs_dict=job_outputs_config,
             input_dict=input_dict,
-            analysis=executable_param["analysis"],
+            analysis=param["analysis"],
             per_sample=True,
             sample=sample
         )
@@ -765,7 +769,7 @@ class DXBuilder():
         manage_dict.check_all_inputs(input_dict)
 
         # set job name as executable name and sample name
-        job_name = f"{executable_param['executable_name']}-{sample}"
+        job_name = f"{param['executable_name']}-{sample}"
 
         self.job_inputs[sample][executable]["job_name"] = job_name
 
@@ -779,7 +783,7 @@ class DXBuilder():
 
         # call dx run to start jobs
         prettier_print(
-            f"\nCalling {executable_param['executable_name']} ({executable}) "
+            f"\nCalling {param['executable_name']} ({executable}) "
             f"on sample {sample}"
             )
 
