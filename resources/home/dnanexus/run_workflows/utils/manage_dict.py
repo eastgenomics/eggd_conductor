@@ -599,10 +599,12 @@ def link_inputs_to_outputs(
                 if not isinstance(link_dict, dict):
                     # input is not a dnanexus file or output link
                     continue
+
                 for _, stage_input in link_dict.items():
                     if not isinstance(stage_input, dict):
                         # input is not a previous output format
                         continue
+
                     if not analysis_id in stage_input.values():
                         # analysis id not present as any input
                         continue
@@ -626,6 +628,7 @@ def link_inputs_to_outputs(
                     # input and populate with a link to each job
                     stage_input_template = deepcopy(link_dict)
                     input_dict[input_field] = []
+
                     for job in job_ids:
                         stage_input_tmp = deepcopy(stage_input_template)
                         stage_input_tmp = replace(
