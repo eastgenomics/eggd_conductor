@@ -796,7 +796,6 @@ def check_input_classes(input_dict, input_classes) -> dict:
     prettier_print("\nExpected input classes:")
     prettier_print(input_classes)
 
-
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
         expected_class = input_details.get('class')
