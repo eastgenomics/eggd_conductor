@@ -30,6 +30,7 @@ class DXBuilder():
         self.project_files = []
         self.total_jobs = 0
         self.fastqs_details = []
+        self.job_inputs = {}
         self.job_outputs = {}
 
     def get_assays(self):
@@ -645,8 +646,11 @@ class DXBuilder():
                     )
 
     def build_job_inputs_per_sample(
-        self, executable, config, executable_param, sample
+        self, executable, config, executable_param, sample, executable_out_dirs
     ):
+        self.job_inputs.setdefault(sample, {})
+        self.job_inputs[sample].setdefault(executable, {})
+
         job_outputs_config = self.job_outputs[config]
 
         # select input and output dict from config for current workflow / app
@@ -659,8 +663,9 @@ class DXBuilder():
 
             # get the job ID for previous eggd_tso500 job, this _should_ just
             # be analysis_1, but check anyway incase other apps added in future
-            # per sample jobs would be stored in prev_jobs dict under sample key,
-            # so we can just check for analysis_ for prior apps run once per run
+            # per sample jobs would be stored in prev_jobs dict under sample
+            # key, so we can just check for analysis_ for prior apps run once
+            # per run
             jobs = [
                 job_outputs_config[x]
                 for x in job_outputs_config
@@ -679,7 +684,9 @@ class DXBuilder():
             tso500_id = tso500_id[0]
 
             # get details of the job to pull files from
-            all_output_files, job_output_ids = get_job_output_details(tso500_id)
+            all_output_files, job_output_ids = get_job_output_details(
+                tso500_id
+            )
 
             # try add all eggd_tso500 app outputs to reports workflow input
             input_dict = manage_dict.populate_tso500_reports_workflow(
@@ -707,6 +714,8 @@ class DXBuilder():
         else:
             dependent_jobs = []
 
+        self.job_inputs[sample][executable]["dependent_jobs"] = dependent_jobs
+
         sample_prefix = sample
 
         if executable_param.get("sample_name_delimeter"):
@@ -721,11 +730,17 @@ class DXBuilder():
                     f'({sample}), ignoring and continuing...'
                 ))
 
+        project_info = self.config_to_samples[config]["project"].describe()
+        project_id = project_info.get("id")
+        project_name = project_info.get("name")
+
         # handle other inputs defined in config to add to inputs
         # sample_prefix passed to pass to INPUT-SAMPLE_NAME
         input_dict = manage_dict.add_other_inputs(
             input_dict=input_dict,
-            args=args,
+            parent_out_dir=self.config_to_samples[config]["parent_out_dir"],
+            project_id=project_id,
+            project_name=project_name,
             executable_out_dirs=executable_out_dirs,
             sample=sample,
             sample_prefix=sample_prefix
@@ -743,7 +758,7 @@ class DXBuilder():
         # check input types correctly set in input dict
         input_dict = manage_dict.check_input_classes(
             input_dict=input_dict,
-            input_classes=input_classes[executable]
+            input_classes=self.config_to_samples[config]["input_class_mapping"][executable]
         )
 
         # check that all INPUT- have been parsed in config
@@ -752,12 +767,14 @@ class DXBuilder():
         # set job name as executable name and sample name
         job_name = f"{executable_param['executable_name']}-{sample}"
 
+        self.job_inputs[sample][executable]["job_name"] = job_name
+
         # create output directory structure in config
         manage_dict.populate_output_dir_config(
             executable=executable,
-            exe_names=exe_names,
+            exe_names=self.config_to_samples[config]["execution_mapping"],
             output_dict=output_dict,
-            out_folder=out_folder
+            out_folder=self.config_to_samples[config]["parent_out_dir"]
         )
 
         # call dx run to start jobs
@@ -768,3 +785,5 @@ class DXBuilder():
 
         if input_dict.keys:
             prettier_print(f'\nInput dict: {input_dict}')
+
+        self.job_inputs[sample][executable]["inputs"] = input_dict
