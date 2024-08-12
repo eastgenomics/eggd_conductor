@@ -656,7 +656,7 @@ def main():
                 # dict to add all stage output names and job ids for every
                 # sample to used to pass correct job ids to subsequent
                 # workflow / app calls
-                dx_builder.job_outputs[params["analysis"]] = previous_job
+                dx_builder.job_outputs[config][params["analysis"]] = previous_job
 
                 continue
 
@@ -691,39 +691,50 @@ def main():
                         f'[{idx}/{len(sample_list)}]'
                     )
 
-                    job_outputs_dict = call_per_sample(
+                    dx_builder.build_job_info_per_sample(
                         executable=executable,
-                        exe_names=dx_builder.config_to_samples[config]["execution_mapping"],
-                        input_classes=dx_builder.config_to_samples[config]["input_class_mapping"],
-                        params=params,
-                        sample=sample,
                         config=config,
-                        out_folder=dx_builder.config_to_samples[config]["parent_out_dir"],
-                        job_outputs_dict=job_outputs_dict,
-                        executable_out_dirs=executable_out_dirs,
-                        fastq_details=fastq_details,
-                        instance_types=instance_types,
-                        args=dx_builder.args
+                        param=params,
+                        sample=sample,
+                        executable_out_dirs=executable_out_dirs
                     )
-                    total_jobs += 1
+
+                    job_info = dx_builder.job_info_per_sample[sample][executable]
+
+                    dx_builder.dx_run(
+                        executable=executable,
+                        job_name=job_info["job_name"],
+                        input_dict=job_info["inputs"],
+                        output_dict=job_info["outputs"],
+                        prev_jobs=job_info["dependent_jobs"],
+                        extra_args=job_info["extra_args"],
+                        instance_types=instance_types
+                    )
+
+                    dx_builder.total_jobs += 1
 
             elif params['per_sample'] is False:
                 # run workflow / app on all samples at once
-                job_outputs_dict = call_per_run(
+                dx_builder.build_jobs_per_run(
                     executable=executable,
-                    exe_names=dx_builder.config_to_samples[config]["execution_mapping"],
-                    input_classes=dx_builder.config_to_samples[config]["input_class_mapping"],
                     params=params,
                     config=config,
-                    out_folder=dx_builder.config_to_samples[config]["parent_out_dir"],
-                    job_outputs_dict=job_outputs_dict,
-                    executable_out_dirs=executable_out_dirs,
-                    fastq_details=fastq_details,
-                    instance_types=instance_types,
-                    args=dx_builder.args,
-                    upload_tars=dx_builder.upload_tars,
+                    executable_out_dirs=executable_out_dirs
                 )
-                total_jobs += 1
+
+                run_job_info = dx_builder.build_jobs_info_per_run[executable]
+
+                dx_builder.dx_run(
+                    executable=executable,
+                    job_name=run_job_info["job_name"],
+                    input_dict=run_job_info["inputs"],
+                    output_dict=run_job_info["outputs"],
+                    prev_jobs=run_job_info["dependent_jobs"],
+                    extra_args=run_job_info["extra_args"],
+                    instance_types=instance_types
+                )
+
+                dx_builder.total_jobs += 1
 
             else:
                 # per_sample is not True or False, exit
@@ -755,9 +766,6 @@ def main():
                 )
 
                 conductor_job.remove_tags(hold_tag)
-
-        # TODO dx run with extra args
-        extra_args = executable_param.get("extra_args", {})
 
         # TODO add comment per analysis project
         # add comment to Jira ticket for run to link to analysis project
