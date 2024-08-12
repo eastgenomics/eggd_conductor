@@ -2,7 +2,8 @@
 Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
-from copy import deepcopy
+
+from collections import defaultdict
 from datetime import datetime
 import os
 import random
@@ -18,525 +19,6 @@ from utils.utils import (
     select_instance_types,
     time_stamp
 )
-
-
-class DXExecute():
-    """
-    Methods for handling execution of apps / workflows
-    """
-    def __init__(self, args) -> None:
-        self.args = args
-
-    def call_dx_run(
-        self, executable, job_name, input_dict,
-        output_dict, prev_jobs, extra_args, instance_types) -> str:
-        """
-        Call workflow / app with populated input and output dicts
-
-        Returns id of submitted job
-
-        Parameters
-        ----------
-        executable : str
-            human readable name of executable (i.e. workflow / app / applet)
-        job_name : str
-            name to assign to job, will be combination of human readable name of
-            exectuable and sample ID
-        input_dict : dict
-            dict of input parameters for calling workflow / app
-        output_dict : dict
-            dict of output directory paths for each app
-        prev_jobs : list
-            list of job ids to wait for completion before starting
-        extra_args : dict
-            mapping of any additional arguments to pass to underlying dx
-            API call, parsed from extra_args field in config file
-        instance_types : dict
-            mapping of instances to use for apps
-
-        Returns
-        -------
-        job_id : str
-            DNAnexus job id of newly started analysis
-
-        Raises
-        ------
-        RuntimeError
-            Raised when workflow-, app- or applet- not present in exe name
-        """
-        prettier_print(f"\nPopulated input dict for: {executable}")
-        prettier_print(input_dict)
-
-        if os.environ.get('TESTING') == 'true':
-            # running in test mode => don't actually want to run jobs =>
-            # make jobs dependent on conductor job finishing so no launched
-            # jobs actually start running
-            prev_jobs.append(os.environ.get('PARENT_JOB_ID'))
-
-        if 'workflow-' in executable:
-            # get common top level of each apps output destination
-            # to set as output of workflow for consitency of viewing
-            # in the browser
-            parent_path = os.path.commonprefix(list(output_dict.values()))
-
-            job_handle = dx.bindings.dxworkflow.DXWorkflow(
-                dxid=executable,
-                project=self.args.dx_project_id
-            ).run(
-                workflow_input=input_dict,
-                folder=parent_path,
-                stage_folders=output_dict,
-                rerun_stages=['*'],
-                depends_on=prev_jobs,
-                name=job_name,
-                extra_args=extra_args,
-                stage_instance_types=instance_types
-            )
-        elif 'app-' in executable:
-            job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
-                app_input=input_dict,
-                project=self.args.dx_project_id,
-                folder=output_dict.get(executable),
-                ignore_reuse=True,
-                depends_on=prev_jobs,
-                name=job_name,
-                extra_args=extra_args,
-                instance_type=instance_types
-            )
-        elif 'applet-' in executable:
-            job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
-                applet_input=input_dict,
-                project=self.args.dx_project_id,
-                folder=output_dict.get(executable),
-                ignore_reuse=True,
-                depends_on=prev_jobs,
-                name=job_name,
-                extra_args=extra_args,
-                instance_type=instance_types
-            )
-        else:
-            # doesn't appear to be valid workflow or app
-            raise RuntimeError(
-                f'Given executable id is not valid: {executable}'
-            )
-
-        job_details = job_handle.describe()
-        job_id = job_details.get('id')
-
-        prettier_print(
-            f'Started analysis in project {self.args.dx_project_id}, '
-            f'job: {job_id}'
-        )
-
-        with open('job_id.log', 'a') as fh:
-            # log of current executable jobs
-            fh.write(f'{job_id} ')
-
-        with open('all_job_ids.log', 'a') as fh:
-            # log of all launched job IDs
-            fh.write(f'{job_id},')
-
-        if self.args.testing:
-            with open('testing_job_id.log', 'a') as fh:
-                fh.write(f'{job_id} ')
-
-        return job_id
-
-    def call_per_sample(
-            self,
-            executable,
-            exe_names,
-            input_classes,
-            params,
-            sample,
-            config,
-            out_folder,
-            job_outputs_dict,
-            executable_out_dirs,
-            fastq_details,
-            instance_types
-        ) -> dict:
-        """
-        Populate input and output dicts for given workflow and sample, then
-        call to dx to start job. Job id is returned and stored in output dict
-        that maps the workflow to dx job id for given sample.
-
-        Parameters
-        ----------
-        executable : str
-            human readable name of dx executable (workflow-, app- or applet-)
-        exe_names : dict
-            mapping of executable IDs to human readable names
-        input_classes : dict
-            mapping of executable inputs -> expected types
-        params : dict
-            dictionary of parameters specified in config for running analysis
-        sample : str, default None
-            optional, sample name used to limit searching for previous analyes
-        config : dict
-            low level assay config read from json file
-        out_folder : str
-            name of parent dir path
-        job_outputs_dict : dict
-            dictionary of previous job outputs
-        executable_out_dirs : dict
-            dict of analysis stage to its output dir path, used to pass output
-            of an analysis to input of another (i.e.
-            analysis_1 : /path/to/output)
-        fastq_details : list of tuples
-            list with tuple per fastq containing (DNAnexus file id, filename)
-        instance_types : dict
-            mapping of instances to use for apps
-
-        Returns
-        -------
-        job_outputs_dict : dict
-            dictionary of analysis stages to dx job ids created
-        """
-        # select input and output dict from config for current workflow / app
-        config_copy = deepcopy(config)
-        input_dict = config_copy['executables'][executable]['inputs']
-        output_dict = config_copy['executables'][executable]['output_dirs']
-
-        extra_args = params.get("extra_args", {})
-
-        if params['executable_name'].startswith('TSO500_reports_workflow'):
-            # handle specific inputs of eggd_TSO500 -> TSO500 workflow
-
-            # get the job ID for previous eggd_tso500 job, this _should_ just
-            # be analysis_1, but check anyway incase other apps added in future
-            # per sample jobs would be stored in prev_jobs dict under sample key,
-            # so we can just check for analysis_ for prior apps run once per run
-            jobs = [
-                job_outputs_dict[x] for x in job_outputs_dict if x.startswith('analysis_')
-            ]
-            jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
-            tso500_id = [
-                v for k, v in jobs.items() if k.startswith('eggd_tso500')
-            ]
-
-            assert len(tso500_id) == 1, (
-                "Could not correctly find prior eggd_tso500 "
-                f"job, jobs found: {jobs}"
-            )
-
-            tso500_id = tso500_id[0]
-
-            # get details of the job to pull files from
-            all_output_files, job_output_ids = DXManage(
-                args=None).get_job_output_details(tso500_id)
-
-            # try add all eggd_tso500 app outputs to reports workflow input
-            input_dict = ManageDict().populate_tso500_reports_workflow(
-                input_dict=input_dict,
-                sample=sample,
-                all_output_files=all_output_files,
-                job_output_ids=job_output_ids
-            )
-
-        # check if stage requires fastqs passing
-        if params["process_fastqs"] is True:
-            input_dict = ManageDict().add_fastqs(
-                input_dict=input_dict,
-                fastq_details=fastq_details,
-                sample=sample
-            )
-
-        # find all jobs for previous analyses if next job depends on them
-        if params.get("depends_on"):
-            dependent_jobs = ManageDict().get_dependent_jobs(
-                params=params,
-                job_outputs_dict=job_outputs_dict,
-                sample=sample
-            )
-        else:
-            dependent_jobs = []
-
-        sample_prefix = sample
-
-        if params.get("sample_name_delimeter"):
-            # if delimeter specified to split sample name on, use it
-            delim = params.get("sample_name_delimeter")
-
-            if delim in sample:
-                sample_prefix = sample.split(delim)[0]
-            else:
-                prettier_print((
-                    f'Specified delimeter ({delim}) is not in sample name '
-                    f'({sample}), ignoring and continuing...'
-                ))
-
-        # handle other inputs defined in config to add to inputs
-        # sample_prefix passed to pass to INPUT-SAMPLE_NAME
-        input_dict = ManageDict().add_other_inputs(
-            input_dict=input_dict,
-            args=self.args,
-            executable_out_dirs=executable_out_dirs,
-            sample=sample,
-            sample_prefix=sample_prefix
-        )
-
-        # check any inputs dependent on previous job outputs to add
-        input_dict = ManageDict().link_inputs_to_outputs(
-            job_outputs_dict=job_outputs_dict,
-            input_dict=input_dict,
-            analysis=params["analysis"],
-            per_sample=True,
-            sample=sample
-        )
-
-        # check input types correctly set in input dict
-        input_dict = ManageDict().check_input_classes(
-            input_dict=input_dict,
-            input_classes=input_classes[executable]
-        )
-
-        # check that all INPUT- have been parsed in config
-        ManageDict().check_all_inputs(input_dict)
-
-        # set job name as executable name and sample name
-        job_name = f"{params['executable_name']}-{sample}"
-
-        # create output directory structure in config
-        ManageDict().populate_output_dir_config(
-            executable=executable,
-            exe_names=exe_names,
-            output_dict=output_dict,
-            out_folder=out_folder
-        )
-
-        # call dx run to start jobs
-        prettier_print(
-            f"\nCalling {params['executable_name']} ({executable}) "
-            f"on sample {sample}"
-            )
-
-        if input_dict.keys:
-            prettier_print(f'\nInput dict: {input_dict}')
-
-        job_id = self.call_dx_run(
-            executable=executable,
-            job_name=job_name,
-            input_dict=input_dict,
-            output_dict=output_dict,
-            prev_jobs=dependent_jobs,
-            extra_args=extra_args,
-            instance_types=instance_types
-        )
-
-        if sample not in job_outputs_dict.keys():
-            # create new dict to store sample outputs
-            job_outputs_dict[sample] = {}
-
-        # map analysis id to dx job id for sample
-        job_outputs_dict[sample].update({params['analysis']: job_id})
-
-        return job_outputs_dict
-
-    def call_per_run(
-        self, executable, exe_names, input_classes, params, config,
-        out_folder, job_outputs_dict, executable_out_dirs, fastq_details,
-        instance_types) -> dict:
-        """
-        Populates input and output dicts from config for given workflow,
-        returns dx job id and stores in dict to map workflow -> dx job id.
-
-        Parameters
-        ----------
-        executable : str
-            human readable name of dx executable (workflow-, app- or applet-)
-        exe_names : dict
-            mapping of executable IDs to human readable names
-        input_classes : dict
-            mapping of executable inputs -> expected types
-        params : dict
-            dictionary of parameters specified in config for running analysis
-        config : dict
-            low level assay config read from json file
-        out_folder : str
-            name of parent dir path
-        job_outputs_dict : dict
-            dictionary of previous job outputs
-        executable_out_dirs : dict
-            dict of analysis stage to its output dir path, used to pass
-            output of an analysis to input of another (i.e.
-            analysis_1 : /path/to/output)
-        fastq_details : list of tuples
-            list with tuple per fastq containing (DNAnexus file id, filename)
-        instance_types : dict
-            mapping of instances to use for apps
-
-        Returns
-        -------
-        job_outputs_dict : dict
-            dictionary of analysis stages to dx job ids created
-        """
-        # select input and output dict from config for current workflow / app
-        input_dict = config['executables'][executable]['inputs']
-        output_dict = config['executables'][executable]['output_dirs']
-
-        extra_args = params.get("extra_args", {})
-
-        if params["process_fastqs"] is True:
-            input_dict = ManageDict().add_fastqs(input_dict, fastq_details)
-
-        # add upload tars as input if INPUT-UPLOAD_TARS present
-        if self.args.upload_tars:
-            input_dict = ManageDict().add_upload_tars(
-                input_dict=input_dict,
-                upload_tars=self.args.upload_tars
-            )
-
-        # handle other inputs defined in config to add to inputs
-        input_dict = ManageDict().add_other_inputs(
-            input_dict=input_dict,
-            args=self.args,
-            executable_out_dirs=executable_out_dirs
-        )
-
-        # get any filters from config to apply to job inputs
-        input_filter_dict = config['executables'][executable].get('inputs_filter')
-
-        # check any inputs dependent on previous job outputs to add
-        input_dict = ManageDict().link_inputs_to_outputs(
-            job_outputs_dict=job_outputs_dict,
-            input_dict=input_dict,
-            analysis=params["analysis"],
-            input_filter_dict=input_filter_dict,
-            per_sample=False
-        )
-
-        # check input types correctly set in input dict
-        input_dict = ManageDict().check_input_classes(
-            input_dict=input_dict,
-            input_classes=input_classes[executable]
-        )
-
-        # find all jobs for previous analyses if next job depends on them
-        if params.get("depends_on"):
-            dependent_jobs = ManageDict().get_dependent_jobs(
-                params=params,
-                job_outputs_dict=job_outputs_dict
-            )
-        else:
-            dependent_jobs = []
-
-        # check that all INPUT- have been parsed in config
-        ManageDict().check_all_inputs(input_dict)
-
-        # create output directory structure in config
-        ManageDict().populate_output_dir_config(
-            executable=executable,
-            exe_names=exe_names,
-            output_dict=output_dict,
-            out_folder=out_folder
-        )
-
-        # passing all samples to workflow
-        prettier_print(f'\nCalling {params["name"]} for all samples')
-        job_id = self.call_dx_run(
-            executable=executable,
-            job_name=params['executable_name'],
-            input_dict=input_dict,
-            output_dict=output_dict,
-            prev_jobs=dependent_jobs,
-            extra_args=extra_args,
-            instance_types=instance_types
-        )
-
-        # map workflow id to created dx job id
-        job_outputs_dict[params['analysis']] = job_id
-
-        return job_outputs_dict
-
-
-class DXManage():
-    """
-    Methods for generic handling of dx related things
-    """
-    def __init__(self, args) -> None:
-        self.args = args
-
-    def create_dx_folder(self, out_folder) -> str:
-        """
-        Create output folder in DNAnexus project for storing analysis output
-
-        Parameters
-        ----------
-        out_folder : str
-            name for analysis output folder
-
-        Returns
-        -------
-        dx_folder : str
-            name of created output directory in given project
-
-        Raises
-        ------
-        RuntimeError
-            If >100 output directories found with given name, very unlikely
-            for this to happen and is used as a sanity check to stop any
-            ambiguous downstream errors
-        """
-        for i in range(1, 100):
-            # sanity check, should only be 1 or 2 already existing at most
-            dx_folder = f'{out_folder}-{i}'
-
-            try:
-                dx.api.project_list_folder(
-                    self.args.dx_project_id,
-                    input_params={"folder": dx_folder, "only": "folders"},
-                    always_retry=True
-                )
-            except dx.exceptions.ResourceNotFound:
-                # can't find folder => create one
-                dx.api.project_new_folder(
-                    self.args.dx_project_id, input_params={
-                        'folder': dx_folder, "parents": True
-                    }
-                )
-                prettier_print(f'Created output folder: {dx_folder}')
-                return dx_folder
-            else:
-                # folder already exists, increase _i suffix on folder name
-                # and check again
-                prettier_print(f'{dx_folder} already exists, incrementing suffix integer')
-                continue
-
-        # got to end of loop, highly unlikely we would ever run this many in a
-        # project but catch it here to stop some ambiguous downstream error
-        raise RuntimeError(
-            "Found 100 output directories in project, exiting now as "
-            "there is likely an issue in the project."
-        )
-
-    def get_upload_tars(self) -> list:
-        """
-        Get list of upload tar file IDs from given sentinel file,
-        and return formatted as a list of $dnanexus_link dicts
-
-        Returns
-        -------
-        list
-            list of file ids formated as {"$dnanexus_link": file-xxx}
-        """
-        if not self.args.sentinel_file:
-            # sentinel file not provided as input -> no tars to parse
-            return None
-
-        details = dx.bindings.dxrecord.DXRecord(
-            dxid=self.args.sentinel_file).describe(incl_details=True)
-
-        upload_tars = details['details']['tar_file_ids']
-
-        prettier_print(f"\nFollowing upload tars found to add as input: {upload_tars}")
-
-        # format in required format for a dx input
-        upload_tars = [
-            {"$dnanexus_link": x} for x in upload_tars
-        ]
-
-        return upload_tars
 
 
 class DXBuilder():
@@ -773,7 +255,7 @@ class DXBuilder():
             )
             self.config_to_samples[config]["parent_out_dir"] = parent_out_dir.replace('//', '/')
 
-    def set_instance_type_for_demultiplexing(self):
+    def set_config_for_demultiplexing(self):
         """ Select the config parameters that will be used in the
         demultiplexing job using the biggest instance type as the tie breaker.
         This also allows selection of additional args that could be
@@ -787,7 +269,7 @@ class DXBuilder():
 
             if demultiplex_config:
                 instance_type = demultiplex_config.get("instance_type", 0)
-                demultiplex_configs.append(demultiplex_config)
+                demultiplex_configs.append(config)
                 core_nbs.append(int(instance_type.split("_")[-1]))
 
         if core_nbs:
@@ -798,7 +280,160 @@ class DXBuilder():
         else:
             self.demultiplex_config = {}
 
-    def demultiplex(self, app_id, app_name) -> str:
+    def get_executable_names_per_config(self) -> dict:
+        """
+        Build a dict of all executable IDs parsed from config to human
+        readable names, used for naming outputs needing workflow/app names
+
+        Sets
+        -------
+        dict
+            mapping of executable -> human readable name, for workflows this
+            will be workflow_id -> workflow_name + each stage_id -> stage_name
+
+            {
+                'workflow-1' : {
+                    'name' : 'my_workflow_v1.0.0',
+                    'stages' : {
+                        'stage1' : 'first_app-v1.0.0'
+                        'stage2' : 'second_app-v1.0.0'
+                    }
+                },
+                'app-1' : {
+                    'name': 'myapp-v1.0.0'
+                }
+            }
+        """
+
+        for config in self.configs:
+            executables = config.get("executables").keys()
+            prettier_print(
+                f'\nGetting names for all executables: {executables}'
+            )
+            execution_mapping = defaultdict(dict)
+
+            # sense check everything is a valid dx executable
+            assert all([
+                x.startswith('workflow-')
+                or x.startswith('app')
+                or x.startswith('applet-')
+                for x in executables
+            ]), Slack().send(
+                f'Executable(s) from the config not valid: {executables}'
+            )
+
+            for exe in executables:
+                if exe.startswith('workflow-'):
+                    workflow_details = dx.api.workflow_describe(exe)
+                    workflow_name = workflow_details.get('name')
+                    workflow_name.replace('/', '-')
+                    execution_mapping[exe]['name'] = workflow_name
+                    execution_mapping[exe]['stages'] = defaultdict(dict)
+
+                    for stage in workflow_details.get('stages'):
+                        stage_id = stage.get('id')
+                        stage_name = stage.get('executable')
+
+                        if stage_name.startswith('applet-'):
+                            # need an extra describe for applets
+                            stage_name = dx.api.workflow_describe(
+                                stage_name).get('name')
+
+                        if stage_name.startswith('app-'):
+                            # apps are prefixed with app- which is ugly
+                            stage_name = stage_name.replace('app-', '')
+
+                        # app names will be in format app-id/version
+                        stage_name = stage_name.replace('/', '-')
+                        execution_mapping[exe]['stages'][stage_id] = stage_name
+
+                elif exe.startswith('app-') or exe.startswith('applet-'):
+                    app_details = dx.api.workflow_describe(exe)
+                    app_name = app_details['name'].replace('/', '-')
+
+                    if app_name.startswith('app-'):
+                        app_name = app_name.replace('app-', '')
+                    execution_mapping[exe] = {'name': app_name}
+
+            self.config_to_samples[config]["execution_mapping"] = execution_mapping
+
+    def get_input_classes_per_config(self) -> dict:
+        """
+        Get classes of all inputs for each app / workflow stage, used
+        when building out input dict to ensure correct type set
+
+        Sets
+        -------
+        dict
+            mapping of exectuable / stage to outputs with types
+            {
+                'applet-FvyXygj433GbKPPY0QY8ZKQG': {
+                    'adapters_txt': {
+                        'class': 'file',
+                        'optional': False
+                    },
+                    'contaminants_txt': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'nogroup': {
+                        'class': 'boolean',
+                        'optional': False
+                    }
+            },
+                'workflow-GB12vxQ433GygFZK6pPF75q8': {
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.female_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.male_threshold': {
+                        'class': 'int',
+                        'optional': True
+                    }
+                    'stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input': {
+                        'class': 'file',
+                        'optional': False
+                    }
+                    'stage-G9Z2B8841bQY907z1ygq7K9x.file_prefix': {
+                        'class': 'string',
+                        'optional': True
+                    }
+            },
+            ......
+        """
+
+        for config in self.configs:
+            executables = config.get("executables").keys()
+            input_class_mapping = defaultdict(dict)
+
+            for exe in executables:
+                describe = dx.describe(exe)
+
+                for input_spec in describe['inputSpec']:
+                    input_class_mapping[exe][input_spec['name']] = defaultdict(
+                        dict
+                    )
+                    input_class_mapping[exe][input_spec['name']]['class'] = input_spec['class']
+                    input_class_mapping[exe][input_spec['name']]['optional'] = input_spec.get('optional', False)
+
+            self.config_to_samples[config]["input_class_mapping"] = input_class_mapping
+
+
+class DXJobManager():
+    def __init__(self) -> None:
+        self.total_jobs = 0
+
+    def demultiplex(
+        self,
+        app_id,
+        app_name,
+        testing,
+        demultiplex_config,
+        demultiplex_output,
+        sentinel_file,
+        run_id,
+        dx_project_id
+    ) -> str:
         """
         Run demultiplexing app, holds until app completes.
 
@@ -810,8 +445,6 @@ class DXBuilder():
             ID of demultiplexing app / applet to run
         app_name : str
             app- name of demultiplex app to run
-        config : dict
-            optional config values for demultiplex app
 
         Returns
         -------
@@ -826,51 +459,51 @@ class DXBuilder():
         RuntimeError
             Raised when app ID / name for demultiplex name are invalid
         """
-        if not self.args.get("testing", None):
-            if not self.args.get("demultiplex_output", None):
+
+        if not testing:
+            if not demultiplex_output:
                 # set output path to parent of sentinel file
-                out = dx.describe(self.args.get("sentinel_file"))
+                out = dx.describe(sentinel_file)
                 sentinel_path = f"{out.get('project')}:{out.get('folder')}"
-                self.args["demultiplex_output"] = sentinel_path.replace(
-                    '/runs', ''
-                )
+                demultiplex_output = sentinel_path.replace('/runs', '')
         else:
-            if not self.args.get("demultiplex_output", None):
+            if not demultiplex_output:
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to sentinel file dir
-                self.args["demultiplex_output"] = (
-                    f'{self.args.dx_project_id}:/demultiplex_{time_stamp()}'
+                demultiplex_output = (
+                    f'{dx_project_id}:/demultiplex_{time_stamp()}'
                 )
 
-        demultiplex_project, demultiplex_folder = self.args[
-            "demultiplex_output"
-        ].split(':')
+        (
+            self.demultiplex_project, self.demultiplex_folder
+        ) = demultiplex_output.split(':')
 
         prettier_print(f'demultiplex app ID set: {app_id}')
         prettier_print(f'demultiplex app name set: {app_name}')
-        prettier_print(f'optional config specified for demultiplexing: {self.demultiplex_config}')
-        prettier_print(f'demultiplex out: {self.args["demultiplex_output"]}')
-        prettier_print(f'demultiplex project: {demultiplex_project}')
-        prettier_print(f'demultiplex folder: {demultiplex_folder}')
+        prettier_print(f'optional config specified for demultiplexing: {demultiplex_config}')
+        prettier_print(f'demultiplex out: {demultiplex_output}')
+        prettier_print(f'demultiplex project: {self.demultiplex_project}')
+        prettier_print(f'demultiplex folder: {self.demultiplex_folder}')
 
-        instance_type = self.demultiplex_config.get("instance_type", None)
+        instance_type = demultiplex_config.get("instance_type", None)
 
         if isinstance(instance_type, dict):
             # instance type defined in config is a mapping for multiple
             # flowcells, select appropriate one for current flowcell
             instance_type = select_instance_types(
-                run_id=self.args["run_id"],
-                instance_types=instance_type)
+                run_id=run_id,
+                instance_types=instance_type
+            )
 
         prettier_print(
             f"Instance type selected for demultiplexing: {instance_type}"
         )
 
-        additional_args = self.demultiplex_config.get("additional_args", "")
+        additional_args = demultiplex_config.get("additional_args", "")
 
         inputs = {
             'upload_sentinel_record': {
-                "$dnanexus_link": self.args["sentinel_file"]
+                "$dnanexus_link": sentinel_file
             }
         }
 
@@ -880,7 +513,10 @@ class DXBuilder():
         if os.environ.get("SAMPLESHEET_ID"):
             #  get just the ID of samplesheet in case of being formatted as
             # {'$dnanexus_link': 'file_id'} and add to inputs as this
-            match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID'))
+            match = re.search(
+                r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID')
+            )
+
             if match:
                 inputs['sample_sheet'] = {'$dnanexus_link': match.group()}
 
@@ -892,14 +528,15 @@ class DXBuilder():
         fastqs = list(dx.find_data_objects(
             name="*.fastq*",
             name_mode='glob',
-            project=demultiplex_project,
-            folder=demultiplex_folder
+            project=self.demultiplex_project,
+            folder=self.demultiplex_folder
         ))
 
         assert not fastqs, Slack().send(
             "FastQs already present in output directory for demultiplexing: "
-            f"`{self.args.get('demultiplex_output')}`.\n\nExiting now to not "
-            f"potentially pollute a previous demultiplex job output. \n\n"
+            f"`{demultiplex_output}`.\n\n"
+            "Exiting now to not potentially pollute a previous demultiplex "
+            "job output. \n\n"
             "Please either move the sentinel file or set the demultiplex "
             "output directory with `-iDEMULTIPLEX_OUT`"
         )
@@ -907,8 +544,8 @@ class DXBuilder():
         if app_id.startswith('applet-'):
             job = dx.bindings.dxapplet.DXApplet(dxid=app_id).run(
                 applet_input=inputs,
-                project=demultiplex_project,
-                folder=demultiplex_folder,
+                project=self.demultiplex_project,
+                folder=self.demultiplex_folder,
                 priority='high',
                 instance_type=instance_type
             )
@@ -922,8 +559,8 @@ class DXBuilder():
 
             job = dx.bindings.dxapp.DXApp(dxid=app_id, name=app_name).run(
                 app_input=inputs,
-                project=demultiplex_project,
-                folder=demultiplex_folder,
+                project=self.demultiplex_project,
+                folder=self.demultiplex_folder,
                 priority='high',
                 instance_type=instance_type
             )
@@ -931,11 +568,11 @@ class DXBuilder():
             raise RuntimeError(
                 f'Provided demultiplex app ID does not appear valid: {app_id}')
 
+        self.demultiplexing_job = job
         job_id = job.describe().get('id')
-        job_handle = dx.bindings.dxjob.DXJob(dxid=job_id)
 
         # tag demultiplexing job so we easily know it was launched by conductor
-        job_handle.add_tags(tags=[
+        job.add_tags(tags=[
             f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
         ])
 
@@ -946,12 +583,13 @@ class DXBuilder():
 
         try:
             # holds app until demultiplexing job returns success
-            job_handle.wait_on_done()
+            job.wait_on_done()
         except dx.exceptions.DXJobFailureError as err:
             # dx job error raised (i.e. failed, timed out, terminated)
             job_url = (
                 f"platform.dnanexus.com/projects/"
-                f"{demultiplex_project.replace('project-', '')}/monitor/job/"
+                f"{self.demultiplex_project.replace('project-', '')}"
+                "/monitor/job/"
                 f"{job_id}"
             )
 
@@ -962,6 +600,17 @@ class DXBuilder():
             raise dx.exceptions.DXJobFailureError()
 
         prettier_print("Demuliplexing completed!")
+
+        if testing:
+            with open('testing_job_id.log', 'a') as fh:
+                fh.write(f'{job_id} ')
+
+    def move_demultiplex_qc_files(self, project_id):
+        """ Move demultiplexing QC files to the given project
+
+        Args:
+            project_id (str): DNAnexus project id to move the QC files to
+        """
 
         # check for and copy / move the required files for multiQC from
         # bclfastq or bclconvert into a folder in root of the analysis project
@@ -976,7 +625,7 @@ class DXBuilder():
 
         # need to first create destination folder
         dx.api.project_new_folder(
-            object_id=self.args.dx_project_id,
+            object_id=project_id,
             input_params={
                 'folder': '/demultiplex_multiqc_files',
                 'parents': True
@@ -986,8 +635,8 @@ class DXBuilder():
         for file in qc_files:
             dx_object = list(dx.bindings.search.find_data_objects(
                 name=file,
-                project=demultiplex_project,
-                folder=demultiplex_folder
+                project=self.demultiplex_project,
+                folder=self.demultiplex_folder
             ))
 
             if dx_object:
@@ -996,19 +645,13 @@ class DXBuilder():
                     project=dx_object[0]['project']
                 )
 
-                if self.args.dx_project_id == demultiplex_project:
+                if project_id == self.demultiplex_project:
                     # demultiplex output in the analysis project => need to move
                     # instead of cloning (this is most likely just for testing)
                     dx_file.move(folder='/demultiplex_multiqc_files')
                 else:
                     # copying to separate analysis project
                     dx_file.clone(
-                        project=self.args.dx_project_id,
+                        project=project_id,
                         folder='/demultiplex_multiqc_files'
                     )
-
-        if self.args.testing:
-            with open('testing_job_id.log', 'a') as fh:
-                fh.write(f'{job_id} ')
-
-        return job_id
