@@ -30,8 +30,8 @@ class DXBuilder():
         self.project_files = []
         self.total_jobs = 0
         self.fastqs_details = []
-        self.job_inputs_per_sample = {}
-        self.job_inputs_per_run = {}
+        self.job_info_per_sample = {}
+        self.job_info_per_run = {}
         self.job_outputs = {}
 
     def get_assays(self):
@@ -646,11 +646,11 @@ class DXBuilder():
                         folder='/demultiplex_multiqc_files'
                     )
 
-    def build_job_inputs_per_sample(
+    def build_job_info_per_sample(
         self, executable, config, param, sample, executable_out_dirs
     ):
-        self.job_inputs_per_sample.setdefault(sample, {})
-        self.job_inputs_per_sample[sample].setdefault(executable, {})
+        self.job_info_per_sample.setdefault(sample, {})
+        self.job_info_per_sample[sample].setdefault(executable, {})
 
         job_outputs_config = self.job_outputs[config]
 
@@ -659,7 +659,7 @@ class DXBuilder():
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
 
-        self.job_inputs_per_sample[sample][executable]["extra_args"] = param.get(
+        self.job_info_per_sample[sample][executable]["extra_args"] = param.get(
             "extra_args", {}
         )
 
@@ -719,7 +719,7 @@ class DXBuilder():
         else:
             dependent_jobs = []
 
-        self.job_inputs_per_sample[sample][executable]["dependent_jobs"] = dependent_jobs
+        self.job_info_per_sample[sample][executable]["dependent_jobs"] = dependent_jobs
 
         sample_prefix = sample
 
@@ -772,7 +772,7 @@ class DXBuilder():
         # set job name as executable name and sample name
         job_name = f"{param['executable_name']}-{sample}"
 
-        self.job_inputs_per_sample[sample][executable]["job_name"] = job_name
+        self.job_info_per_sample[sample][executable]["job_name"] = job_name
 
         # create output directory structure in config
         manage_dict.populate_output_dir_config(
@@ -791,17 +791,15 @@ class DXBuilder():
         if input_dict.keys:
             prettier_print(f'\nInput dict: {input_dict}')
 
-        self.job_inputs_per_sample[sample][executable]["inputs"] = input_dict
-        self.job_inputs_per_sample[sample][executable]["outputs"] = output_dict
+        self.job_info_per_sample[sample][executable]["inputs"] = input_dict
+        self.job_info_per_sample[sample][executable]["outputs"] = output_dict
 
-    def build_jobs_per_run(
+    def build_jobs_info_per_run(
         self,
         executable,
         params,
         config,
-        job_outputs_dict,
-        executable_out_dirs,
-        args,
+        executable_out_dirs
     ) -> dict:
         """
         Populates input and output dicts from config for given workflow,
@@ -841,9 +839,11 @@ class DXBuilder():
         input_dict = config['executables'][executable]['inputs']
         output_dict = config['executables'][executable]['output_dirs']
 
-        self.job_inputs_per_run[executable]["extra_args"] = params.get(
+        self.job_info_per_run[executable]["extra_args"] = params.get(
             "extra_args", {}
         )
+
+        job_outputs_config = self.job_outputs[config]
 
         if params["process_fastqs"] is True:
             input_dict = manage_dict.add_fastqs(input_dict, self.fastq_details)
@@ -873,7 +873,7 @@ class DXBuilder():
 
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
-            job_outputs_dict=job_outputs_dict,
+            job_outputs_dict=job_outputs_config,
             input_dict=input_dict,
             analysis=params["analysis"],
             input_filter_dict=input_filter_dict,
@@ -890,12 +890,12 @@ class DXBuilder():
         if params.get("depends_on"):
             dependent_jobs = manage_dict.get_dependent_jobs(
                 params=params,
-                job_outputs_dict=job_outputs_dict
+                job_outputs_dict=job_outputs_config
             )
         else:
             dependent_jobs = []
 
-        self.job_inputs_per_run[executable]["dependent_jobs"] = dependent_jobs
+        self.job_info_per_run[executable]["dependent_jobs"] = dependent_jobs
 
         # check that all INPUT- have been parsed in config
         manage_dict.check_all_inputs(input_dict)
@@ -912,5 +912,121 @@ class DXBuilder():
         # map workflow id to created dx job id
         # job_outputs_dict[params['analysis']] = job_id
 
-        self.job_inputs_per_run[executable]["inputs"] = input_dict
-        self.job_inputs_per_run[executable]["outputs"] = output_dict
+        self.job_info_per_run[executable]["inputs"] = input_dict
+        self.job_info_per_run[executable]["outputs"] = output_dict
+
+    def dx_run(
+        executable, job_name, input_dict,
+        output_dict, prev_jobs, extra_args, instance_types
+    ) -> str:
+        """
+        Call workflow / app with populated input and output dicts
+
+        Returns id of submitted job
+
+        Parameters
+        ----------
+        executable : str
+            human readable name of executable (i.e. workflow / app / applet)
+        job_name : str
+            name to assign to job, will be combination of human readable name of
+            exectuable and sample ID
+        input_dict : dict
+            dict of input parameters for calling workflow / app
+        output_dict : dict
+            dict of output directory paths for each app
+        prev_jobs : list
+            list of job ids to wait for completion before starting
+        extra_args : dict
+            mapping of any additional arguments to pass to underlying dx
+            API call, parsed from extra_args field in config file
+        instance_types : dict
+            mapping of instances to use for apps
+
+        Returns
+        -------
+        job_id : str
+            DNAnexus job id of newly started analysis
+
+        Raises
+        ------
+        RuntimeError
+            Raised when workflow-, app- or applet- not present in exe name
+        """
+        prettier_print(f"\nPopulated input dict for: {executable}")
+        prettier_print(input_dict)
+
+        if os.environ.get('TESTING') == 'true':
+            # running in test mode => don't actually want to run jobs =>
+            # make jobs dependent on conductor job finishing so no launched
+            # jobs actually start running
+            prev_jobs.append(os.environ.get('PARENT_JOB_ID'))
+
+        if 'workflow-' in executable:
+            # get common top level of each apps output destination
+            # to set as output of workflow for consitency of viewing
+            # in the browser
+            parent_path = os.path.commonprefix(list(output_dict.values()))
+
+            job_handle = dx.bindings.dxworkflow.DXWorkflow(
+                dxid=executable,
+                project=self.args.dx_project_id
+            ).run(
+                workflow_input=input_dict,
+                folder=parent_path,
+                stage_folders=output_dict,
+                rerun_stages=['*'],
+                depends_on=prev_jobs,
+                name=job_name,
+                extra_args=extra_args,
+                stage_instance_types=instance_types
+            )
+        elif 'app-' in executable:
+            job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
+                app_input=input_dict,
+                project=self.args.dx_project_id,
+                folder=output_dict.get(executable),
+                ignore_reuse=True,
+                depends_on=prev_jobs,
+                name=job_name,
+                extra_args=extra_args,
+                instance_type=instance_types
+            )
+        elif 'applet-' in executable:
+            job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
+                applet_input=input_dict,
+                project=self.args.dx_project_id,
+                folder=output_dict.get(executable),
+                ignore_reuse=True,
+                depends_on=prev_jobs,
+                name=job_name,
+                extra_args=extra_args,
+                instance_type=instance_types
+            )
+        else:
+            # doesn't appear to be valid workflow or app
+            raise RuntimeError(
+                f'Given executable id is not valid: {executable}'
+            )
+
+        job_details = job_handle.describe()
+        job_id = job_details.get('id')
+
+        prettier_print(
+            f'Started analysis in project {self.args.dx_project_id}, '
+            f'job: {job_id}'
+        )
+
+        with open('job_id.log', 'a') as fh:
+            # log of current executable jobs
+            fh.write(f'{job_id} ')
+
+        with open('all_job_ids.log', 'a') as fh:
+            # log of all launched job IDs
+            fh.write(f'{job_id},')
+
+        if self.args.testing:
+            with open('testing_job_id.log', 'a') as fh:
+                fh.write(f'{job_id} ')
+
+        return job_id
