@@ -245,7 +245,7 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
 
 
 def add_other_inputs(
-    input_dict, args, executable_out_dirs,
+    input_dict, parent_out_dir, project_id, project_name, executable_out_dirs,
     sample=None, sample_prefix=None
 ) -> dict:
     """
@@ -301,7 +301,7 @@ def add_other_inputs(
         prettier_print(f'\nOther inputs found to replace: {other_inputs}')
 
     # removing /output prefix for now to fit to MultiQC
-    args.parent_out_dir = re.sub(r'^/output/', '', args.parent_out_dir)
+    parent_out_dir = re.sub(r'^/output/', '', parent_out_dir)
 
     samplesheet = ""
     if os.environ.get('SAMPLESHEET_ID'):
@@ -315,9 +315,9 @@ def add_other_inputs(
     to_replace = [
         ('INPUT-SAMPLE-NAME', sample),
         ('INPUT-SAMPLE-PREFIX', sample_prefix),
-        ('INPUT-dx_project_id', args.dx_project_id),
-        ('INPUT-dx_project_name', args.dx_project_name),
-        ('INPUT-parent_out_dir', args.parent_out_dir),
+        ('INPUT-dx_project_id', project_id),
+        ('INPUT-dx_project_name', project_name),
+        ('INPUT-parent_out_dir', parent_out_dir),
         ('INPUT-SAMPLESHEET', samplesheet)
     ]
 
@@ -464,8 +464,8 @@ def link_inputs_to_outputs(
         all job IDs for the linked analysis will be gathered and used
         as input
     input_filter_dict : dict, default None
-        (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s) to
-        filter sample IDs by
+        (optional) mapping of 'stage_ID.inputs' to a list of regex pattern(s)
+        to filter sample IDs by
     sample : str, default None
         (optional) sample name used to limit searching for previous analyses
 
@@ -483,6 +483,7 @@ def link_inputs_to_outputs(
     ValueError
         No job id found for given analysis stage from `job_outputs_dict`
     """
+
     prettier_print("\nSearching input dict for inputs to link to outputs")
     prettier_print("Input dict before:")
     prettier_print(input_dict)
@@ -494,6 +495,7 @@ def link_inputs_to_outputs(
     if sample:
         # ensure we only use outputs for given sample
         sample_outputs = job_outputs_dict.get(sample, {})
+
         if not sample_outputs:
             print(
                 f"Sample key {sample} not found in previous outputs, this "
@@ -505,7 +507,7 @@ def link_inputs_to_outputs(
         # parsed from there, these will be in the top level of the
         # job _outputs dict (i.e. {'analysis_1': "job-xxx"})
         per_run_outputs = {
-            k: v for k, v  in job_outputs_dict.items()
+            k: v for k, v in job_outputs_dict.items()
             if k.startswith('analysis_')
         }
 
@@ -597,11 +599,13 @@ def link_inputs_to_outputs(
                 if not isinstance(link_dict, dict):
                     # input is not a dnanexus file or output link
                     continue
+
                 for _, stage_input in link_dict.items():
                     if not isinstance(stage_input, dict):
                         # input is not a previous output format
                         continue
-                    if not analysis_id in stage_input.values():
+
+                    if analysis_id not in stage_input.values():
                         # analysis id not present as any input
                         continue
 
@@ -624,6 +628,7 @@ def link_inputs_to_outputs(
                     # input and populate with a link to each job
                     stage_input_template = deepcopy(link_dict)
                     input_dict[input_field] = []
+
                     for job in job_ids:
                         stage_input_tmp = deepcopy(stage_input_template)
                         stage_input_tmp = replace(
@@ -791,13 +796,12 @@ def check_input_classes(input_dict, input_classes) -> dict:
     prettier_print("\nExpected input classes:")
     prettier_print(input_classes)
 
-
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
         expected_class = input_details.get('class')
         optional = input_details.get('optional')
 
-        if not expected_class in ['file', 'array:file']:
+        if expected_class not in ['file', 'array:file']:
             # we only care about single files and arrays as they are the
             # only ones likely to be wrongly formatted
             continue
@@ -817,20 +821,24 @@ def check_input_classes(input_dict, input_classes) -> dict:
                 if optional:
                     input_dict_copy.pop(input_field)
                     continue
+
                 else:
                     raise RuntimeError(
                         "Non-optional input found and no input has been "
                         "provided or parsed as input.\nInput field: "
                         f"{input_field}\nInput found: {configured_input}"
                     )
+
             if len(configured_input) == 1:
                 configured_input = configured_input[0]
+
             else:
                 raise RuntimeError((
                     "Input expects to be a single file but multiple "
                     f"files were found and provided.\nInput field: "
                     f"{input_field}\nInput found: {configured_input}"
                 ))
+
         input_dict_copy[input_field] = configured_input
 
     return input_dict_copy
