@@ -422,7 +422,7 @@ class DXBuilder():
         demultiplex_output,
         sentinel_file,
         run_id,
-        dx_project_id
+        project_id
     ) -> str:
         """
         Run demultiplexing app, holds until app completes.
@@ -461,7 +461,7 @@ class DXBuilder():
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to sentinel file dir
                 demultiplex_output = (
-                    f'{dx_project_id}:/demultiplex_{time_stamp()}'
+                    f'{project_id}:/demultiplex_{time_stamp()}'
                 )
 
         (
@@ -917,7 +917,7 @@ class DXBuilder():
 
     def dx_run(
         executable, job_name, input_dict,
-        output_dict, prev_jobs, extra_args, instance_types
+        output_dict, prev_jobs, extra_args, instance_types, project_id, testing
     ) -> str:
         """
         Call workflow / app with populated input and output dicts
@@ -970,7 +970,7 @@ class DXBuilder():
 
             job_handle = dx.bindings.dxworkflow.DXWorkflow(
                 dxid=executable,
-                project=self.args.dx_project_id
+                project=project_id
             ).run(
                 workflow_input=input_dict,
                 folder=parent_path,
@@ -984,7 +984,7 @@ class DXBuilder():
         elif 'app-' in executable:
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
                 app_input=input_dict,
-                project=self.args.dx_project_id,
+                project=project_id,
                 folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
@@ -995,7 +995,7 @@ class DXBuilder():
         elif 'applet-' in executable:
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
                 applet_input=input_dict,
-                project=self.args.dx_project_id,
+                project=project_id,
                 folder=output_dict.get(executable),
                 ignore_reuse=True,
                 depends_on=prev_jobs,
@@ -1013,7 +1013,7 @@ class DXBuilder():
         job_id = job_details.get('id')
 
         prettier_print(
-            f'Started analysis in project {self.args.dx_project_id}, '
+            f'Started analysis in project {project_id}, '
             f'job: {job_id}'
         )
 
@@ -1025,7 +1025,7 @@ class DXBuilder():
             # log of all launched job IDs
             fh.write(f'{job_id},')
 
-        if self.args.testing:
+        if testing:
             with open('testing_job_id.log', 'a') as fh:
                 fh.write(f'{job_id} ')
 
