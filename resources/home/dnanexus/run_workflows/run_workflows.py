@@ -612,8 +612,6 @@ def main():
         for config, info in dx_builder.config_to_samples.items()
     ])
 
-    total_jobs = 0  # counter to write to final Slack message
-
     # log file of all jobs, used to set as app output for picking up
     # by separate monitoring script
     open('all_job_ids.log', 'w').close()
@@ -624,6 +622,9 @@ def main():
         executable_out_dirs = {}
 
         dx_builder.job_outputs[config] = {}
+
+        config_info = dx_builder.config_to_samples[config]
+        project_id = config_info["project"].describe().get("id")
 
         for executable, params in config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
@@ -656,7 +657,7 @@ def main():
                 # dict to add all stage output names and job ids for every
                 # sample to used to pass correct job ids to subsequent
                 # workflow / app calls
-                dx_builder.job_outputs[params["analysis"]] = previous_job
+                dx_builder.job_outputs[config][params["analysis"]] = previous_job
 
                 continue
 
@@ -668,7 +669,7 @@ def main():
             open('job_id.log', 'w').close()
 
             # save name to params to access later to name job
-            params['executable_name'] = dx_builder.config_to_samples[config]["execution_mapping"][executable]['name']
+            params['executable_name'] = config_info["execution_mapping"][executable]['name']
 
             # get instance types to use for executable from config for flowcell
             instance_types = select_instance_types(
@@ -682,48 +683,61 @@ def main():
                 )
 
                 # loop over samples and call app / workflow
-                for idx, sample in enumerate(
-                    dx_builder.config_to_samples[config]["samples"], 1
-                ):
-                    sample_list = dx_builder.config_to_samples[config]["samples"]
+                for idx, sample in enumerate(config_info["samples"], 1):
+                    sample_list = config_info["samples"]
                     prettier_print(
                         f'\n\nStarting analysis for {sample} - '
                         f'[{idx}/{len(sample_list)}]'
                     )
 
-                    job_outputs_dict = call_per_sample(
+                    dx_builder.build_job_info_per_sample(
                         executable=executable,
-                        exe_names=dx_builder.config_to_samples[config]["execution_mapping"],
-                        input_classes=dx_builder.config_to_samples[config]["input_class_mapping"],
-                        params=params,
-                        sample=sample,
                         config=config,
-                        out_folder=dx_builder.config_to_samples[config]["parent_out_dir"],
-                        job_outputs_dict=job_outputs_dict,
-                        executable_out_dirs=executable_out_dirs,
-                        fastq_details=fastq_details,
-                        instance_types=instance_types,
-                        args=dx_builder.args
+                        param=params,
+                        sample=sample,
+                        executable_out_dirs=executable_out_dirs
                     )
-                    total_jobs += 1
+
+                    job_info = dx_builder.job_info_per_sample[sample][executable]
+
+                    dx_builder.dx_run(
+                        executable=executable,
+                        job_name=job_info["job_name"],
+                        input_dict=job_info["inputs"],
+                        output_dict=job_info["outputs"],
+                        prev_jobs=job_info["dependent_jobs"],
+                        extra_args=job_info["extra_args"],
+                        instance_types=instance_types,
+                        project_id=project_id,
+                        testing=args.testing
+                    )
+
+                    dx_builder.total_jobs += 1
 
             elif params['per_sample'] is False:
                 # run workflow / app on all samples at once
-                job_outputs_dict = call_per_run(
+                dx_builder.build_jobs_per_run(
                     executable=executable,
-                    exe_names=dx_builder.config_to_samples[config]["execution_mapping"],
-                    input_classes=dx_builder.config_to_samples[config]["input_class_mapping"],
                     params=params,
                     config=config,
-                    out_folder=dx_builder.config_to_samples[config]["parent_out_dir"],
-                    job_outputs_dict=job_outputs_dict,
-                    executable_out_dirs=executable_out_dirs,
-                    fastq_details=fastq_details,
-                    instance_types=instance_types,
-                    args=dx_builder.args,
-                    upload_tars=dx_builder.upload_tars,
+                    executable_out_dirs=executable_out_dirs
                 )
-                total_jobs += 1
+
+                run_job_info = dx_builder.build_jobs_info_per_run[executable]
+
+                dx_builder.dx_run(
+                    executable=executable,
+                    job_name=run_job_info["job_name"],
+                    input_dict=run_job_info["inputs"],
+                    output_dict=run_job_info["outputs"],
+                    prev_jobs=run_job_info["dependent_jobs"],
+                    extra_args=run_job_info["extra_args"],
+                    instance_types=instance_types,
+                    project_id=project_id,
+                    testing=args.testing
+                )
+
+                dx_builder.total_jobs += 1
 
             else:
                 # per_sample is not True or False, exit
@@ -751,13 +765,10 @@ def main():
                 wait_on_done(
                     analysis=params['analysis'],
                     analysis_name=params['executable_name'],
-                    all_job_ids=job_outputs_dict
+                    all_job_ids=dx_builder.job_outputs[config]
                 )
 
                 conductor_job.remove_tags(hold_tag)
-
-        # TODO dx run with extra args
-        extra_args = executable_param.get("extra_args", {})
 
         # TODO add comment per analysis project
         # add comment to Jira ticket for run to link to analysis project
@@ -769,12 +780,12 @@ def main():
             ),
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
-                f"{dx_builder.config_to_samples[config]['project'].replace('project-', '')}/monitor/"
+                f"{config_info['project'].describe().get('name').replace('project-', '')}/monitor/"
             )
         )
 
     with open('total_jobs.log', 'w') as fh:
-        fh.write(str(total_jobs))
+        fh.write(str(dx_builder.total_jobs))
 
     prettier_print("\nCompleted calling jobs")
 
