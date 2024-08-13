@@ -612,8 +612,6 @@ def main():
         for config, info in dx_builder.config_to_samples.items()
     ])
 
-    total_jobs = 0  # counter to write to final Slack message
-
     # log file of all jobs, used to set as app output for picking up
     # by separate monitoring script
     open('all_job_ids.log', 'w').close()
@@ -767,7 +765,7 @@ def main():
                 wait_on_done(
                     analysis=params['analysis'],
                     analysis_name=params['executable_name'],
-                    all_job_ids=job_outputs_dict
+                    all_job_ids=dx_builder.job_outputs[config]
                 )
 
                 conductor_job.remove_tags(hold_tag)
@@ -782,12 +780,12 @@ def main():
             ),
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
-                f"{dx_builder.config_to_samples[config]['project'].replace('project-', '')}/monitor/"
+                f"{config_info['project'].describe().get('name').replace('project-', '')}/monitor/"
             )
         )
 
     with open('total_jobs.log', 'w') as fh:
-        fh.write(str(total_jobs))
+        fh.write(str(dx_builder.total_jobs))
 
     prettier_print("\nCompleted calling jobs")
 
