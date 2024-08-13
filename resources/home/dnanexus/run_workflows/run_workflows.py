@@ -625,6 +625,9 @@ def main():
 
         dx_builder.job_outputs[config] = {}
 
+        config_info = dx_builder.config_to_samples[config]
+        project_id = config_info["project"].describe().get("id")
+
         for executable, params in config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
             # run correspondingly
@@ -668,7 +671,7 @@ def main():
             open('job_id.log', 'w').close()
 
             # save name to params to access later to name job
-            params['executable_name'] = dx_builder.config_to_samples[config]["execution_mapping"][executable]['name']
+            params['executable_name'] = config_info["execution_mapping"][executable]['name']
 
             # get instance types to use for executable from config for flowcell
             instance_types = select_instance_types(
@@ -682,10 +685,8 @@ def main():
                 )
 
                 # loop over samples and call app / workflow
-                for idx, sample in enumerate(
-                    dx_builder.config_to_samples[config]["samples"], 1
-                ):
-                    sample_list = dx_builder.config_to_samples[config]["samples"]
+                for idx, sample in enumerate(config_info["samples"], 1):
+                    sample_list = config_info["samples"]
                     prettier_print(
                         f'\n\nStarting analysis for {sample} - '
                         f'[{idx}/{len(sample_list)}]'
@@ -708,7 +709,9 @@ def main():
                         output_dict=job_info["outputs"],
                         prev_jobs=job_info["dependent_jobs"],
                         extra_args=job_info["extra_args"],
-                        instance_types=instance_types
+                        instance_types=instance_types,
+                        project_id=project_id,
+                        testing=args.testing
                     )
 
                     dx_builder.total_jobs += 1
@@ -731,7 +734,9 @@ def main():
                     output_dict=run_job_info["outputs"],
                     prev_jobs=run_job_info["dependent_jobs"],
                     extra_args=run_job_info["extra_args"],
-                    instance_types=instance_types
+                    instance_types=instance_types,
+                    project_id=project_id,
+                    testing=args.testing
                 )
 
                 dx_builder.total_jobs += 1
