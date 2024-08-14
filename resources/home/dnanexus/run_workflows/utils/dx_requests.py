@@ -902,10 +902,6 @@ class DXBuilder():
             out_folder=config_info["parent_out_dir"]
         )
 
-        # TODO move in correct location
-        # map workflow id to created dx job id
-        # job_outputs_dict[params['analysis']] = job_id
-
         self.job_info_per_run[executable]["inputs"] = input_dict
         self.job_info_per_run[executable]["outputs"] = output_dict
 
