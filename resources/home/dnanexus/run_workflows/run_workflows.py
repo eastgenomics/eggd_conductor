@@ -481,10 +481,6 @@ def main():
 
     dx_builder.create_analysis_project_logs()
 
-    # TODO will need to move this to when the jobs will be launched
-    # set context to project for running jobs
-    dx.set_workspace_id(args.dx_project_id)
-
     run_time = time_stamp()
 
     # set parent output directory, each app will have sub dir in here
@@ -625,6 +621,9 @@ def main():
 
         config_info = dx_builder.config_to_samples[config]
         project_id = config_info["project"].describe().get("id")
+
+        # set context to project for running jobs
+        dx.set_workspace_id(project_id)
 
         for executable, params in config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
