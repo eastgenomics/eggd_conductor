@@ -700,7 +700,7 @@ def main():
 
                     job_info = dx_builder.job_info_per_sample[sample][executable]
 
-                    dx_builder.dx_run(
+                    job_id = dx_builder.dx_run(
                         executable=executable,
                         job_name=job_info["job_name"],
                         input_dict=job_info["inputs"],
@@ -710,6 +710,14 @@ def main():
                         instance_types=instance_types,
                         project_id=project_id,
                         testing=args.testing
+                    )
+
+                    # create new dict to store sample outputs
+                    dx_builder.job_outputs[config].setdefault(sample, {})
+
+                    # map analysis id to dx job id for sample
+                    dx_builder.job_outputs[config][sample].update(
+                        {params['analysis']: job_id}
                     )
 
                     dx_builder.total_jobs += 1
@@ -725,7 +733,7 @@ def main():
 
                 run_job_info = dx_builder.build_jobs_info_per_run[executable]
 
-                dx_builder.dx_run(
+                job_id = dx_builder.dx_run(
                     executable=executable,
                     job_name=run_job_info["job_name"],
                     input_dict=run_job_info["inputs"],
@@ -736,6 +744,9 @@ def main():
                     project_id=project_id,
                     testing=args.testing
                 )
+
+                # map workflow id to created dx job id
+                dx_builder.job_outputs[config][params['analysis']] = job_id
 
                 dx_builder.total_jobs += 1
 
@@ -770,13 +781,11 @@ def main():
 
                 conductor_job.remove_tags(hold_tag)
 
-        # TODO add comment per analysis project
         # add comment to Jira ticket for run to link to analysis project
         Jira().add_comment(
-            run_id=dx_builder.args.get("run_id"),
             comment=(
                 "All jobs successfully launched by eggd_conductor. "
-                "\nAnalysis project: "
+                "\nAnalysis project(s): "
             ),
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
