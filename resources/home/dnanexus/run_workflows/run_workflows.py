@@ -782,7 +782,7 @@ def main():
                 conductor_job.remove_tags(hold_tag)
 
         # add comment to Jira ticket for run to link to analysis project
-        Jira().add_comment(
+        jira.add_comment(
             comment=(
                 "All jobs successfully launched by eggd_conductor. "
                 "\nAnalysis project(s): "
