@@ -2,7 +2,7 @@
 Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
-from collections import defaultdict
+
 import json
 import os
 import re
