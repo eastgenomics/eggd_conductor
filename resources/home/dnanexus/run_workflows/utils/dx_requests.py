@@ -26,7 +26,7 @@ class DXBuilder():
     def __init__(self):
         self.configs = []
         self.samples = []
-        self.config_to_samples = None
+        self.config_to_samples = {}
         self.project_files = []
         self.total_jobs = 0
         self.fastqs_details = []
