@@ -37,7 +37,7 @@ class DXBuilder():
 
     def get_assays(self):
         return sorted(
-            [config.get('assay_code') for config in self.configs.values()]
+            [config.get('assay_code') for config in self.configs]
         )
 
     def add_sample_data(self, config_to_samples):
