@@ -15,11 +15,11 @@ import dxpy as dx
 from utils.dx_utils import find_dx_project, get_job_output_details
 from utils import manage_dict
 from utils.utils import (
-    Slack,
     prettier_print,
     select_instance_types,
     time_stamp
 )
+from utils.request_objects import Slack
 
 
 class DXBuilder():

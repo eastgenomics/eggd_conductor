@@ -6,7 +6,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 
-from utils import prettier_print
+from utils.utils import prettier_print
 
 
 class Slack():
