@@ -21,7 +21,6 @@ import dxpy as dx
 from packaging.version import parse as parseVersion
 import pandas as pd
 
-from utils.calling_jobs import call_per_sample, call_per_run
 from utils.dx_requests import DXBuilder
 from utils.dx_utils import (
     get_json_configs,
@@ -162,7 +161,9 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
 
     if not testing:
         # check all samples have an assay code in one of the configs
-        samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
+        samples_w_codes = [
+            x for y in list(assay_to_samples.values()) for x in y
+        ]
         samples_without_codes = '\n\t\t'.join([
             f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
         ])
@@ -292,19 +293,19 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         '--assay_config',
-        help='assay specific config file that defines all executables to run'
+        help='Assay specific config file that defines all executables to run'
     )
     parser.add_argument(
         '--sentinel_file',
-        help='sentinel file uploaded by dx-streaming-upload'
+        help='Sentinel file uploaded by dx-streaming-upload'
     )
     parser.add_argument(
         '--samplesheet',
-        help='samplesheet to parse sample IDs from'
+        help='Samplesheet to parse sample IDs from'
     )
     parser.add_argument(
         '--samples',
-        help='command seperated string of sample names to run analysis on'
+        help='Command seperated string of sample names to run analysis on'
     )
     parser.add_argument(
         '--run_info_xml',
@@ -323,7 +324,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--assay_name',
-        help='assay name, used for naming outputs'
+        help='Assay name, used for naming outputs'
     )
     parser.add_argument(
         '--development', '-d', action='store_true',
@@ -332,40 +333,43 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--testing', action='store_true',
         help=(
-            'controls if to terminate and clean up jobs after launching '
+            'Controls if to terminate and clean up jobs after launching '
             'for testing purposes'
         )
     )
     parser.add_argument(
         '--testing_sample_limit',
-        help='for use when testing only - no. samples to limit running analyses for'
+        help=(
+            'For use when testing only - no.'
+            'Samples to limit running analyses for'
+        )
     )
     parser.add_argument(
         '--demultiplex_job_id',
-        help='id of job from running demultiplexing (if run)'
+        help='ID of job from running demultiplexing (if run)'
     )
     parser.add_argument(
         '--demultiplex_output',
         help=(
-            'dx path to store output from demultiplexing, defaults to parent '
+            'DX path to store output from demultiplexing, defaults to parent '
             'of sentinel file if not specified'
         )
     )
     parser.add_argument(
         '--fastqs',
-        help='comma separated string of fastq file ids for starting analysis'
+        help='Comma separated string of fastq file ids for starting analysis'
     )
     parser.add_argument(
         '--test_samples',
         help=(
-            'for test use only. Pass in file with 1 sample per line '
+            'For test use only. Pass in file with 1 sample per line '
             'specifing file-id of fastq and sample name'
         )
     )
     parser.add_argument(
         '--mismatch_allowance', type=int,
         help=(
-            "no. of samples allowed to not match to any assay code and use "
+            "# of samples allowed to not match to any assay code and use "
             "the assay code of other samples (default: 1, set in dxapp.json)"
         )
     )
@@ -380,7 +384,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--exclude_samples',
         help=(
-            'comma separated string of sample names to exclude from '
+            'Comma separated string of sample names to exclude from '
             'per sample analysis steps'
         )
     )
@@ -430,6 +434,9 @@ def main():
     """
     Main entry point to run all apps and workflows
     """
+
+    print(os.environ)
+
     args = parse_args()
 
     dx_builder = DXBuilder()
