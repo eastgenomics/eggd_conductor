@@ -137,6 +137,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     # matching config with highest version
     for sample in all_samples:
         sample_to_assay_configs = {}
+
         for code in all_config_assay_codes:
             # find all config files that match this sample
             if re.search(code, sample, re.IGNORECASE):
@@ -338,7 +339,7 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
-        '--testing_sample_limit',
+        '--testing_sample_limit', type=int,
         help=(
             'For use when testing only - no.'
             'Samples to limit running analyses for'
@@ -435,8 +436,6 @@ def main():
     Main entry point to run all apps and workflows
     """
 
-    print(os.environ)
-
     args = parse_args()
 
     dx_builder = DXBuilder()
@@ -449,7 +448,8 @@ def main():
         # using user defined config file
         config = load_config(args.assay_config)
         sample_list = args.samples.copy()
-        dx_builder.add_sample_data({config: sample_list})
+        dx_builder.configs.append(config)
+        dx_builder.add_sample_data({config.get('assay_code'): sample_list})
     else:
         # get all json assay configs from path in conductor config
         config_data = get_json_configs()
@@ -460,6 +460,8 @@ def main():
             all_samples=args.samples,
             testing=args.testing,
         )
+
+        dx_builder.configs = [config_data[assay] for assay in assay_to_samples]
 
         dx_builder.add_sample_data(assay_to_samples)
 
@@ -472,10 +474,10 @@ def main():
         )
 
     if args.testing_sample_limit:
-        dx_builder.limit_nb_samples(limit_nb=args.testing_sample_limit)
+        dx_builder.limit_samples(limit_nb=args.testing_sample_limit)
 
     if args.exclude_samples:
-        dx_builder.limit_nb_samples(samples_to_exclude=args.exclude_samples)
+        dx_builder.limit_samples(samples_to_exclude=args.exclude_samples)
 
     dx_builder.subset_samples()
 
