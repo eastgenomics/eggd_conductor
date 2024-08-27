@@ -37,7 +37,7 @@ class DXBuilder():
 
     def get_assays(self):
         return sorted(
-            [config.get('assay_code') for config in self.configs]
+            [config.get("assay_code") for config in self.configs]
         )
 
     def add_sample_data(self, config_to_samples):
@@ -49,10 +49,9 @@ class DXBuilder():
         """
 
         for config, samples in config_to_samples.items():
-            self.configs.append(config)
             self.samples.extend(samples)
             self.config_to_samples.setdefault(config, {})
-            self.config_to_samples["samples"] = samples
+            self.config_to_samples[config]["samples"] = samples
 
     def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
         """ Limit samples using a number or specific names
