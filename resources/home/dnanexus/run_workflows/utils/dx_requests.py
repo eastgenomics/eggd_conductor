@@ -52,6 +52,11 @@ class DXBuilder():
             self.samples.extend(samples)
             self.config_to_samples.setdefault(config, {})
             self.config_to_samples[config]["samples"] = samples
+            self.config_to_samples[config]["config_content"] = [
+                config_dict
+                for config_dict in self.configs
+                if config_dict.get("assay_code") == config
+            ][0]
 
     def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
         """ Limit samples using a number or specific names
@@ -72,12 +77,14 @@ class DXBuilder():
 
         # limit samples in the config_to_samples dict
         for config, data in self.config_to_samples.items():
+
             for sample in data["samples"]:
                 # limit samples to put in the config_to_samples variable using
                 # the limiting number and the samples to exclude
                 if sample in self.samples and sample not in samples_to_exclude:
                     tmp_data.setdefault(config, {})
                     tmp_data[config].setdefault("samples", []).append(sample)
+                    tmp_data[config]["config_content"] = self.config_to_samples[config]["config_content"]
 
         self.config_to_samples = tmp_data
         self.samples = [
@@ -96,7 +103,8 @@ class DXBuilder():
         tmp_data = {}
 
         for config, samples in self.config_to_samples.items():
-            subset = config.get("subset_samplesheet", None)
+            config_content = self.config_to_samples[config]["config_content"]
+            subset = config_content.get("subset_samplesheet", None)
 
             if subset:
                 # check that a valid pattern has been provided
@@ -144,8 +152,9 @@ class DXBuilder():
             suffix = '-EGGD_CONDUCTOR_TESTING'
 
         for config in self.config_to_samples:
-            assay = config.get("assay")
-            version = config.get("version")
+            config_content = self.config_to_samples[config]["config_content"]
+            assay = config_content.get("assay")
+            version = config_content.get("version")
             output_project = f'{prefix}{run_id}_{assay}{suffix}'
 
             project_id = find_dx_project(output_project)
@@ -176,7 +185,7 @@ class DXBuilder():
             # link project id to config and samples
             self.config_to_samples[config]["project"] = dx.bindings.dxproject.DXProject(dxid=project_id)
 
-            users = config.get('users')
+            users = config_content.get('users')
 
             if users:
                 # users specified in config to grant access to project
@@ -193,6 +202,7 @@ class DXBuilder():
         DXBuilder object """
 
         for config, data in self.config_to_samples.items():
+            config_content = self.config_to_samples[config]["config_content"]
             log_file_name = (
                 f"{data['project'].describe()['name']}.log"
             )
@@ -200,8 +210,8 @@ class DXBuilder():
             with open(log_file_name, 'w') as fh:
                 fh.write(
                     f"{data['project'].describe()['id']} "
-                    f"{config.get('assay_code')} "
-                    f"{config.get('version')}\n"
+                    f"{config_content.get('assay_code')} "
+                    f"{config_content.get('version')}\n"
                 )
 
         # TODO handle the bash part to send the slack message
@@ -244,9 +254,10 @@ class DXBuilder():
         """
 
         for config in self.config_to_samples:
+            config_content = self.config_to_samples[config]["config_content"]
             parent_out_dir = (
                 f"{os.environ.get('DESTINATION', '')}/output/"
-                f"{config.get('assay')}-{run_time}"
+                f"{config_content.get('assay')}-{run_time}"
             )
             self.config_to_samples[config]["parent_out_dir"] = parent_out_dir.replace('//', '/')
 
@@ -301,7 +312,8 @@ class DXBuilder():
         """
 
         for config in self.configs:
-            executables = config.get("executables").keys()
+            config_content = self.config_to_samples[config]["config_content"]
+            executables = config_content.get("executables").keys()
             prettier_print(
                 f'\nGetting names for all executables: {executables}'
             )
@@ -398,7 +410,8 @@ class DXBuilder():
         """
 
         for config in self.configs:
-            executables = config.get("executables").keys()
+            config_content = self.config_to_samples[config]["config_content"]
+            executables = config_content.get("executables").keys()
             input_class_mapping = defaultdict(dict)
 
             for exe in executables:
