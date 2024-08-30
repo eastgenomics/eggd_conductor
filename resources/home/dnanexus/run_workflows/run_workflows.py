@@ -481,9 +481,6 @@ def main():
 
     dx_builder.subset_samples()
 
-    if not args.assay_name:
-        args.assay_name = config.get('assay')
-
     if not args.dx_project_id:
         # output project not specified, create new one from run id
         dx_builder.get_or_create_dx_project()
@@ -496,7 +493,7 @@ def main():
     dx_builder.set_parent_out_dir(run_time)
 
     # get upload tars from sentinel file
-    dx_builder.get_upload_tars()
+    dx_builder.get_upload_tars(args.sentinel_file)
 
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
@@ -545,16 +542,20 @@ def main():
         dx_builder.fastqs_details = load_test_data(args.test_samples)
 
     elif any([config.get('demultiplex') for config in dx_builder.configs]):
+        demultiplex_app_id = None
+        demultiplex_app_name = None
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run demultiplexing app
         dx_builder.set_config_for_demultiplexing()
 
         # config and app ID for demultiplex is optional in assay config
         demultiplex_config = dx_builder.demultiplex_config.get(
-            "demultiplex_config"
+            "demultiplex_config", None
         )
-        demultiplex_app_id = demultiplex_config.get('app_id', '')
-        demultiplex_app_name = demultiplex_config.get('app_name', '')
+
+        if demultiplex_config:
+            demultiplex_app_id = demultiplex_config.get('app_id', '')
+            demultiplex_app_name = demultiplex_config.get('app_name', '')
 
         if not demultiplex_app_id and not demultiplex_app_name:
             # ID for demultiplex app not in assay config, use default from
@@ -569,7 +570,7 @@ def main():
             demultiplex_output=args.demultiplex_output,
             sentinel_file=args.sentinel_file,
             run_id=args.run_id,
-            dx_project_id=args.dx_project_id
+            project_id=args.dx_project_id
         )
 
         for config in dx_builder.config_to_samples:
@@ -579,7 +580,7 @@ def main():
             )
 
         dx_builder.fastqs_details = get_demultiplex_job_details(
-            dx_builder.demultiplexing_job
+            dx_builder.demultiplexing_job.id
         )
 
     elif manage_dict.search(
