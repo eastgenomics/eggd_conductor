@@ -488,7 +488,12 @@ class DXBuilder():
         prettier_print(f'demultiplex project: {self.demultiplex_project}')
         prettier_print(f'demultiplex folder: {self.demultiplex_folder}')
 
-        instance_type = demultiplex_config.get("instance_type", None)
+        instance_type = None
+        additional_args = None
+
+        if demultiplex_config:
+            instance_type = demultiplex_config.get("instance_type", None)
+            additional_args = demultiplex_config.get("additional_args", "")
 
         if isinstance(instance_type, dict):
             # instance type defined in config is a mapping for multiple
@@ -501,8 +506,6 @@ class DXBuilder():
         prettier_print(
             f"Instance type selected for demultiplexing: {instance_type}"
         )
-
-        additional_args = demultiplex_config.get("additional_args", "")
 
         inputs = {
             'upload_sentinel_record': {
@@ -572,7 +575,7 @@ class DXBuilder():
                 f'Provided demultiplex app ID does not appear valid: {app_id}')
 
         self.demultiplexing_job = job
-        job_id = job.describe().get('id')
+        job_id = job.id
 
         # tag demultiplexing job so we easily know it was launched by conductor
         job.add_tags(tags=[
