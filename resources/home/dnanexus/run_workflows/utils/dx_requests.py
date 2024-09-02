@@ -74,6 +74,7 @@ class DXBuilder():
             self.samples = random.sample(self.samples, limit_nb)
 
         tmp_data = {}
+        new_set_of_configs = []
 
         # limit samples in the config_to_samples dict
         for config, data in self.config_to_samples.items():
@@ -85,6 +86,7 @@ class DXBuilder():
                     tmp_data.setdefault(config, {})
                     tmp_data[config].setdefault("samples", []).append(sample)
                     tmp_data[config]["config_content"] = self.config_to_samples[config]["config_content"]
+                    new_set_of_configs.append(self.config_to_samples[config]["config_content"])
 
         self.config_to_samples = tmp_data
         self.samples = [
@@ -92,6 +94,7 @@ class DXBuilder():
             for samples in self.config_to_samples.values()
             for sample in samples
         ]
+        self.configs = new_set_of_configs
 
     def subset_samples(self):
         """ Subset samples using the config information
