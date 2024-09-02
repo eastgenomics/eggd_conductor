@@ -312,8 +312,7 @@ class DXBuilder():
         """
 
         for config in self.configs:
-            config_content = self.config_to_samples[config]["config_content"]
-            executables = config_content.get("executables").keys()
+            executables = config.get("executables").keys()
             prettier_print(
                 f'\nGetting names for all executables: {executables}'
             )
@@ -362,7 +361,7 @@ class DXBuilder():
                         app_name = app_name.replace('app-', '')
                     execution_mapping[exe] = {'name': app_name}
 
-            self.config_to_samples[config]["execution_mapping"] = execution_mapping
+            self.config_to_samples[config.get("assay_code")]["execution_mapping"] = execution_mapping
 
     def get_input_classes_per_config(self) -> dict:
         """
@@ -410,8 +409,7 @@ class DXBuilder():
         """
 
         for config in self.configs:
-            config_content = self.config_to_samples[config]["config_content"]
-            executables = config_content.get("executables").keys()
+            executables = config.get("executables").keys()
             input_class_mapping = defaultdict(dict)
 
             for exe in executables:
@@ -424,7 +422,7 @@ class DXBuilder():
                     input_class_mapping[exe][input_spec['name']]['class'] = input_spec['class']
                     input_class_mapping[exe][input_spec['name']]['optional'] = input_spec.get('optional', False)
 
-            self.config_to_samples[config]["input_class_mapping"] = input_class_mapping
+            self.config_to_samples[config.get("assay_code")]["input_class_mapping"] = input_class_mapping
 
     def demultiplex(
         self,
