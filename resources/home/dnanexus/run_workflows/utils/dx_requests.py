@@ -437,8 +437,7 @@ class DXBuilder():
         demultiplex_config,
         demultiplex_output,
         sentinel_file,
-        run_id,
-        project_id
+        run_id
     ) -> str:
         """
         Run demultiplexing app, holds until app completes.
@@ -477,7 +476,7 @@ class DXBuilder():
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to sentinel file dir
                 demultiplex_output = (
-                    f'{project_id}:/demultiplex_{time_stamp()}'
+                    f'{run_id}:/demultiplex_{time_stamp()}'
                 )
 
         (
@@ -693,7 +692,7 @@ class DXBuilder():
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
 
-        self.job_info_per_sample[sample][executable]["extra_args"] = param.get(
+        self.job_info_per_sample[sample][executable]["extra_args"] = params.get(
             "extra_args", {}
         )
 
@@ -739,7 +738,7 @@ class DXBuilder():
         if params["process_fastqs"] is True:
             input_dict = manage_dict.add_fastqs(
                 input_dict=input_dict,
-                fastq_details=self.fastq_details,
+                fastq_details=self.fastqs_details,
                 sample=sample
             )
 
@@ -797,7 +796,7 @@ class DXBuilder():
         # check input types correctly set in input dict
         input_dict = manage_dict.check_input_classes(
             input_dict=input_dict,
-            input_classes=self.config_to_samples[config]["input_class_mapping"][executable]
+            input_classes=self.config_to_samples[assay_code]["input_class_mapping"][executable]
         )
 
         # check that all INPUT- have been parsed in config
@@ -851,8 +850,8 @@ class DXBuilder():
         config_info = self.config_to_samples[assay_code]
 
         # select input and output dict from config for current workflow / app
-        input_dict = config_info['executables'][executable]['inputs']
-        output_dict = config_info['executables'][executable]['output_dirs']
+        input_dict = config['executables'][executable]['inputs']
+        output_dict = config['executables'][executable]['output_dirs']
 
         self.job_info_per_run[executable]["extra_args"] = params.get(
             "extra_args", {}
@@ -861,7 +860,7 @@ class DXBuilder():
         job_outputs_config = self.job_outputs[assay_code]
 
         if params["process_fastqs"] is True:
-            input_dict = manage_dict.add_fastqs(input_dict, self.fastq_details)
+            input_dict = manage_dict.add_fastqs(input_dict, self.fastqs_details)
 
         # add upload tars as input if INPUT-UPLOAD_TARS present
         if self.upload_tars:
@@ -884,7 +883,7 @@ class DXBuilder():
         )
 
         # get any filters from config to apply to job inputs
-        input_filter_dict = config_info['executables'][executable].get('inputs_filter')
+        input_filter_dict = config['executables'][executable].get('inputs_filter')
 
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
@@ -898,7 +897,7 @@ class DXBuilder():
         # check input types correctly set in input dict
         input_dict = manage_dict.check_input_classes(
             input_dict=input_dict,
-            input_classes=config_info["input_class_mapping"][executable]
+            input_classes=config["input_class_mapping"][executable]
         )
 
         # find all jobs for previous analyses if next job depends on them
