@@ -483,8 +483,11 @@ def main():
 
     if not args.dx_project_id:
         # output project not specified, create new one from run id
-        dx_builder.get_or_create_dx_project()
+        run_id = args.dx_project_id
+    else:
+        run_id = args.run_id
 
+    dx_builder.get_or_create_dx_project(run_id, args.development, args.testing)
     dx_builder.create_analysis_project_logs()
 
     run_time = time_stamp()
@@ -605,7 +608,7 @@ def main():
 
     prettier_print('\nExecutable names identified:')
     prettier_print([
-        info["execution_mapping"].keys()
+        list(info["execution_mapping"].keys())
         for config, info in dx_builder.config_to_samples.items()
     ])
 
@@ -614,7 +617,7 @@ def main():
     dx_builder.get_input_classes_per_config()
     prettier_print('\nExecutable input classes found:')
     prettier_print([
-        info["input_class_mapping"].keys()
+        list(info["input_class_mapping"].keys())
         for config, info in dx_builder.config_to_samples.items()
     ])
 
@@ -623,13 +626,14 @@ def main():
     open('all_job_ids.log', 'w').close()
 
     for config in dx_builder.configs:
+        assay_code = config.get("assay_code")
         # storing output folders used for each workflow/app, might be needed to
         # store data together / access specific dirs of data
         executable_out_dirs = {}
 
-        dx_builder.job_outputs[config] = {}
+        dx_builder.job_outputs[assay_code] = {}
 
-        config_info = dx_builder.config_to_samples[config]
+        config_info = dx_builder.config_to_samples[assay_code]
         project_id = config_info["project"].describe().get("id")
 
         # set context to project for running jobs
@@ -666,7 +670,7 @@ def main():
                 # dict to add all stage output names and job ids for every
                 # sample to used to pass correct job ids to subsequent
                 # workflow / app calls
-                dx_builder.job_outputs[config][params["analysis"]] = previous_job
+                dx_builder.job_outputs[assay_code][params["analysis"]] = previous_job
 
                 continue
 
@@ -682,7 +686,7 @@ def main():
 
             # get instance types to use for executable from config for flowcell
             instance_types = select_instance_types(
-                run_id=dx_builder.args.get("run_id"),
+                run_id=run_id,
                 instance_types=params.get('instance_types'))
 
             if params['per_sample'] is True:
@@ -722,10 +726,10 @@ def main():
                     )
 
                     # create new dict to store sample outputs
-                    dx_builder.job_outputs[config].setdefault(sample, {})
+                    dx_builder.job_outputs[assay_code].setdefault(sample, {})
 
                     # map analysis id to dx job id for sample
-                    dx_builder.job_outputs[config][sample].update(
+                    dx_builder.job_outputs[assay_code][sample].update(
                         {params['analysis']: job_id}
                     )
 
@@ -755,7 +759,7 @@ def main():
                 )
 
                 # map workflow id to created dx job id
-                dx_builder.job_outputs[config][params['analysis']] = job_id
+                dx_builder.job_outputs[assay_code][params['analysis']] = job_id
 
                 dx_builder.total_jobs += 1
 
