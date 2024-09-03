@@ -481,7 +481,7 @@ def main():
 
     dx_builder.subset_samples()
 
-    if not args.dx_project_id:
+    if args.dx_project_id:
         # output project not specified, create new one from run id
         run_id = args.dx_project_id
     else:
@@ -516,7 +516,7 @@ def main():
     )
 
     all_tickets = jira.get_all_tickets()
-    jira.get_run_ticket_id(args.run_id, all_tickets)
+    jira.get_run_ticket_id(run_id, all_tickets)
 
     # add comment to Jira ticket for run to link to this eggd_conductor job
     jira.add_comment(
@@ -572,8 +572,7 @@ def main():
             demultiplex_config=demultiplex_config,
             demultiplex_output=args.demultiplex_output,
             sentinel_file=args.sentinel_file,
-            run_id=args.run_id,
-            project_id=args.dx_project_id
+            run_id=run_id
         )
 
         for config in dx_builder.config_to_samples:
@@ -706,7 +705,7 @@ def main():
                     dx_builder.build_job_info_per_sample(
                         executable=executable,
                         config=config,
-                        param=params,
+                        params=params,
                         sample=sample,
                         executable_out_dirs=executable_out_dirs
                     )
@@ -737,7 +736,7 @@ def main():
 
             elif params['per_sample'] is False:
                 # run workflow / app on all samples at once
-                dx_builder.build_jobs_per_run(
+                dx_builder.build_jobs_info_per_run(
                     executable=executable,
                     params=params,
                     config=config,
