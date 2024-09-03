@@ -126,13 +126,15 @@ class DXBuilder():
 
                 tmp_data.setdefault(config, {})
                 tmp_data[config]["samples"] = subsetted_samples
+                tmp_data[config]["config_content"] = self.config_to_samples[config]["config_content"]
 
-        self.config_to_samples = tmp_data
-        self.samples = [
-            sample
-            for samples in self.config_to_samples.values()
-            for sample in samples
-        ]
+        if tmp_data:
+            self.config_to_samples = tmp_data
+            self.samples = [
+                sample
+                for samples in self.config_to_samples.values()
+                for sample in samples
+            ]
 
     def get_or_create_dx_project(self, run_id, development, testing) -> str:
         """
@@ -679,10 +681,12 @@ class DXBuilder():
             directory
         """
 
+        assay_code = config.get("assay_code")
+
         self.job_info_per_sample.setdefault(sample, {})
         self.job_info_per_sample[sample].setdefault(executable, {})
 
-        job_outputs_config = self.job_outputs[config]
+        job_outputs_config = self.job_outputs[assay_code]
 
         # select input and output dict from config for current workflow / app
         config_copy = deepcopy(config)
@@ -765,7 +769,7 @@ class DXBuilder():
                     f'({sample}), ignoring and continuing...'
                 ))
 
-        project_info = self.config_to_samples[config]["project"].describe()
+        project_info = self.config_to_samples[assay_code]["project"].describe()
         project_id = project_info.get("id")
         project_name = project_info.get("name")
 
@@ -773,7 +777,7 @@ class DXBuilder():
         # sample_prefix passed to pass to INPUT-SAMPLE_NAME
         input_dict = manage_dict.add_other_inputs(
             input_dict=input_dict,
-            parent_out_dir=self.config_to_samples[config]["parent_out_dir"],
+            parent_out_dir=self.config_to_samples[assay_code]["parent_out_dir"],
             project_id=project_id,
             project_name=project_name,
             executable_out_dirs=executable_out_dirs,
@@ -807,9 +811,9 @@ class DXBuilder():
         # create output directory structure in config
         manage_dict.populate_output_dir_config(
             executable=executable,
-            exe_names=self.config_to_samples[config]["execution_mapping"],
+            exe_names=self.config_to_samples[assay_code]["execution_mapping"],
             output_dict=output_dict,
-            out_folder=self.config_to_samples[config]["parent_out_dir"]
+            out_folder=self.config_to_samples[assay_code]["parent_out_dir"]
         )
 
         # call dx run to start jobs
@@ -843,17 +847,18 @@ class DXBuilder():
             directory
         """
 
-        config_info = self.config_to_samples[config]
+        assay_code = config.get("assay_code")
+        config_info = self.config_to_samples[assay_code]
 
         # select input and output dict from config for current workflow / app
-        input_dict = config['executables'][executable]['inputs']
-        output_dict = config['executables'][executable]['output_dirs']
+        input_dict = config_info['executables'][executable]['inputs']
+        output_dict = config_info['executables'][executable]['output_dirs']
 
         self.job_info_per_run[executable]["extra_args"] = params.get(
             "extra_args", {}
         )
 
-        job_outputs_config = self.job_outputs[config]
+        job_outputs_config = self.job_outputs[assay_code]
 
         if params["process_fastqs"] is True:
             input_dict = manage_dict.add_fastqs(input_dict, self.fastq_details)
@@ -879,7 +884,7 @@ class DXBuilder():
         )
 
         # get any filters from config to apply to job inputs
-        input_filter_dict = config['executables'][executable].get('inputs_filter')
+        input_filter_dict = config_info['executables'][executable].get('inputs_filter')
 
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
