@@ -848,11 +848,15 @@ class DXBuilder():
 
         assay_code = config.get("assay_code")
         config_info = self.config_to_samples[assay_code]
+        self.job_info_per_run.setdefault(executable, {})
 
         # select input and output dict from config for current workflow / app
         input_dict = config['executables'][executable]['inputs']
         output_dict = config['executables'][executable]['output_dirs']
 
+        self.job_info_per_run[executable]["job_name"] = params.get(
+            "executable_name"
+        )
         self.job_info_per_run[executable]["extra_args"] = params.get(
             "extra_args", {}
         )
@@ -897,7 +901,7 @@ class DXBuilder():
         # check input types correctly set in input dict
         input_dict = manage_dict.check_input_classes(
             input_dict=input_dict,
-            input_classes=config["input_class_mapping"][executable]
+            input_classes=config_info["input_class_mapping"][executable]
         )
 
         # find all jobs for previous analyses if next job depends on them
