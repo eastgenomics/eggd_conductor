@@ -743,7 +743,7 @@ def main():
                     executable_out_dirs=executable_out_dirs
                 )
 
-                run_job_info = dx_builder.build_jobs_info_per_run[executable]
+                run_job_info = dx_builder.job_info_per_run[executable]
 
                 job_id = dx_builder.dx_run(
                     executable=executable,
