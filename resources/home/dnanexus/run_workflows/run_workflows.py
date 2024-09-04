@@ -21,7 +21,6 @@ import dxpy as dx
 from packaging.version import parse as parseVersion
 import pandas as pd
 
-from utils.calling_jobs import call_per_sample, call_per_run
 from utils.dx_requests import DXBuilder
 from utils.dx_utils import (
     get_json_configs,
@@ -138,6 +137,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     # matching config with highest version
     for sample in all_samples:
         sample_to_assay_configs = {}
+
         for code in all_config_assay_codes:
             # find all config files that match this sample
             if re.search(code, sample, re.IGNORECASE):
@@ -162,7 +162,9 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
 
     if not testing:
         # check all samples have an assay code in one of the configs
-        samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
+        samples_w_codes = [
+            x for y in list(assay_to_samples.values()) for x in y
+        ]
         samples_without_codes = '\n\t\t'.join([
             f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
         ])
@@ -292,19 +294,19 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         '--assay_config',
-        help='assay specific config file that defines all executables to run'
+        help='Assay specific config file that defines all executables to run'
     )
     parser.add_argument(
         '--sentinel_file',
-        help='sentinel file uploaded by dx-streaming-upload'
+        help='Sentinel file uploaded by dx-streaming-upload'
     )
     parser.add_argument(
         '--samplesheet',
-        help='samplesheet to parse sample IDs from'
+        help='Samplesheet to parse sample IDs from'
     )
     parser.add_argument(
         '--samples',
-        help='command seperated string of sample names to run analysis on'
+        help='Command seperated string of sample names to run analysis on'
     )
     parser.add_argument(
         '--run_info_xml',
@@ -323,7 +325,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--assay_name',
-        help='assay name, used for naming outputs'
+        help='Assay name, used for naming outputs'
     )
     parser.add_argument(
         '--development', '-d', action='store_true',
@@ -332,40 +334,43 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--testing', action='store_true',
         help=(
-            'controls if to terminate and clean up jobs after launching '
+            'Controls if to terminate and clean up jobs after launching '
             'for testing purposes'
         )
     )
     parser.add_argument(
-        '--testing_sample_limit',
-        help='for use when testing only - no. samples to limit running analyses for'
+        '--testing_sample_limit', type=int,
+        help=(
+            'For use when testing only - no.'
+            'Samples to limit running analyses for'
+        )
     )
     parser.add_argument(
         '--demultiplex_job_id',
-        help='id of job from running demultiplexing (if run)'
+        help='ID of job from running demultiplexing (if run)'
     )
     parser.add_argument(
         '--demultiplex_output',
         help=(
-            'dx path to store output from demultiplexing, defaults to parent '
+            'DX path to store output from demultiplexing, defaults to parent '
             'of sentinel file if not specified'
         )
     )
     parser.add_argument(
         '--fastqs',
-        help='comma separated string of fastq file ids for starting analysis'
+        help='Comma separated string of fastq file ids for starting analysis'
     )
     parser.add_argument(
         '--test_samples',
         help=(
-            'for test use only. Pass in file with 1 sample per line '
+            'For test use only. Pass in file with 1 sample per line '
             'specifing file-id of fastq and sample name'
         )
     )
     parser.add_argument(
         '--mismatch_allowance', type=int,
         help=(
-            "no. of samples allowed to not match to any assay code and use "
+            "# of samples allowed to not match to any assay code and use "
             "the assay code of other samples (default: 1, set in dxapp.json)"
         )
     )
@@ -380,7 +385,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--exclude_samples',
         help=(
-            'comma separated string of sample names to exclude from '
+            'Comma separated string of sample names to exclude from '
             'per sample analysis steps'
         )
     )
@@ -430,6 +435,7 @@ def main():
     """
     Main entry point to run all apps and workflows
     """
+
     args = parse_args()
 
     dx_builder = DXBuilder()
@@ -442,7 +448,8 @@ def main():
         # using user defined config file
         config = load_config(args.assay_config)
         sample_list = args.samples.copy()
-        dx_builder.add_sample_data({config: sample_list})
+        dx_builder.configs.append(config)
+        dx_builder.add_sample_data({config.get('assay_code'): sample_list})
     else:
         # get all json assay configs from path in conductor config
         config_data = get_json_configs()
@@ -453,6 +460,8 @@ def main():
             all_samples=args.samples,
             testing=args.testing,
         )
+
+        dx_builder.configs = [config_data[assay] for assay in assay_to_samples]
 
         dx_builder.add_sample_data(assay_to_samples)
 
@@ -465,25 +474,21 @@ def main():
         )
 
     if args.testing_sample_limit:
-        dx_builder.limit_nb_samples(limit_nb=args.testing_sample_limit)
+        dx_builder.limit_samples(limit_nb=args.testing_sample_limit)
 
     if args.exclude_samples:
-        dx_builder.limit_nb_samples(samples_to_exclude=args.exclude_samples)
+        dx_builder.limit_samples(samples_to_exclude=args.exclude_samples)
 
     dx_builder.subset_samples()
 
-    if not args.assay_name:
-        args.assay_name = config.get('assay')
-
-    if not args.dx_project_id:
+    if args.dx_project_id:
+        run_id = dx.DXProject(args.dx_project_id).name
+    else:
         # output project not specified, create new one from run id
-        dx_builder.get_or_create_dx_project()
+        run_id = args.run_id
 
+    dx_builder.get_or_create_dx_project(run_id, args.development, args.testing)
     dx_builder.create_analysis_project_logs()
-
-    # TODO will need to move this to when the jobs will be launched
-    # set context to project for running jobs
-    dx.set_workspace_id(args.dx_project_id)
 
     run_time = time_stamp()
 
@@ -491,7 +496,7 @@ def main():
     dx_builder.set_parent_out_dir(run_time)
 
     # get upload tars from sentinel file
-    dx_builder.get_upload_tars()
+    dx_builder.get_upload_tars(args.sentinel_file)
 
     # sense check per_sample defined for all workflows / apps in config before
     # starting as we want this explicitly defined for everything to ensure
@@ -511,7 +516,7 @@ def main():
     )
 
     all_tickets = jira.get_all_tickets()
-    jira.get_run_ticket_id(args.run_id, all_tickets)
+    jira.get_run_ticket_id(run_id, all_tickets)
 
     # add comment to Jira ticket for run to link to this eggd_conductor job
     jira.add_comment(
@@ -540,16 +545,20 @@ def main():
         dx_builder.fastqs_details = load_test_data(args.test_samples)
 
     elif any([config.get('demultiplex') for config in dx_builder.configs]):
+        demultiplex_app_id = None
+        demultiplex_app_name = None
         # not using previous demultiplex job, fastqs or test sample list and
         # demultiplex set to true in config => run demultiplexing app
         dx_builder.set_config_for_demultiplexing()
 
         # config and app ID for demultiplex is optional in assay config
         demultiplex_config = dx_builder.demultiplex_config.get(
-            "demultiplex_config"
+            "demultiplex_config", None
         )
-        demultiplex_app_id = demultiplex_config.get('app_id', '')
-        demultiplex_app_name = demultiplex_config.get('app_name', '')
+
+        if demultiplex_config:
+            demultiplex_app_id = demultiplex_config.get('app_id', '')
+            demultiplex_app_name = demultiplex_config.get('app_name', '')
 
         if not demultiplex_app_id and not demultiplex_app_name:
             # ID for demultiplex app not in assay config, use default from
@@ -563,8 +572,7 @@ def main():
             demultiplex_config=demultiplex_config,
             demultiplex_output=args.demultiplex_output,
             sentinel_file=args.sentinel_file,
-            run_id=args.run_id,
-            dx_project_id=args.dx_project_id
+            run_id=run_id
         )
 
         for config in dx_builder.config_to_samples:
@@ -574,7 +582,7 @@ def main():
             )
 
         dx_builder.fastqs_details = get_demultiplex_job_details(
-            dx_builder.demultiplexing_job
+            dx_builder.demultiplexing_job.id
         )
 
     elif manage_dict.search(
@@ -599,7 +607,7 @@ def main():
 
     prettier_print('\nExecutable names identified:')
     prettier_print([
-        info["execution_mapping"].keys()
+        list(info["execution_mapping"].keys())
         for config, info in dx_builder.config_to_samples.items()
     ])
 
@@ -608,7 +616,7 @@ def main():
     dx_builder.get_input_classes_per_config()
     prettier_print('\nExecutable input classes found:')
     prettier_print([
-        info["input_class_mapping"].keys()
+        list(info["input_class_mapping"].keys())
         for config, info in dx_builder.config_to_samples.items()
     ])
 
@@ -617,14 +625,18 @@ def main():
     open('all_job_ids.log', 'w').close()
 
     for config in dx_builder.configs:
+        assay_code = config.get("assay_code")
         # storing output folders used for each workflow/app, might be needed to
         # store data together / access specific dirs of data
         executable_out_dirs = {}
 
-        dx_builder.job_outputs[config] = {}
+        dx_builder.job_outputs[assay_code] = {}
 
-        config_info = dx_builder.config_to_samples[config]
+        config_info = dx_builder.config_to_samples[assay_code]
         project_id = config_info["project"].describe().get("id")
+
+        # set context to project for running jobs
+        dx.set_workspace_id(project_id)
 
         for executable, params in config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
@@ -657,7 +669,7 @@ def main():
                 # dict to add all stage output names and job ids for every
                 # sample to used to pass correct job ids to subsequent
                 # workflow / app calls
-                dx_builder.job_outputs[config][params["analysis"]] = previous_job
+                dx_builder.job_outputs[assay_code][params["analysis"]] = previous_job
 
                 continue
 
@@ -673,7 +685,7 @@ def main():
 
             # get instance types to use for executable from config for flowcell
             instance_types = select_instance_types(
-                run_id=dx_builder.args.get("run_id"),
+                run_id=run_id,
                 instance_types=params.get('instance_types'))
 
             if params['per_sample'] is True:
@@ -693,14 +705,14 @@ def main():
                     dx_builder.build_job_info_per_sample(
                         executable=executable,
                         config=config,
-                        param=params,
+                        params=params,
                         sample=sample,
                         executable_out_dirs=executable_out_dirs
                     )
 
                     job_info = dx_builder.job_info_per_sample[sample][executable]
 
-                    dx_builder.dx_run(
+                    job_id = dx_builder.dx_run(
                         executable=executable,
                         job_name=job_info["job_name"],
                         input_dict=job_info["inputs"],
@@ -712,20 +724,28 @@ def main():
                         testing=args.testing
                     )
 
+                    # create new dict to store sample outputs
+                    dx_builder.job_outputs[assay_code].setdefault(sample, {})
+
+                    # map analysis id to dx job id for sample
+                    dx_builder.job_outputs[assay_code][sample].update(
+                        {params['analysis']: job_id}
+                    )
+
                     dx_builder.total_jobs += 1
 
             elif params['per_sample'] is False:
                 # run workflow / app on all samples at once
-                dx_builder.build_jobs_per_run(
+                dx_builder.build_jobs_info_per_run(
                     executable=executable,
                     params=params,
                     config=config,
                     executable_out_dirs=executable_out_dirs
                 )
 
-                run_job_info = dx_builder.build_jobs_info_per_run[executable]
+                run_job_info = dx_builder.job_info_per_run[executable]
 
-                dx_builder.dx_run(
+                job_id = dx_builder.dx_run(
                     executable=executable,
                     job_name=run_job_info["job_name"],
                     input_dict=run_job_info["inputs"],
@@ -736,6 +756,9 @@ def main():
                     project_id=project_id,
                     testing=args.testing
                 )
+
+                # map workflow id to created dx job id
+                dx_builder.job_outputs[assay_code][params['analysis']] = job_id
 
                 dx_builder.total_jobs += 1
 
@@ -770,13 +793,11 @@ def main():
 
                 conductor_job.remove_tags(hold_tag)
 
-        # TODO add comment per analysis project
         # add comment to Jira ticket for run to link to analysis project
-        Jira().add_comment(
-            run_id=dx_builder.args.get("run_id"),
+        jira.add_comment(
             comment=(
                 "All jobs successfully launched by eggd_conductor. "
-                "\nAnalysis project: "
+                "\nAnalysis project(s): "
             ),
             url=(
                 "http://platform.dnanexus.com/panx/projects/"

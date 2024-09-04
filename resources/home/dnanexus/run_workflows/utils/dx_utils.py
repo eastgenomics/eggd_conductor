@@ -2,7 +2,7 @@
 Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
-from collections import defaultdict
+
 import json
 import os
 import re
@@ -11,8 +11,8 @@ from typing import Tuple
 import dxpy as dx
 from packaging.version import Version, parse
 
-from utils import prettier_print
-from request_objects import Slack
+from utils.utils import prettier_print
+from utils.request_objects import Slack
 
 
 def get_json_configs() -> dict:

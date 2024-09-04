@@ -13,7 +13,8 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.utils import Slack, prettier_print
+from utils.utils import prettier_print
+from utils.request_objects import Slack
 
 
 def search(identifier, input_dict, check_key, return_key) -> list:

@@ -12,7 +12,7 @@ _set_environment () {
     Sets tokens to env variables from eggd_conductor config for later
     use
     '''
-    dx download -f "$EGGD_CONDUCTOR_CONFIG" -o conductor.cfg
+    dx download -f "$eggd_conductor_config" -o conductor.cfg
 
     # save original env variables to use later
     export PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
@@ -105,15 +105,15 @@ _parse_sentinel_file () {
     sentinel_project=$(jq -r '.project' <<< "$sentinel_details")
     sentinel_path=$(jq -r '.details.dnanexus_path' <<< "$sentinel_details")
     sentinel_samplesheet=$(jq -r '.details.samplesheet_file_id' <<< "$sentinel_details")
-    if [ -z "$RUN_ID" ]; then
-        export RUN_ID=$(jq -r '.details.run_id' <<< "$sentinel_details")
+    if [ -z "$run_id" ]; then
+        export run_id=$(jq -r '.details.run_id' <<< "$sentinel_details")
     fi
 
     tags=$(jq -r '.tags | .[]' <<< "$sentinel_details")
     if [[ "$tags" =~ "suppress-automation" ]]; then
         # sentinel file has been tagged to not run automated analysis
         # send Slack alert and exit without error
-        local message=":warning: eggd_conductor: Sentinel file for run *${RUN_ID}* "
+        local message=":warning: eggd_conductor: Sentinel file for run *${run_id}* "
         message+="tagged with \`suppress-automation\` and will not be processed.%0A%0A"
         message+="To run analysis, remove the tag and relaunch this job:%0A"
         message+=":black_medium_small_square: \`dx untag ${sentinel_project}:${sentinel_id} 'suppress-automation'\`%0A"
@@ -131,10 +131,10 @@ _parse_sentinel_file () {
     # set file ID of sentinel record to env to pick up in run_workflows.py
     export upload_sentinel_record_ID="$sentinel_id"
 
-    if [ "$SAMPLESHEET" ]; then
+    if [ "$samplesheet" ]; then
         # samplesheet specified as input arg
         echo "Using samplesheet specified as input"
-        dx download -f "$SAMPLESHEET" -o SampleSheet.csv
+        dx download -f "$samplesheet" -o SampleSheet.csv
     elif [ "$sentinel_samplesheet" != 'null' ]; then
         # samplesheet found during upload and associated to sentinel file
         echo "Using samplesheet associated with sentinel record"
@@ -158,7 +158,7 @@ _parse_sentinel_file () {
         if [ -z "$local_samplesheet" ]; then
             # sample sheet missing from root and first tar
             message=":warning: *Error - eggd_conductor*%0A%0A"
-            message+="No samplesheet could be found for run *${RUN_ID}* from the app input, "
+            message+="No samplesheet could be found for run *${run_id}* from the app input, "
             message+="associated to the sentinel record or in the run data. Please rerun this "
             message+="job and provide a samplesheet with \`-iSAMPLESHEET\`.%0A%0A"
             message+="eggd_conductor job: ${conductor_job_url}"
@@ -167,14 +167,14 @@ _parse_sentinel_file () {
         else
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
-            SAMPLESHEET=$(dx upload "$SAMPLESHEET" --path "$sentinel_path" --brief)
+            SAMPLESHEET=$(dx upload "$samplesheet" --path "$sentinel_path" --brief)
             dx tag $SAMPLESHEET "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
 
             # move samplesheet to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
         fi
     fi
-    export SAMPLESHEET_ID=$SAMPLESHEET  # SAMPLESHEET_ID picked up to parse as INPUT-SAMPLESHEET
+    export SAMPLESHEET_ID=$samplesheet  # SAMPLESHEET_ID picked up to parse as INPUT-SAMPLESHEET
 }
 
 _parse_fastqs () {
@@ -187,7 +187,7 @@ _parse_fastqs () {
     '''
     FASTQ_IDS=""
 
-    for fq in "${FASTQS[@]}"; do
+    for fq in "${fastqs[@]}"; do
         if [[ $fq =~ file-[A-Za-z0-9]* ]]
         then
             local file_id="${BASH_REMATCH[0]}"
@@ -247,15 +247,15 @@ main () {
         _exit "No sentinel file or list of fastqs provided."
     fi
 
-    if [ "$SAMPLESHEET" ]; then
+    if [ "$samplesheet" ]; then
         # user specified samplesheet to use
-        dx download -f "$SAMPLESHEET" -o SampleSheet.csv
-        export SAMPLESHEET_ID=$SAMPLESHEET
+        dx download -f "$samplesheet" -o SampleSheet.csv
+        export SAMPLESHEET_ID=$samplesheet
     fi
 
-    if [ "$RUN_INFO_XML" ]; then
+    if [ "$run_info_xml" ]; then
         # user specified RunInfo.xml specified to use
-        dx download -f "$RUN_INFO_XML" -o RunInfo.xml
+        dx download -f "$run_info_xml" -o RunInfo.xml
     fi
 
     if [[ "$upload_sentinel_record" ]]; then
@@ -272,7 +272,7 @@ main () {
     user=$(dx describe --json "$PARENT_JOB_ID" | jq -r '.launchedBy' | sed 's/user-//')
 
     # send a message to logs so we know something is starting
-    message=":gear: eggd_conductor: Automated analysis beginning to process *${RUN_ID}*%0A"
+    message=":gear: eggd_conductor: Automated analysis beginning to process *${run_id}*%0A"
     message+="Launched by: ${user}%0A"
     message+="${conductor_job_url}"
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
@@ -281,16 +281,16 @@ main () {
     mark-section "Building input arguments"
 
     optional_args=""
-    if [ "$ASSAY_CONFIG" ]; then
+    if [ "$assay_config" ]; then
         # assay config specified, download and use it
-        dx download "$ASSAY_CONFIG" -o assay_config.json
+        dx download "$assay_config" -o assay_config.json
         optional_args+="--assay_config assay_config.json "
 
         # add file ID of config as output field to easily audit what configs used for analyses
-        ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$ASSAY_CONFIG")
+        ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$assay_config")
         dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=string
     fi
-    if [[ "$CREATE_PROJECT" == 'false' && -z "$DX_PROJECT" ]]; then
+    if [[ "$create_project" == 'false' && -z "$dx_project" ]]; then
         # default behaviour to not create analysis project and use same as
         # app is running in, set DX_PROJECT input to be same as current project
         # if one has not been specified
@@ -299,18 +299,18 @@ main () {
     if [ "$upload_sentinel_record" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
     if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
-    if [ "$FASTQS" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
-    if [ "$SAMPLE_NAMES" ]; then optional_args+="--samples ${SAMPLE_NAMES} "; fi
-    if [ "$DX_PROJECT" ]; then optional_args+="--dx_project_id $DX_PROJECT "; fi
-    if [ "$RUN_ID" ]; then optional_args+="--run_id $RUN_ID "; fi
-    if [ "$DEMULTIPLEX_JOB_ID" ]; then optional_args+="--demultiplex_job_id $DEMULTIPLEX_JOB_ID "; fi
-    if [ "$DEMULTIPLEX_OUT" ]; then optional_args+="--demultiplex_output ${DEMULTIPLEX_OUT} "; fi
-    if [ "$DEVELOPMENT" == 'true' ]; then optional_args+="--development "; fi
-    if [ "$TESTING" == 'true' ]; then optional_args+="--testing "; fi
-    if [ "$TESTING_SAMPLE_LIMIT" ]; then optional_args+="--testing_sample_limit ${TESTING_SAMPLE_LIMIT} "; fi
-    if [ "$MISMATCH_ALLOWANCE" ]; then optional_args+="--mismatch_allowance ${MISMATCH_ALLOWANCE} "; fi
-    if [ "$JOB_REUSE" ]; then optional_args+="--job_reuse ${JOB_REUSE/ /} "; fi
-    if [ "$EXCLUDE_SAMPLES" ]; then optional_args+="--exclude_samples ${EXCLUDE_SAMPLES} "; fi
+    if [ "$fastqs" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
+    if [ "$sample_names" ]; then optional_args+="--samples ${sample_names} "; fi
+    if [ "$dx_project" ]; then optional_args+="--dx_project_id $dx_project "; fi
+    if [ "$run_id" ]; then optional_args+="--run_id $run_id "; fi
+    if [ "$demultiplex_job_id" ]; then optional_args+="--demultiplex_job_id $demultiplex_job_id "; fi
+    if [ "$demultiplex_out" ]; then optional_args+="--demultiplex_output ${demultiplex_out} "; fi
+    if [ "$development" == 'true' ]; then optional_args+="--development "; fi
+    if [ "$testing" == 'true' ]; then optional_args+="--testing "; fi
+    if [ "$testing_sample_limit" ]; then optional_args+="--testing_sample_limit ${testing_sample_limit} "; fi
+    if [ "$mismatch_allowance" ]; then optional_args+="--mismatch_allowance ${mismatch_allowance} "; fi
+    if [ "$job_reuse" ]; then optional_args+="--job_reuse ${job_reuse/ /} "; fi
+    if [ "$exclude_samples" ]; then optional_args+="--exclude_samples ${exclude_samples} "; fi
 
     echo $optional_args
 
@@ -362,7 +362,7 @@ main () {
         exit 1
     }
 
-    if [ "$TESTING" == true ]; then
+    if [ "$testing" == true ]; then
         _testing_clean_up
     fi
 
@@ -374,7 +374,7 @@ main () {
     analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
 
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
-    message+="*${RUN_ID}*%0AConfig used: *${assay}* (v${version})%0A"
+    message+="*${run_id}*%0AConfig used: *${assay}* (v${version})%0A"
     message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"

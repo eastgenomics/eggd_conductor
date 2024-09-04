@@ -15,18 +15,18 @@ import dxpy as dx
 from utils.dx_utils import find_dx_project, get_job_output_details
 from utils import manage_dict
 from utils.utils import (
-    Slack,
     prettier_print,
     select_instance_types,
     time_stamp
 )
+from utils.request_objects import Slack
 
 
 class DXBuilder():
     def __init__(self):
         self.configs = []
         self.samples = []
-        self.config_to_samples = None
+        self.config_to_samples = {}
         self.project_files = []
         self.total_jobs = 0
         self.fastqs_details = []
@@ -37,7 +37,7 @@ class DXBuilder():
 
     def get_assays(self):
         return sorted(
-            [config.get('assay_code') for config in self.configs.values()]
+            [config.get("assay_code") for config in self.configs]
         )
 
     def add_sample_data(self, config_to_samples):
@@ -49,10 +49,14 @@ class DXBuilder():
         """
 
         for config, samples in config_to_samples.items():
-            self.configs.append(config)
             self.samples.extend(samples)
             self.config_to_samples.setdefault(config, {})
-            self.config_to_samples["samples"] = samples
+            self.config_to_samples[config]["samples"] = samples
+            self.config_to_samples[config]["config_content"] = [
+                config_dict
+                for config_dict in self.configs
+                if config_dict.get("assay_code") == config
+            ][0]
 
     def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
         """ Limit samples using a number or specific names
@@ -70,15 +74,19 @@ class DXBuilder():
             self.samples = random.sample(self.samples, limit_nb)
 
         tmp_data = {}
+        new_set_of_configs = []
 
         # limit samples in the config_to_samples dict
         for config, data in self.config_to_samples.items():
+
             for sample in data["samples"]:
                 # limit samples to put in the config_to_samples variable using
                 # the limiting number and the samples to exclude
                 if sample in self.samples and sample not in samples_to_exclude:
                     tmp_data.setdefault(config, {})
                     tmp_data[config].setdefault("samples", []).append(sample)
+                    tmp_data[config]["config_content"] = self.config_to_samples[config]["config_content"]
+                    new_set_of_configs.append(self.config_to_samples[config]["config_content"])
 
         self.config_to_samples = tmp_data
         self.samples = [
@@ -86,6 +94,7 @@ class DXBuilder():
             for samples in self.config_to_samples.values()
             for sample in samples
         ]
+        self.configs = new_set_of_configs
 
     def subset_samples(self):
         """ Subset samples using the config information
@@ -97,7 +106,8 @@ class DXBuilder():
         tmp_data = {}
 
         for config, samples in self.config_to_samples.items():
-            subset = config.get("subset_samplesheet", None)
+            config_content = self.config_to_samples[config]["config_content"]
+            subset = config_content.get("subset_samplesheet", None)
 
             if subset:
                 # check that a valid pattern has been provided
@@ -116,13 +126,15 @@ class DXBuilder():
 
                 tmp_data.setdefault(config, {})
                 tmp_data[config]["samples"] = subsetted_samples
+                tmp_data[config]["config_content"] = self.config_to_samples[config]["config_content"]
 
-        self.config_to_samples = tmp_data
-        self.samples = [
-            sample
-            for samples in self.config_to_samples.values()
-            for sample in samples
-        ]
+        if tmp_data:
+            self.config_to_samples = tmp_data
+            self.samples = [
+                sample
+                for samples in self.config_to_samples.values()
+                for sample in samples
+            ]
 
     def get_or_create_dx_project(self, run_id, development, testing) -> str:
         """
@@ -145,8 +157,9 @@ class DXBuilder():
             suffix = '-EGGD_CONDUCTOR_TESTING'
 
         for config in self.config_to_samples:
-            assay = config.get("assay")
-            version = config.get("version")
+            config_content = self.config_to_samples[config]["config_content"]
+            assay = config_content.get("assay")
+            version = config_content.get("version")
             output_project = f'{prefix}{run_id}_{assay}{suffix}'
 
             project_id = find_dx_project(output_project)
@@ -177,7 +190,7 @@ class DXBuilder():
             # link project id to config and samples
             self.config_to_samples[config]["project"] = dx.bindings.dxproject.DXProject(dxid=project_id)
 
-            users = config.get('users')
+            users = config_content.get('users')
 
             if users:
                 # users specified in config to grant access to project
@@ -190,22 +203,17 @@ class DXBuilder():
                     )
 
     def create_analysis_project_logs(self):
-        """ Create an analysis project log per config file contained in the
-        DXBuilder object """
+        """ Create an analysis project log with info per config file contained
+        in the DXBuilder object """
 
-        for config, data in self.config_to_samples.items():
-            log_file_name = (
-                f"{data['project'].describe()['name']}.log"
-            )
-            # write analysis project to file to pick up at end to send Slack message
-            with open(log_file_name, 'w') as fh:
-                fh.write(
+        with open("analysis_project.log", "w") as f:
+            for config, data in self.config_to_samples.items():
+                config_content = self.config_to_samples[config]["config_content"]
+                f.write(
                     f"{data['project'].describe()['id']} "
-                    f"{config.get('assay_code')} "
-                    f"{config.get('version')}\n"
+                    f"{config_content.get('assay_code')} "
+                    f"{config_content.get('version')}\n"
                 )
-
-        # TODO handle the bash part to send the slack message
 
     def get_upload_tars(self, sentinel_file) -> list:
         """
@@ -245,9 +253,10 @@ class DXBuilder():
         """
 
         for config in self.config_to_samples:
+            config_content = self.config_to_samples[config]["config_content"]
             parent_out_dir = (
                 f"{os.environ.get('DESTINATION', '')}/output/"
-                f"{config.get('assay')}-{run_time}"
+                f"{config_content.get('assay')}-{run_time}"
             )
             self.config_to_samples[config]["parent_out_dir"] = parent_out_dir.replace('//', '/')
 
@@ -351,7 +360,7 @@ class DXBuilder():
                         app_name = app_name.replace('app-', '')
                     execution_mapping[exe] = {'name': app_name}
 
-            self.config_to_samples[config]["execution_mapping"] = execution_mapping
+            self.config_to_samples[config.get("assay_code")]["execution_mapping"] = execution_mapping
 
     def get_input_classes_per_config(self) -> dict:
         """
@@ -412,7 +421,7 @@ class DXBuilder():
                     input_class_mapping[exe][input_spec['name']]['class'] = input_spec['class']
                     input_class_mapping[exe][input_spec['name']]['optional'] = input_spec.get('optional', False)
 
-            self.config_to_samples[config]["input_class_mapping"] = input_class_mapping
+            self.config_to_samples[config.get("assay_code")]["input_class_mapping"] = input_class_mapping
 
     def demultiplex(
         self,
@@ -422,8 +431,7 @@ class DXBuilder():
         demultiplex_config,
         demultiplex_output,
         sentinel_file,
-        run_id,
-        project_id
+        run_id
     ) -> str:
         """
         Run demultiplexing app, holds until app completes.
@@ -462,7 +470,7 @@ class DXBuilder():
                 # running in testing and going to demultiplex -> dump output to
                 # our testing analysis project to not go to sentinel file dir
                 demultiplex_output = (
-                    f'{project_id}:/demultiplex_{time_stamp()}'
+                    f'{run_id}:/demultiplex_{time_stamp()}'
                 )
 
         (
@@ -476,7 +484,12 @@ class DXBuilder():
         prettier_print(f'demultiplex project: {self.demultiplex_project}')
         prettier_print(f'demultiplex folder: {self.demultiplex_folder}')
 
-        instance_type = demultiplex_config.get("instance_type", None)
+        instance_type = None
+        additional_args = None
+
+        if demultiplex_config:
+            instance_type = demultiplex_config.get("instance_type", None)
+            additional_args = demultiplex_config.get("additional_args", "")
 
         if isinstance(instance_type, dict):
             # instance type defined in config is a mapping for multiple
@@ -489,8 +502,6 @@ class DXBuilder():
         prettier_print(
             f"Instance type selected for demultiplexing: {instance_type}"
         )
-
-        additional_args = demultiplex_config.get("additional_args", "")
 
         inputs = {
             'upload_sentinel_record': {
@@ -560,7 +571,7 @@ class DXBuilder():
                 f'Provided demultiplex app ID does not appear valid: {app_id}')
 
         self.demultiplexing_job = job
-        job_id = job.describe().get('id')
+        job_id = job.id
 
         # tag demultiplexing job so we easily know it was launched by conductor
         job.add_tags(tags=[
@@ -663,17 +674,19 @@ class DXBuilder():
             directory
         """
 
+        assay_code = config.get("assay_code")
+
         self.job_info_per_sample.setdefault(sample, {})
         self.job_info_per_sample[sample].setdefault(executable, {})
 
-        job_outputs_config = self.job_outputs[config]
+        job_outputs_config = self.job_outputs[assay_code]
 
         # select input and output dict from config for current workflow / app
         config_copy = deepcopy(config)
         input_dict = config_copy['executables'][executable]['inputs']
         output_dict = config_copy['executables'][executable]['output_dirs']
 
-        self.job_info_per_sample[sample][executable]["extra_args"] = param.get(
+        self.job_info_per_sample[sample][executable]["extra_args"] = params.get(
             "extra_args", {}
         )
 
@@ -719,7 +732,7 @@ class DXBuilder():
         if params["process_fastqs"] is True:
             input_dict = manage_dict.add_fastqs(
                 input_dict=input_dict,
-                fastq_details=self.fastq_details,
+                fastq_details=self.fastqs_details,
                 sample=sample
             )
 
@@ -749,7 +762,7 @@ class DXBuilder():
                     f'({sample}), ignoring and continuing...'
                 ))
 
-        project_info = self.config_to_samples[config]["project"].describe()
+        project_info = self.config_to_samples[assay_code]["project"].describe()
         project_id = project_info.get("id")
         project_name = project_info.get("name")
 
@@ -757,7 +770,7 @@ class DXBuilder():
         # sample_prefix passed to pass to INPUT-SAMPLE_NAME
         input_dict = manage_dict.add_other_inputs(
             input_dict=input_dict,
-            parent_out_dir=self.config_to_samples[config]["parent_out_dir"],
+            parent_out_dir=self.config_to_samples[assay_code]["parent_out_dir"],
             project_id=project_id,
             project_name=project_name,
             executable_out_dirs=executable_out_dirs,
@@ -777,7 +790,7 @@ class DXBuilder():
         # check input types correctly set in input dict
         input_dict = manage_dict.check_input_classes(
             input_dict=input_dict,
-            input_classes=self.config_to_samples[config]["input_class_mapping"][executable]
+            input_classes=self.config_to_samples[assay_code]["input_class_mapping"][executable]
         )
 
         # check that all INPUT- have been parsed in config
@@ -791,9 +804,9 @@ class DXBuilder():
         # create output directory structure in config
         manage_dict.populate_output_dir_config(
             executable=executable,
-            exe_names=self.config_to_samples[config]["execution_mapping"],
+            exe_names=self.config_to_samples[assay_code]["execution_mapping"],
             output_dict=output_dict,
-            out_folder=self.config_to_samples[config]["parent_out_dir"]
+            out_folder=self.config_to_samples[assay_code]["parent_out_dir"]
         )
 
         # call dx run to start jobs
@@ -827,20 +840,25 @@ class DXBuilder():
             directory
         """
 
-        config_info = self.config_to_samples[config]
+        assay_code = config.get("assay_code")
+        config_info = self.config_to_samples[assay_code]
+        self.job_info_per_run.setdefault(executable, {})
 
         # select input and output dict from config for current workflow / app
         input_dict = config['executables'][executable]['inputs']
         output_dict = config['executables'][executable]['output_dirs']
 
+        self.job_info_per_run[executable]["job_name"] = params.get(
+            "executable_name"
+        )
         self.job_info_per_run[executable]["extra_args"] = params.get(
             "extra_args", {}
         )
 
-        job_outputs_config = self.job_outputs[config]
+        job_outputs_config = self.job_outputs[assay_code]
 
         if params["process_fastqs"] is True:
-            input_dict = manage_dict.add_fastqs(input_dict, self.fastq_details)
+            input_dict = manage_dict.add_fastqs(input_dict, self.fastqs_details)
 
         # add upload tars as input if INPUT-UPLOAD_TARS present
         if self.upload_tars:
@@ -901,10 +919,6 @@ class DXBuilder():
             output_dict=output_dict,
             out_folder=config_info["parent_out_dir"]
         )
-
-        # TODO move in correct location
-        # map workflow id to created dx job id
-        # job_outputs_dict[params['analysis']] = job_id
 
         self.job_info_per_run[executable]["inputs"] = input_dict
         self.job_info_per_run[executable]["outputs"] = output_dict
