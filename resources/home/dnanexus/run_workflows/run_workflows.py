@@ -482,9 +482,9 @@ def main():
     dx_builder.subset_samples()
 
     if args.dx_project_id:
-        # output project not specified, create new one from run id
-        run_id = args.dx_project_id
+        run_id = dx.DXProject(args.dx_project_id).name
     else:
+        # output project not specified, create new one from run id
         run_id = args.run_id
 
     dx_builder.get_or_create_dx_project(run_id, args.development, args.testing)
