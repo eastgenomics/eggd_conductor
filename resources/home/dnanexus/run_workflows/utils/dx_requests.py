@@ -203,23 +203,17 @@ class DXBuilder():
                     )
 
     def create_analysis_project_logs(self):
-        """ Create an analysis project log per config file contained in the
-        DXBuilder object """
+        """ Create an analysis project log with info per config file contained
+        in the DXBuilder object """
 
-        for config, data in self.config_to_samples.items():
-            config_content = self.config_to_samples[config]["config_content"]
-            log_file_name = (
-                f"{data['project'].describe()['name']}.log"
-            )
-            # write analysis project to file to pick up at end to send Slack message
-            with open(log_file_name, 'w') as fh:
-                fh.write(
+        with open("analysis_project.log", "w") as f:
+            for config, data in self.config_to_samples.items():
+                config_content = self.config_to_samples[config]["config_content"]
+                f.write(
                     f"{data['project'].describe()['id']} "
                     f"{config_content.get('assay_code')} "
                     f"{config_content.get('version')}\n"
                 )
-
-        # TODO handle the bash part to send the slack message
 
     def get_upload_tars(self, sentinel_file) -> list:
         """
