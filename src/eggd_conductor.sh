@@ -344,11 +344,14 @@ main () {
         message+="exception occurred!%0A%0Aeggd_conductor job: "
         message+="platform.dnanexus.com/projects/${PROJECT_ID/project-/}"
         message+="/monitor/job/${PARENT_JOB_ID/job-/}"
+
         if [ -s analysis_project.log ]; then
             # analysis project was created, add to alert
-            read -r project_id _ _ < analysis_project.log
-            message+="%0AAnalysis project: "
-            message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+            message+="%0AAnalysis project(s): "
+
+            while read -r project_id _ _; do
+                message+="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+            done < analysis_project.log
         fi
 
         # parse out the Python traceback to add to the message
@@ -366,16 +369,16 @@ main () {
         _testing_clean_up
     fi
 
-    read -r project_id assay version < analysis_project.log
     total_jobs=$(cat total_jobs.log)
 
-    project_name=$(dx describe --json $project_id | jq -r '.name')
-
-    analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
-
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
-    message+="*${run_id}*%0AConfig used: *${assay}* (v${version})%0A"
-    message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
+
+    while read -r project_id assay version; do
+        project_name=$(dx describe --json $project_id | jq -r '.name')
+        analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
+        message+="*${run_id}*%0AConfig used: *${assay}* (v${version})%0A"
+        message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
+    done < analysis_project.log
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
