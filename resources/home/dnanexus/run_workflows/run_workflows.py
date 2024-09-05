@@ -578,7 +578,7 @@ def main():
         for config in dx_builder.config_to_samples:
             per_config_info = dx_builder.config_to_samples[config]
             dx_builder.move_demultiplex_qc_files(
-                per_config_info["project"]
+                per_config_info["project"].id
             )
 
         dx_builder.fastqs_details = get_demultiplex_job_details(
