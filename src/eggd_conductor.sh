@@ -281,14 +281,23 @@ main () {
     mark-section "Building input arguments"
 
     optional_args=""
-    if [ "$assay_config" ]; then
-        # assay config specified, download and use it
-        dx download "$assay_config" -o assay_config.json
-        optional_args+="--assay_config assay_config.json "
 
-        # add file ID of config as output field to easily audit what configs used for analyses
-        ASSAY_CONFIG_ID=$(grep -oE 'file-[A-Za-z0-9]+' <<< "$assay_config")
-        dx-jobutil-add-output assay_config_file_id "$ASSAY_CONFIG_ID" --class=string
+    if [ "$assay_config" ]; then
+        optional_args+="--assay_config "
+        assay_config_ids=""
+        enumeration=1
+
+        for config in "${assay_config[@]}"; do
+            # assay config specified, download and use it
+            dx download "$config" -o assay_config{enumeration}.json
+            optional_args+="assay_config${enumeration}.json "
+
+            # add file IDs of config as output field to easily audit what configs used for analyses
+            assay_config_ids+="$(grep -oE 'file-[A-Za-z0-9]+' <<< 'assay_config${enumeration}.json') "
+            enumeration=$((1+$enumeration))
+        done
+
+        dx-jobutil-add-output assay_config_file_ids "$assay_config_ids" --class=string
     fi
     if [[ "$create_project" == 'false' && -z "$dx_project" ]]; then
         # default behaviour to not create analysis project and use same as

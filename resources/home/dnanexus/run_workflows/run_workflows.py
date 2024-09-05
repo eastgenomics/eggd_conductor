@@ -293,7 +293,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--assay_config',
+        '--assay_config', nargs="+",
         help='Assay specific config file that defines all executables to run'
     )
     parser.add_argument(
@@ -445,11 +445,18 @@ def main():
         open('testing_job_id.log', 'w').close()
 
     if args.assay_config:
-        # using user defined config file
-        config = load_config(args.assay_config)
         sample_list = args.samples.copy()
-        dx_builder.configs.append(config)
-        dx_builder.add_sample_data({config.get('assay_code'): sample_list})
+
+        for config in args.assay_config:
+            # using user defined config file
+            config_data = load_config(config)
+            assay_to_samples = match_samples_to_assays(
+                configs={config_data.get("assay_code"): config_data},
+                all_samples=sample_list,
+                testing=args.testing,
+            )
+            dx_builder.configs.append(config_data)
+            dx_builder.add_sample_data(assay_to_samples)
     else:
         # get all json assay configs from path in conductor config
         config_data = get_json_configs()
@@ -468,7 +475,7 @@ def main():
         # add the file ID of assay config file used as job output, this
         # is to make it easier to audit what configs were used for analysis
         subprocess.run(
-            "dx-jobutil-add-output assay_config_file_id "
+            "dx-jobutil-add-output assay_config_file_ids "
             f"{'|'.join(dx_builder.get_assays())} --class=string",
             shell=True, check=False
         )
