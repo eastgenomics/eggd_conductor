@@ -242,7 +242,7 @@ main () {
     conductor_job_url+="/monitor/job/${PARENT_JOB_ID/job-/}"
     export conductor_job_url
 
-    if [ -z "${upload_sentinel_record+x}" ] && [ -z "${FASTQS+x}" ]; then
+    if [ -z "${upload_sentinel_record+x}" ] && [ -z "${fastqs+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
     fi
