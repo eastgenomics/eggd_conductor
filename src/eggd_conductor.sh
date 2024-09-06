@@ -15,7 +15,7 @@ _set_environment () {
     dx download -f "$eggd_conductor_config" -o conductor.cfg
 
     # save original env variables to use later
-    export PROJECT_NAME=$(dx describe --json $DX_PROJECT_CONTEXT_ID | jq -r '.name')
+    export PROJECT_NAME=$(dx describe --json "$DX_PROJECT_CONTEXT_ID" | jq -r '.name')
     export PROJECT_ID=$DX_PROJECT_CONTEXT_ID
     export PARENT_JOB_ID=$DX_JOB_ID
 
@@ -25,7 +25,7 @@ _set_environment () {
 
     # clear all set env variables to allow logging in and access to other projects
     unset DX_WORKSPACE_ID
-    dx cd $DX_PROJECT_CONTEXT_ID:
+    dx cd "$DX_PROJECT_CONTEXT_ID:"
 
     source /home/dnanexus/.dnanexus_config/unsetenv
     dx clearenv
@@ -62,7 +62,7 @@ _exit () {
     '''
     local message=$1
 
-    printf "$message"
+    printf '%s' "$message"
     printf "Exiting now."
     exit 1
 }
@@ -168,7 +168,7 @@ _parse_sentinel_file () {
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
             SAMPLESHEET=$(dx upload "$samplesheet" --path "$sentinel_path" --brief)
-            dx tag $SAMPLESHEET "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
+            dx tag "$SAMPLESHEET" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
 
             # move samplesheet to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
@@ -202,7 +202,7 @@ _parse_fastqs () {
     # trim trailing comma
     FASTQ_IDS="${FASTQ_IDS::-1}"
 
-    printf "\nFound fastq file ids: %s \n" "$FASTQS"
+    printf "\nFound fastq file ids: %s \n" "$FASTQ_IDS"
 }
 
 _testing_clean_up () {
@@ -214,7 +214,7 @@ _testing_clean_up () {
     '''
     job_ids=$(cat testing_job_id.log)
 
-    dx terminate $job_ids
+    dx terminate "$job_ids"
 
     for job in $job_ids; do
         # find any output files and delete
@@ -223,7 +223,7 @@ _testing_clean_up () {
             # some output present, gather all and delete
             all_outputs=$(dx describe --json "$job" | jq -r '.output | flatten | .[] | .["$dnanexus_link"] | select( . !=null )')
             if [ -z "$all_outputs" ]; then
-                xargs -P8 -n1 <<< $all_outputs dx rm
+                xargs -P8 -n1 <<< "$all_outputs" dx rm
             fi
         fi
     done
@@ -289,12 +289,11 @@ main () {
 
         for config in "${assay_config[@]}"; do
             # assay config specified, download and use it
-            dx download "$config" -o assay_config{enumeration}.json
+            dx download "$config" -o "assay_config${enumeration}.json"
             optional_args+="assay_config${enumeration}.json "
-
             # add file IDs of config as output field to easily audit what configs used for analyses
-            assay_config_ids+="$(grep -oE 'file-[A-Za-z0-9]+' <<< 'assay_config${enumeration}.json') "
-            enumeration=$((1+$enumeration))
+            assay_config_ids+="$(grep -oE 'file-[A-Za-z0-9]+' <<< "$config") "
+            enumeration=$((1+enumeration))
         done
 
         dx-jobutil-add-output assay_config_file_ids "$assay_config_ids" --class=string
@@ -321,12 +320,12 @@ main () {
     if [ "$job_reuse" ]; then optional_args+="--job_reuse ${job_reuse/ /} "; fi
     if [ "$exclude_samples" ]; then optional_args+="--exclude_samples ${exclude_samples} "; fi
 
-    echo $optional_args
+    echo "$optional_args"
 
     mark-section "starting analyses"
 
     {
-        python3 run_workflows/run_workflows.py $optional_args
+        python3 run_workflows/run_workflows.py "$optional_args"
     } || {
         # failed to launch all jobs -> handle clean up and sending error notification
 
@@ -339,7 +338,7 @@ main () {
             # non empty log => jobs to terminate
             echo "Terminating jobs"
             jobs=$(cat job_id.log)
-            dx terminate $jobs
+            dx terminate "$jobs"
         fi
 
         if [ -f slack_fail_sent.log ]; then
@@ -383,7 +382,7 @@ main () {
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
 
     while read -r project_id assay version; do
-        project_name=$(dx describe --json $project_id | jq -r '.name')
+        project_name=$(dx describe --json "$project_id" | jq -r '.name')
         analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
         message+="*${run_id}*%0AConfig used: *${assay}* (v${version})%0A"
         message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
