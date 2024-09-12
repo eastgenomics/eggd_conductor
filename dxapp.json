@@ -16,12 +16,12 @@
     {
       "name": "assay_config",
       "label": "assay level config",
-      "class": "file",
+      "class": "array:file",
       "optional": true,
       "patterns": [
         "*.json"
       ],
-      "help": "Use given low level config for running analyses instead of inferring from name",
+      "help": "Use given low level config for running analyses instead of inferring from name. Multiple configs can be passed for mixed assays",
       "group": "files"
     },
     {
@@ -164,11 +164,11 @@
       "help": "comma separated string of launched job IDs"
     },
     {
-      "name": "assay_config_file_id",
-      "label": "assay config file ID",
+      "name": "assay_config_file_ids",
+      "label": "assay config file IDs",
       "class": "string",
       "optional": true,
-      "help": "file ID of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
+      "help": "file IDs of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
     }
   ],
   "runSpec": {

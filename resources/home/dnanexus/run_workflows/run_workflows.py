@@ -293,7 +293,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--assay_config',
+        '--assay_config', nargs="+",
         help='Assay specific config file that defines all executables to run'
     )
     parser.add_argument(
@@ -445,33 +445,33 @@ def main():
         open('testing_job_id.log', 'w').close()
 
     if args.assay_config:
-        # using user defined config file
-        config = load_config(args.assay_config)
-        sample_list = args.samples.copy()
-        dx_builder.configs.append(config)
-        dx_builder.add_sample_data({config.get('assay_code'): sample_list})
+        configs = [load_config(config) for config in args.assay_config]
+        configs = {
+            config.get("assay_code"): config
+            for config in configs
+        }
+
     else:
         # get all json assay configs from path in conductor config
-        config_data = get_json_configs()
-        config_data = filter_highest_config_version(config_data)
+        configs = get_json_configs()
+        configs = filter_highest_config_version(configs)
 
-        assay_to_samples = match_samples_to_assays(
-            configs=config_data,
-            all_samples=args.samples,
-            testing=args.testing,
-        )
+    # add the file ID of assay config file used as job output, this
+    # is to make it easier to audit what configs were used for analysis
+    subprocess.run(
+        "dx-jobutil-add-output assay_config_file_ids "
+        f"{'|'.join(dx_builder.get_assays())} --class=string",
+        shell=True, check=False
+    )
 
-        dx_builder.configs = [config_data[assay] for assay in assay_to_samples]
+    assay_to_samples = match_samples_to_assays(
+        configs=configs,
+        all_samples=args.samples,
+        testing=args.testing,
+    )
 
-        dx_builder.add_sample_data(assay_to_samples)
-
-        # add the file ID of assay config file used as job output, this
-        # is to make it easier to audit what configs were used for analysis
-        subprocess.run(
-            "dx-jobutil-add-output assay_config_file_id "
-            f"{'|'.join(dx_builder.get_assays())} --class=string",
-            shell=True, check=False
-        )
+    dx_builder.configs = [configs[assay] for assay in assay_to_samples]
+    dx_builder.add_sample_data(assay_to_samples)
 
     if args.testing_sample_limit:
         dx_builder.limit_samples(limit_nb=args.testing_sample_limit)
@@ -578,7 +578,7 @@ def main():
         for config in dx_builder.config_to_samples:
             per_config_info = dx_builder.config_to_samples[config]
             dx_builder.move_demultiplex_qc_files(
-                per_config_info["project"]
+                per_config_info["project"].id
             )
 
         dx_builder.fastqs_details = get_demultiplex_job_details(
@@ -624,16 +624,15 @@ def main():
     # by separate monitoring script
     open('all_job_ids.log', 'w').close()
 
-    for config in dx_builder.configs:
-        assay_code = config.get("assay_code")
+    for assay_code, data in dx_builder.config_to_samples.items():
+        config = data["config_content"]
         # storing output folders used for each workflow/app, might be needed to
         # store data together / access specific dirs of data
         executable_out_dirs = {}
 
         dx_builder.job_outputs[assay_code] = {}
 
-        config_info = dx_builder.config_to_samples[assay_code]
-        project_id = config_info["project"].describe().get("id")
+        project_id = data["project"].id
 
         # set context to project for running jobs
         dx.set_workspace_id(project_id)
@@ -681,7 +680,7 @@ def main():
             open('job_id.log', 'w').close()
 
             # save name to params to access later to name job
-            params['executable_name'] = config_info["execution_mapping"][executable]['name']
+            params['executable_name'] = data["execution_mapping"][executable]['name']
 
             # get instance types to use for executable from config for flowcell
             instance_types = select_instance_types(
@@ -693,10 +692,11 @@ def main():
                 prettier_print(
                     f'\nCalling {params["executable_name"]} per sample'
                 )
+                prettier_print(f"Samples for {assay_code}: {data['samples']}")
 
                 # loop over samples and call app / workflow
-                for idx, sample in enumerate(config_info["samples"], 1):
-                    sample_list = config_info["samples"]
+                for idx, sample in enumerate(data["samples"], 1):
+                    sample_list = data["samples"]
                     prettier_print(
                         f'\n\nStarting analysis for {sample} - '
                         f'[{idx}/{len(sample_list)}]'
@@ -801,7 +801,7 @@ def main():
             ),
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
-                f"{config_info['project'].describe().get('name').replace('project-', '')}/monitor/"
+                f"{data['project'].describe().get('name').replace('project-', '')}/monitor/"
             )
         )
 
