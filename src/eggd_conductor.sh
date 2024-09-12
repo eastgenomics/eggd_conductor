@@ -325,7 +325,7 @@ main () {
     mark-section "starting analyses"
 
     {
-        python3 run_workflows/run_workflows.py "$optional_args"
+        python3 run_workflows/run_workflows.py $optional_args
     } || {
         # failed to launch all jobs -> handle clean up and sending error notification
 
