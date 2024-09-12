@@ -78,7 +78,6 @@ class DXBuilder():
 
         # limit samples in the config_to_samples dict
         for config, data in self.config_to_samples.items():
-
             for sample in data["samples"]:
                 # limit samples to put in the config_to_samples variable using
                 # the limiting number and the samples to exclude
@@ -275,12 +274,12 @@ class DXBuilder():
             if demultiplex_config:
                 instance_type = demultiplex_config.get("instance_type", 0)
                 demultiplex_configs.append(config)
-                core_nbs.append(int(instance_type.split("_")[-1]))
+                core_nbs.append(int(instance_type.split("_")[-1].strip("x")))
 
         if core_nbs:
             bigger_core_nb = max(core_nbs)
             self.demultiplex_config = demultiplex_configs[
-                demultiplex_configs.index(bigger_core_nb)
+                core_nbs.index(bigger_core_nb)
             ]
         else:
             self.demultiplex_config = {}
@@ -994,6 +993,7 @@ class DXBuilder():
                 extra_args=extra_args,
                 stage_instance_types=instance_types
             )
+
         elif 'app-' in executable:
             job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
                 app_input=input_dict,
@@ -1005,6 +1005,7 @@ class DXBuilder():
                 extra_args=extra_args,
                 instance_type=instance_types
             )
+
         elif 'applet-' in executable:
             job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
                 applet_input=input_dict,
@@ -1016,6 +1017,7 @@ class DXBuilder():
                 extra_args=extra_args,
                 instance_type=instance_types
             )
+
         else:
             # doesn't appear to be valid workflow or app
             raise RuntimeError(
