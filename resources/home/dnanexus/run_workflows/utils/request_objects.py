@@ -199,6 +199,24 @@ class Jira():
         else:
             self.run_ticket_id = run_ticket[0]
 
+    def clone_original_ticket(self):
+        response = self.http.get(
+            url=f"{self.issue_url}/issue/{self.run_ticket_id}",
+            headers=self.headers,
+            auth=self.auth
+        )
+        print(response)
+        print(response.__dict__)
+        print(json.dumps(json.loads(response.text), sort_keys=True, indent=4, separators=(",", ": ")))
+        # payload = json.dumps({})
+
+        # self.http.post(
+        #     url=f"{self.queue_url}/issue",
+        #     data=payload,
+        #     headers=self.headers,
+        #     auth=self.auth
+        # )
+
     def send_slack_alert(self, message) -> None:
         """
         Send warning alert to Slack that there was an issue with querying Jira
