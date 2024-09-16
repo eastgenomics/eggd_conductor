@@ -544,7 +544,7 @@ def main():
 
             else:
                 Slack().send(
-                    f"Ticket {ticket['key']} has multiple assays given"
+                    f"Ticket {ticket['key']} has multiple assays: {assay_codes}"
                 )
 
     if args.demultiplex_job_id:
