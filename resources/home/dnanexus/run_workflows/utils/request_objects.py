@@ -152,7 +152,7 @@ class Jira():
 
         return response_data
 
-    def get_run_ticket_id(self, run_id, tickets) -> str:
+    def filter_tickets_using_run_id(self, run_id, tickets) -> str:
         """
         Given a list of tickets, filter out the one for the current
         sequencing run and return its ID
@@ -170,12 +170,12 @@ class Jira():
             ticket ID
         """
         prettier_print("Filtering Jira tickets for current run")
-        run_ticket = list(set([
-            x['id'] for x in tickets if run_id in x['fields']['summary']
-        ]))
-        prettier_print(f"Run ticket(s) found: {run_ticket}")
+        run_tickets = [x for x in tickets if run_id in x['fields']['summary']]
+        prettier_print(
+            f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
+        )
 
-        if not run_ticket:
+        if not run_tickets:
             # didn't find a ticket -> either a typo in the name or ticket
             # has not yet been raised / forgotten about, send an alert and
             # continue with things since linking to Jira is non-essential
@@ -184,38 +184,9 @@ class Jira():
                 f"*{run_id}*.\n\nContinuing with analysis without linking to "
                 "Jira."
             )
-
-            self.run_ticket_id = None
-
-        elif len(run_ticket) > 1:
-            # found multiple tickets, this should not happen so send us an
-            # alert and don't touch the tickets
-            self.send_slack_alert(
-                f"Found more than one Jira ticket for given run (`{run_id}`)"
-                f"\n{run_ticket}"
-            )
-            self.run_ticket_id = None
-
+            return
         else:
-            self.run_ticket_id = run_ticket[0]
-
-    def clone_original_ticket(self):
-        response = self.http.get(
-            url=f"{self.issue_url}/issue/{self.run_ticket_id}",
-            headers=self.headers,
-            auth=self.auth
-        )
-        print(response)
-        print(response.__dict__)
-        print(json.dumps(json.loads(response.text), sort_keys=True, indent=4, separators=(",", ": ")))
-        # payload = json.dumps({})
-
-        # self.http.post(
-        #     url=f"{self.queue_url}/issue",
-        #     data=payload,
-        #     headers=self.headers,
-        #     auth=self.auth
-        # )
+            return run_tickets
 
     def send_slack_alert(self, message) -> None:
         """
@@ -240,7 +211,7 @@ class Jira():
                 f"won't send current error: {message}"
             )
 
-    def add_comment(self, comment, url) -> None:
+    def add_comment(self, comment, url, ticket) -> None:
         """
         Find Jira ticket for given run ID and add internal comment
 
@@ -282,7 +253,7 @@ class Jira():
             )
             return
 
-        comment_url = f"{self.issue_url}/{self.run_ticket_id}/comment"
+        comment_url = f"{self.issue_url}/{ticket}/comment"
 
         payload = json.dumps({
             "body": {
