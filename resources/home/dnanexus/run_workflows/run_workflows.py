@@ -517,6 +517,9 @@ def main():
 
     all_tickets = jira.get_all_tickets()
     jira.get_run_ticket_id(run_id, all_tickets)
+    jira.clone_original_ticket()
+
+    exit()
 
     # add comment to Jira ticket for run to link to this eggd_conductor job
     jira.add_comment(
