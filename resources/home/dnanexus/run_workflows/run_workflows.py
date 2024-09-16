@@ -516,16 +516,36 @@ def main():
     )
 
     all_tickets = jira.get_all_tickets()
-    jira.get_run_ticket_id(run_id, all_tickets)
-    jira.clone_original_ticket()
+    tickets = jira.filter_tickets_using_run_id(run_id, all_tickets)
 
-    exit()
+    # same number of tickets and same number of configs detected
+    if len(tickets) == len(dx_builder.config_to_samples):
+        for ticket in tickets:
+            assay_codes = [
+                field["value"]
+                for field in ticket["fields"]
+                if "customfield_10070" in field
+            ]
 
-    # add comment to Jira ticket for run to link to this eggd_conductor job
-    jira.add_comment(
-        comment="This run was processed automatically by eggd_conductor: ",
-        url=f"http://{os.environ.get('conductor_job_url')}"
-    )
+            # tickets should only have one assay code
+            if len(assay_codes) == 1:
+                for config in dx_builder.config_to_samples:
+                    # double check that the assay code matches the config's to
+                    # assign the ticket to that config
+                    if assay_codes[0] in dx_builder.config_to_samples[config]["config_content"]:
+                        dx_builder.config_to_samples[config]["ticket"] = ticket["id"]
+
+                        # add comment to Jira ticket for run to link to this eggd_conductor job
+                        jira.add_comment(
+                            comment="This run was processed automatically by eggd_conductor: ",
+                            url=f"http://{os.environ.get('conductor_job_url')}",
+                            ticket=ticket["id"]
+                        )
+
+            else:
+                Slack().send(
+                    f"Ticket {ticket['key']} has multiple assays given"
+                )
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
@@ -805,7 +825,8 @@ def main():
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
                 f"{data['project'].describe().get('name').replace('project-', '')}/monitor/"
-            )
+            ),
+            ticket=data["ticket"]
         )
 
     with open('total_jobs.log', 'w') as fh:
