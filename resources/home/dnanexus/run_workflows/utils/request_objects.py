@@ -228,7 +228,7 @@ class Jira():
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
             prettier_print(
-                "No required Jira variables set in config, continuinung "
+                "No required Jira variables set in config, continuing "
                 "without using Jira"
             )
             return
