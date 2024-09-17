@@ -481,14 +481,21 @@ def main():
 
     dx_builder.subset_samples()
 
-    if args.run_id:
+    if args.dx_project_id:
+        project = dx.DXProject(args.dx_project_id)
+        run_id = project.name
+
+        for config in dx_builder.config_to_samples:
+            # link project id to config and samples
+            dx_builder.config_to_samples[config]["project"] = project
+
+    else:
         # output project not specified, create new one from run id
         run_id = args.run_id
+        dx_builder.get_or_create_dx_project(
+            run_id, args.development, args.testing
+        )
 
-    if args.dx_project_id:
-        run_id = dx.DXProject(args.dx_project_id).name
-
-    dx_builder.get_or_create_dx_project(run_id, args.development, args.testing)
     dx_builder.create_analysis_project_logs()
 
     run_time = time_stamp()
@@ -552,8 +559,6 @@ def main():
                 Slack().send(
                     f"Ticket {ticket['key']} has multiple assays: {assay_codes}"
                 )
-
-    exit()
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
