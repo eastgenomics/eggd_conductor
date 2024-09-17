@@ -3,6 +3,7 @@ Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
 
+import concurrent
 import json
 import os
 import re
@@ -12,7 +13,7 @@ import dxpy as dx
 from packaging.version import Version, parse
 
 from utils.utils import prettier_print
-from utils.request_objects import Slack
+from utils.WebClasses import Slack
 
 
 def get_json_configs() -> dict:
@@ -239,45 +240,6 @@ def find_dx_project(project_name) -> str:
     return dx_projects[0]['id']
 
 
-def get_demultiplex_job_details(job_id) -> list:
-    """
-    Given job ID for demultiplexing, return a list of the fastq file IDs
-
-    Parameters
-    ----------
-    job_id : str
-        job ID of demultiplexing job
-
-    Returns
-    -------
-    fastq_ids : list
-        list of tuples with fastq file IDs and file name
-    """
-    prettier_print(f"\nGetting fastqs from given demultiplexing job: {job_id}")
-    demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
-    demultiplex_project = demultiplex_job['project']
-    demultiplex_folder = demultiplex_job['folder']
-
-    # find all fastqs from demultiplex job, return list of dicts with details
-    fastq_details = list(dx.search.find_data_objects(
-        name="*.fastq*", name_mode="glob", project=demultiplex_project,
-        folder=demultiplex_folder, describe=True
-    ))
-    # build list of tuples with fastq name and file ids
-    fastq_details = [
-        (x['id'], x['describe']['name']) for x in fastq_details
-    ]
-    # filter out Undetermined fastqs
-    fastq_details = [
-        x for x in fastq_details if not x[1].startswith('Undetermined')
-    ]
-
-    prettier_print(f'\nFastqs parsed from demultiplexing job {job_id}')
-    prettier_print(fastq_details)
-
-    return fastq_details
-
-
 def get_job_output_details(job_id) -> Tuple[list, list]:
     """
     Get describe details for all output files from a job
@@ -353,3 +315,41 @@ def wait_on_done(analysis, analysis_name, all_job_ids) -> None:
             dx.DXAnalysis(dxid=job).wait_on_done()
 
     print('All jobs to wait on completed')
+
+
+def terminate_jobs(jobs) -> None:
+    """
+    Terminate all launched jobs in testing mode
+
+    Parameters
+    ----------
+    jobs : list
+        list of job / analysis IDs
+    """
+    def terminate_one(job) -> None:
+        """dx call to terminate single job"""
+        if job.startswith('job'):
+            dx.DXJob(dxid=job).terminate()
+        else:
+            dx.DXAnalysis(dxid=job).terminate()
+
+    prettier_print(f"Trying to terminate: {jobs}")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(terminate_one, job_id):
+            job_id for job_id in sorted(jobs, reverse=True)
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                future.result()
+            except Exception as exc:
+                # catch any errors that might get raised
+                prettier_print(
+                    "Error terminating job "
+                    f"{concurrent_jobs[future]}: {exc}"
+                )
+
+    prettier_print("Terminated jobs.")
