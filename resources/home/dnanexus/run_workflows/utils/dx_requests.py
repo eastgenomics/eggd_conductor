@@ -1059,6 +1059,8 @@ class DXBuilder():
             else:
                 dx.DXAnalysis(dxid=job).terminate()
 
+        prettier_print(f"Trying to terminate: {jobs}")
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
             concurrent_jobs = {
                 executor.submit(terminate_one, job_id):
