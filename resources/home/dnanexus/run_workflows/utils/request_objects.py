@@ -211,7 +211,7 @@ class Jira():
                 f"won't send current error: {message}"
             )
 
-    def add_comment(self, comment, url, ticket) -> None:
+    def add_comment(self, comment, url, ticket=None) -> None:
         """
         Find Jira ticket for given run ID and add internal comment
 
@@ -224,6 +224,13 @@ class Jira():
         url : str
             any url to add to message after comment
         """
+
+        if ticket is None:
+            prettier_print(
+                "No ticket passed, continuing without commenting"
+            )
+            return
+
         if not any([self.queue_url, self.issue_url, self.token, self.email]):
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
@@ -298,7 +305,7 @@ class Jira():
             # some kind of error occurred adding Jira comment =>
             # send a non-exiting Slack alert
             self.send_slack_alert(
-                f"failed to add comment to Jira ticket ({self.run_ticket_id})\n\n"
+                f"failed to add comment to Jira ticket ({ticket})\n\n"
                 f"Status code: {response.status_code}\n\n"
                 f"Error response: `{response.text}`"
             )
