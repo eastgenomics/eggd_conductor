@@ -1,6 +1,6 @@
 dxpy==0.318.1
 flatten_json==0.1.13
-packaging==20.3
+packaging==24.1
 pandas==1.4.1
 pytest==7.0.1
 pytest-cov==4.0.0
