@@ -440,10 +440,6 @@ def main():
 
     dx_builder = DXBuilder()
 
-    if args.testing:
-        # if testing, log all jobs to one file to terminate and clean up
-        open('testing_job_id.log', 'w').close()
-
     if args.assay_config:
         configs = [load_config(config) for config in args.assay_config]
         configs = {
@@ -807,8 +803,9 @@ def main():
                         extra_args=job_info["extra_args"],
                         instance_types=instance_types,
                         project_id=project_id,
-                        testing=args.testing
                     )
+
+                    dx_builder.jobs.append(job_id)
 
                     # create new dict to store sample outputs
                     dx_builder.job_outputs[assay_code].setdefault(sample, {})
@@ -840,8 +837,9 @@ def main():
                     extra_args=run_job_info["extra_args"],
                     instance_types=instance_types,
                     project_id=project_id,
-                    testing=args.testing
                 )
+
+                dx_builder.jobs.append(job_id)
 
                 # map workflow id to created dx job id
                 dx_builder.job_outputs[assay_code][params['analysis']] = job_id
@@ -891,6 +889,9 @@ def main():
             ),
             ticket=data.get("ticket", None)
         )
+
+    if args.testing:
+        dx_builder.terminate_jobs(dx_builder.jobs)
 
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(dx_builder.total_jobs))
