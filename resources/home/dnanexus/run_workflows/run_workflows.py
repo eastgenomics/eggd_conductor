@@ -481,11 +481,12 @@ def main():
 
     dx_builder.subset_samples()
 
-    if args.dx_project_id:
-        run_id = dx.DXProject(args.dx_project_id).name
-    else:
+    if args.run_id:
         # output project not specified, create new one from run id
         run_id = args.run_id
+
+    if args.dx_project_id:
+        run_id = dx.DXProject(args.dx_project_id).name
 
     dx_builder.get_or_create_dx_project(run_id, args.development, args.testing)
     dx_builder.create_analysis_project_logs()
@@ -516,23 +517,28 @@ def main():
     )
 
     all_tickets = jira.get_all_tickets()
-    tickets = jira.filter_tickets_using_run_id(run_id, all_tickets)
+    filtered_tickets = jira.filter_tickets_using_run_id(run_id, all_tickets)
 
     # same number of tickets and same number of configs detected
-    if len(tickets) == len(dx_builder.config_to_samples):
-        for ticket in tickets:
-            assay_codes = [
-                field["value"]
-                for field in ticket["fields"]
-                if "customfield_10070" in field
+    if len(filtered_tickets) == len(dx_builder.config_to_samples):
+        for ticket in filtered_tickets:
+            assay_options = [
+                subfield["value"]
+                for field, subfields in ticket["fields"].items()
+                if field == "customfield_10070"
+                for subfield in subfields
             ]
 
             # tickets should only have one assay code
-            if len(assay_codes) == 1:
+            if len(assay_options) == 1:
                 for config in dx_builder.config_to_samples:
                     # double check that the assay code matches the config's to
                     # assign the ticket to that config
-                    if assay_codes[0] in dx_builder.config_to_samples[config]["config_content"]:
+                    if assay_options[0] in dx_builder.config_to_samples[config]["config_content"]["assay"]:
+                        prettier_print((
+                            f"Assigned {ticket['key']} to "
+                            f"{dx_builder.config_to_samples[config]['config_content']['assay']}"
+                        ))
                         dx_builder.config_to_samples[config]["ticket"] = ticket["id"]
 
                         # add comment to Jira ticket for run to link to this eggd_conductor job
@@ -546,6 +552,8 @@ def main():
                 Slack().send(
                     f"Ticket {ticket['key']} has multiple assays: {assay_codes}"
                 )
+
+    exit()
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
