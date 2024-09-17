@@ -373,10 +373,6 @@ main () {
         exit 1
     }
 
-    if [ "$testing" == true ]; then
-        _testing_clean_up
-    fi
-
     total_jobs=$(cat total_jobs.log)
 
     message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
