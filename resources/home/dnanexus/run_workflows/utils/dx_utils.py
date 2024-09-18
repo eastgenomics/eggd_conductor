@@ -353,3 +353,124 @@ def terminate_jobs(jobs) -> None:
                 )
 
     prettier_print("Terminated jobs.")
+
+
+def dx_run(
+    executable, job_name, input_dict, output_dict, prev_jobs,
+    extra_args, instance_types, project_id
+) -> str:
+    """
+    Call workflow / app with populated input and output dicts
+
+    Returns id of submitted job
+
+    Parameters
+    ----------
+    executable : str
+        human readable name of executable (i.e. workflow / app / applet)
+    job_name : str
+        name to assign to job, will be combination of human readable name
+        of exectuable and sample ID
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    output_dict : dict
+        dict of output directory paths for each app
+    prev_jobs : list
+        list of job ids to wait for completion before starting
+    extra_args : dict
+        mapping of any additional arguments to pass to underlying dx
+        API call, parsed from extra_args field in config file
+    instance_types : dict
+        mapping of instances to use for apps
+    project_id : str
+        DNAnexus project id in which the job will be launched
+    testing : bool
+        Boolean indicating if the execution of conductor is in testing mode
+
+    Returns
+    -------
+    job_id : str
+        DNAnexus job id of newly started analysis
+
+    Raises
+    ------
+    RuntimeError
+        Raised when workflow-, app- or applet- not present in exe name
+    """
+
+    prettier_print(f"\nPopulated input dict for: {executable}")
+    prettier_print(input_dict)
+
+    if os.environ.get('TESTING') == 'true':
+        # running in test mode => don't actually want to run jobs =>
+        # make jobs dependent on conductor job finishing so no launched
+        # jobs actually start running
+        prev_jobs.append(os.environ.get('PARENT_JOB_ID'))
+
+    if 'workflow-' in executable:
+        # get common top level of each apps output destination
+        # to set as output of workflow for consitency of viewing
+        # in the browser
+        parent_path = os.path.commonprefix(list(output_dict.values()))
+
+        job_handle = dx.bindings.dxworkflow.DXWorkflow(
+            dxid=executable,
+            project=project_id
+        ).run(
+            workflow_input=input_dict,
+            folder=parent_path,
+            stage_folders=output_dict,
+            rerun_stages=['*'],
+            depends_on=prev_jobs,
+            name=job_name,
+            extra_args=extra_args,
+            stage_instance_types=instance_types
+        )
+
+    elif 'app-' in executable:
+        job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
+            app_input=input_dict,
+            project=project_id,
+            folder=output_dict.get(executable),
+            ignore_reuse=True,
+            depends_on=prev_jobs,
+            name=job_name,
+            extra_args=extra_args,
+            instance_type=instance_types
+        )
+
+    elif 'applet-' in executable:
+        job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
+            applet_input=input_dict,
+            project=project_id,
+            folder=output_dict.get(executable),
+            ignore_reuse=True,
+            depends_on=prev_jobs,
+            name=job_name,
+            extra_args=extra_args,
+            instance_type=instance_types
+        )
+
+    else:
+        # doesn't appear to be valid workflow or app
+        raise RuntimeError(
+            f'Given executable id is not valid: {executable}'
+        )
+
+    job_details = job_handle.describe()
+    job_id = job_details.get('id')
+
+    prettier_print(
+        f'Started analysis in project {project_id}, '
+        f'job: {job_id}'
+    )
+
+    with open('job_id.log', 'a') as fh:
+        # log of current executable jobs
+        fh.write(f'{job_id} ')
+
+    with open('all_job_ids.log', 'a') as fh:
+        # log of all launched job IDs
+        fh.write(f'{job_id},')
+
+    return job_id
