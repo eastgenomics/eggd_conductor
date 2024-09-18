@@ -440,10 +440,6 @@ def main():
 
     dx_builder = DXBuilder()
 
-    if args.testing:
-        # if testing, log all jobs to one file to terminate and clean up
-        open('testing_job_id.log', 'w').close()
-
     if args.assay_config:
         configs = [load_config(config) for config in args.assay_config]
         configs = {
@@ -482,12 +478,20 @@ def main():
     dx_builder.subset_samples()
 
     if args.dx_project_id:
-        run_id = dx.DXProject(args.dx_project_id).name
+        project = dx.DXProject(args.dx_project_id)
+        run_id = project.name
+
+        for config in dx_builder.config_to_samples:
+            # link project id to config and samples
+            dx_builder.config_to_samples[config]["project"] = project
+
     else:
         # output project not specified, create new one from run id
         run_id = args.run_id
+        dx_builder.get_or_create_dx_project(
+            run_id, args.development, args.testing
+        )
 
-    dx_builder.get_or_create_dx_project(run_id, args.development, args.testing)
     dx_builder.create_analysis_project_logs()
 
     run_time = time_stamp()
@@ -516,13 +520,91 @@ def main():
     )
 
     all_tickets = jira.get_all_tickets()
-    jira.get_run_ticket_id(run_id, all_tickets)
+    filtered_tickets = jira.filter_tickets_using_run_id(run_id, all_tickets)
 
-    # add comment to Jira ticket for run to link to this eggd_conductor job
-    jira.add_comment(
-        comment="This run was processed automatically by eggd_conductor: ",
-        url=f"http://{os.environ.get('conductor_job_url')}"
-    )
+    ticket_errors = []
+
+    if filtered_tickets == []:
+        prettier_print(f"No ticket found for {run_id}")
+
+    else:
+        config_samples = dx_builder.config_to_samples
+
+        # same number of tickets and same number of configs detected
+        if len(filtered_tickets) == len(config_samples):
+            for ticket in filtered_tickets:
+                # get the assay code in the ticket
+                assay_options = [
+                    subfield["value"]
+                    for field, subfields in ticket["fields"].items()
+                    if field == "customfield_10070"
+                    for subfield in subfields
+                ]
+
+                # tickets should only have one assay code
+                if len(assay_options) == 1:
+                    for config in config_samples:
+                        config_assay_code = config_samples[config]["config_content"]["assay"]
+                        # double check that the assay code matches the config's
+                        # to assign the ticket to that config
+                        if assay_options[0] in config_assay_code:
+                            prettier_print((
+                                f"Assigned {ticket['key']} to "
+                                f"{config_assay_code}"
+                            ))
+                            config_samples[config]["ticket"] = ticket["id"]
+
+                            # add comment to Jira ticket for run to link to
+                            # this eggd_conductor job
+                            jira.add_comment(
+                                comment=(
+                                    "This run was processed automatically by "
+                                    "eggd_conductor: "
+                                ),
+                                url=(
+                                    "http://"
+                                    f"{os.environ.get('conductor_job_url')}"
+                                ),
+                                ticket=ticket["id"]
+                            )
+
+                elif len(assay_options) == 0:
+                    ticket_errors.append(
+                        f"Ticket {ticket['key']} has no assays"
+                    )
+
+                else:
+                    ticket_errors.append(
+                        f"Ticket {ticket['key']} has multiple assays: "
+                        f"{assay_options}"
+                    )
+
+            # check if all tickets have been assigned
+            for config, data in config_samples.items():
+                if not data.get("ticket", None):
+                    assay_code = data[config]["config_content"]["assay"]
+                    ticket_errors.append(
+                        f"{run_id} - {assay_code} couldn't be assigned a "
+                        "ticket"
+                    )
+
+        elif len(filtered_tickets) > len(config_samples):
+            ticket_errors.append(
+                "Too many tickets found for the number of configs detected "
+                f"to be used for {run_id}: {filtered_tickets} - "
+                f"{dx_builder.get_assays()}"
+            )
+
+        else:
+            ticket_errors.append(
+                "Not enough tickets found for the number of configs detected "
+                f"to be used for {run_id}: {filtered_tickets} - "
+                f"{dx_builder.get_assays()}"
+            )
+
+    if ticket_errors:
+        for error in ticket_errors:
+            Slack().send(error)
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
@@ -721,8 +803,9 @@ def main():
                         extra_args=job_info["extra_args"],
                         instance_types=instance_types,
                         project_id=project_id,
-                        testing=args.testing
                     )
+
+                    dx_builder.jobs.append(job_id)
 
                     # create new dict to store sample outputs
                     dx_builder.job_outputs[assay_code].setdefault(sample, {})
@@ -754,8 +837,9 @@ def main():
                     extra_args=run_job_info["extra_args"],
                     instance_types=instance_types,
                     project_id=project_id,
-                    testing=args.testing
                 )
+
+                dx_builder.jobs.append(job_id)
 
                 # map workflow id to created dx job id
                 dx_builder.job_outputs[assay_code][params['analysis']] = job_id
@@ -802,8 +886,12 @@ def main():
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
                 f"{data['project'].describe().get('name').replace('project-', '')}/monitor/"
-            )
+            ),
+            ticket=data.get("ticket", None)
         )
+
+    if args.testing:
+        dx_builder.terminate_jobs(dx_builder.jobs)
 
     with open('total_jobs.log', 'w') as fh:
         fh.write(str(dx_builder.total_jobs))

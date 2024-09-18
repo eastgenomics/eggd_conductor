@@ -214,7 +214,7 @@ _testing_clean_up () {
     '''
     job_ids=$(cat testing_job_id.log)
 
-    dx terminate "$job_ids"
+    dx terminate $job_ids
 
     for job in $job_ids; do
         # find any output files and delete
@@ -372,10 +372,6 @@ main () {
 
         exit 1
     }
-
-    if [ "$testing" == true ]; then
-        _testing_clean_up
-    fi
 
     total_jobs=$(cat total_jobs.log)
 

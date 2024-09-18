@@ -3,6 +3,7 @@ Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
 
+import concurrent
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
@@ -924,7 +925,7 @@ class DXBuilder():
 
     def dx_run(
         self, executable, job_name, input_dict, output_dict, prev_jobs,
-        extra_args, instance_types, project_id, testing
+        extra_args, instance_types, project_id
     ) -> str:
         """
         Call workflow / app with populated input and output dicts
@@ -1040,10 +1041,41 @@ class DXBuilder():
             # log of all launched job IDs
             fh.write(f'{job_id},')
 
-        if testing:
-            with open('testing_job_id.log', 'a') as fh:
-                fh.write(f'{job_id} ')
-
-        self.jobs.append(job_handle)
-
         return job_id
+
+    def terminate_jobs(self, jobs) -> None:
+        """
+        Terminate all launched jobs in testing mode
+
+        Parameters
+        ----------
+        jobs : list
+            list of job / analysis IDs
+        """
+        def terminate_one(job) -> None:
+            """dx call to terminate single job"""
+            if job.startswith('job'):
+                dx.DXJob(dxid=job).terminate()
+            else:
+                dx.DXAnalysis(dxid=job).terminate()
+
+        prettier_print(f"Trying to terminate: {jobs}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+            concurrent_jobs = {
+                executor.submit(terminate_one, job_id):
+                job_id for job_id in sorted(jobs, reverse=True)
+            }
+
+            for future in concurrent.futures.as_completed(concurrent_jobs):
+                # access returned output as each is returned in any order
+                try:
+                    future.result()
+                except Exception as exc:
+                    # catch any errors that might get raised
+                    prettier_print(
+                        "Error terminating job "
+                        f"{concurrent_jobs[future]}: {exc}"
+                    )
+
+        prettier_print("Terminated jobs.")

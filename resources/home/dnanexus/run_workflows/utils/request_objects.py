@@ -152,7 +152,7 @@ class Jira():
 
         return response_data
 
-    def get_run_ticket_id(self, run_id, tickets) -> str:
+    def filter_tickets_using_run_id(self, run_id, tickets) -> str:
         """
         Given a list of tickets, filter out the one for the current
         sequencing run and return its ID
@@ -170,12 +170,12 @@ class Jira():
             ticket ID
         """
         prettier_print("Filtering Jira tickets for current run")
-        run_ticket = list(set([
-            x['id'] for x in tickets if run_id in x['fields']['summary']
-        ]))
-        prettier_print(f"Run ticket(s) found: {run_ticket}")
+        run_tickets = [x for x in tickets if run_id in x['fields']['summary']]
+        prettier_print(
+            f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
+        )
 
-        if not run_ticket:
+        if not run_tickets:
             # didn't find a ticket -> either a typo in the name or ticket
             # has not yet been raised / forgotten about, send an alert and
             # continue with things since linking to Jira is non-essential
@@ -184,20 +184,9 @@ class Jira():
                 f"*{run_id}*.\n\nContinuing with analysis without linking to "
                 "Jira."
             )
-
-            self.run_ticket_id = None
-
-        elif len(run_ticket) > 1:
-            # found multiple tickets, this should not happen so send us an
-            # alert and don't touch the tickets
-            self.send_slack_alert(
-                f"Found more than one Jira ticket for given run (`{run_id}`)"
-                f"\n{run_ticket}"
-            )
-            self.run_ticket_id = None
-
+            return
         else:
-            self.run_ticket_id = run_ticket[0]
+            return run_tickets
 
     def send_slack_alert(self, message) -> None:
         """
@@ -222,7 +211,7 @@ class Jira():
                 f"won't send current error: {message}"
             )
 
-    def add_comment(self, comment, url) -> None:
+    def add_comment(self, comment, url, ticket=None) -> None:
         """
         Find Jira ticket for given run ID and add internal comment
 
@@ -235,11 +224,18 @@ class Jira():
         url : str
             any url to add to message after comment
         """
+
+        if ticket is None:
+            prettier_print(
+                "No ticket passed, continuing without commenting"
+            )
+            return
+
         if not any([self.queue_url, self.issue_url, self.token, self.email]):
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
             prettier_print(
-                "No required Jira variables set in config, continuinung "
+                "No required Jira variables set in config, continuing "
                 "without using Jira"
             )
             return
@@ -264,7 +260,7 @@ class Jira():
             )
             return
 
-        comment_url = f"{self.issue_url}/{self.run_ticket_id}/comment"
+        comment_url = f"{self.issue_url}/{ticket}/comment"
 
         payload = json.dumps({
             "body": {
@@ -309,7 +305,7 @@ class Jira():
             # some kind of error occurred adding Jira comment =>
             # send a non-exiting Slack alert
             self.send_slack_alert(
-                f"failed to add comment to Jira ticket ({self.run_ticket_id})\n\n"
+                f"failed to add comment to Jira ticket ({ticket})\n\n"
                 f"Status code: {response.status_code}\n\n"
                 f"Error response: `{response.text}`"
             )
