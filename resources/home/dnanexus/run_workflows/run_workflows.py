@@ -12,7 +12,9 @@ inputs are valid.
 import argparse
 from collections import defaultdict
 from xml.etree import ElementTree as ET
+from itertools import zip_longest
 import json
+import math
 import os
 import re
 import subprocess
@@ -25,7 +27,6 @@ from utils.AssayHandler import AssayHandler
 from utils.dx_utils import (
     get_json_configs,
     filter_highest_config_version,
-    get_demultiplex_job_details,
     wait_on_done,
     terminate_jobs
 )
@@ -39,7 +40,8 @@ from utils.utils import (
 from utils.demultiplexing import (
     demultiplex,
     move_demultiplex_qc_files,
-    set_config_for_demultiplexing
+    set_config_for_demultiplexing,
+    get_demultiplex_job_details
 )
 
 
@@ -451,17 +453,20 @@ def main():
         # output project not specified, create new one from run id
         run_id = args.run_id
 
+    limiting_nb_per_assay = []
+
     # in order to avoid using randomness for limiting the sample number per
     # assay, determine how many samples need to be kept per assay
     if args.testing_sample_limit:
-        limiting_nb_per_assay = args.testing_sample_limit / len(assay_handlers)
-        limiting_nb_last_assay = 0
+        limiting_nb = args.testing_sample_limit / len(assay_handlers)
 
-        if type(limiting_nb_per_assay) is float:
-            limiting_nb_last_assay = (
-                args.testing_sample_limit % len(assay_handlers)
-            )
-            limiting_nb_per_assay = int(limiting_nb_per_assay)
+        # first assay will have one more sample than the rest to handle cases
+        # where the division returns a decimal component
+        limiting_nb_per_assay.append(math.ceil(limiting_nb))
+        # for the rest get the floor of the rest of the assays
+        limiting_nb_per_assay.extend(
+            [math.floor(nb) for nb in range(len(assay_handlers) - 1)]
+        )
 
     jira = Jira(
         os.environ.get('JIRA_QUEUE_URL'),
@@ -498,27 +503,26 @@ def main():
 
 # -----------------------------------------------------------------------------
 
-    for i, assay_handler in enumerate(assay_handlers):
-        assay_handler.samples.extend(assay_to_samples.values())
+    for assay_handler, limiting_nb in zip_longest(
+        assay_handlers, limiting_nb_per_assay
+    ):
+        for assay_code, samples in assay_to_samples.items():
+            if assay_code == assay_handler.assay_code:
+                assay_handler.samples.extend(samples)
 
-        if args.testing_sample_limit:
-            if limiting_nb_last_assay != 0 and i == len(assay_handlers) - 1:
-                limiting_nb = limiting_nb_last_assay
-            else:
-                limiting_nb = limiting_nb_per_assay
-
+        if limiting_nb:
             assay_handler.limit_samples(limit_nb=limiting_nb)
 
         if args.exclude_samples:
             prettier_print(
-                f"Excluding following samples: {args.exclude_samples}"
+                "Attempting to exclude following samples from "
+                f"{assay_handler.assay}: {args.exclude_samples}"
             )
             assay_handler.limit_samples(
                 samples_to_exclude=args.exclude_samples
             )
 
         assay_handler.subset_samples()
-        assay_handler.create_analysis_project_logs()
 
         # A project id was passed, no need to try and get/create one.
         # This also means that for mixed assay runs, only one project will be
@@ -530,6 +534,8 @@ def main():
             assay_handler.get_or_create_dx_project(
                 run_id, args.development, args.testing
             )
+
+        assay_handler.create_analysis_project_logs()
 
         # set parent output directory, each app will have sub dir in here
         assay_handler.set_parent_out_dir(run_time)
@@ -688,24 +694,27 @@ def main():
         # build a dict mapping executable names to human readable names
         assay_handler.get_executable_names_per_config()
 
-        prettier_print('\nExecutable names identified:')
-        prettier_print([
-            list(info["execution_mapping"].keys())
-            for config, info in assay_handler.config_to_samples.items()
-        ])
-
         # build mapping of executables input fields => required types (i.e.
         # file, array:file, boolean), used to correctly build input dict
         assay_handler.get_input_classes_per_config()
-        prettier_print('\nExecutable input classes found:')
-        prettier_print([
-            list(info["input_class_mapping"].keys())
-            for config, info in assay_handler.config_to_samples.items()
-        ])
+
+    prettier_print('\nExecutable names identified:')
+    prettier_print([
+        list(assay_handler.execution_mapping)
+        for assay_handler in assay_handlers
+    ])
+
+    prettier_print('\nExecutable input classes found:')
+    prettier_print([
+        list(assay_handler.input_class_mapping)
+        for assay_handler in assay_handlers
+    ])
 
     # log file of all jobs, used to set as app output for picking up
     # by separate monitoring script
     open('all_job_ids.log', 'w').close()
+
+    total_jobs = 0
 
     for a_h in assay_handlers:
         # storing output folders used for each workflow/app, might be needed to
@@ -783,6 +792,10 @@ def main():
                         f'[{idx}/{len(a_h.samples)}]'
                     )
 
+                    # create new dict to store sample outputs
+                    a_h.job_outputs.setdefault(a_h.assay_code, {})
+                    a_h.job_outputs[a_h.assay_code].setdefault(sample, {})
+
                     a_h.build_job_info_per_sample(
                         executable=executable,
                         sample=sample,
@@ -804,15 +817,12 @@ def main():
 
                     a_h.jobs.append(job_id)
 
-                    # create new dict to store sample outputs
-                    a_h.job_outputs[a_h.assay_code].setdefault(sample, {})
-
                     # map analysis id to dx job id for sample
                     a_h.job_outputs[a_h.assay_code][sample].update(
                         {params['analysis']: job_id}
                     )
 
-                    a_h.total_jobs += 1
+                    total_jobs += 1
 
             elif params['per_sample'] is False:
                 # run workflow / app on all samples at once
@@ -839,7 +849,7 @@ def main():
                 # map workflow id to created dx job id
                 a_h.job_outputs[a_h.assay_code][params['analysis']] = job_id
 
-                a_h.total_jobs += 1
+                total_jobs += 1
 
             else:
                 # per_sample is not True or False, exit
@@ -898,10 +908,10 @@ def main():
         )
 
     with open('total_jobs.log', 'w') as fh:
-        fh.write(str(a_h.total_jobs))
+        fh.write(str(total_jobs))
 
     prettier_print("\nCompleted calling jobs")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":# 
     main()
