@@ -771,85 +771,19 @@ def main():
             params['executable_name'] = a_h.execution_mapping[executable]['name']
 
             # get instance types to use for executable from config for flowcell
-            instance_types = select_instance_types(
+            instance_type = select_instance_types(
                 run_id=run_id,
                 instance_types=params.get('instance_types'))
 
             if params['per_sample'] is True:
-                # run workflow / app on every sample
-                prettier_print(
-                    f'\nCalling {params["executable_name"]} per sample'
+                total_jobs += a_h.call_jobs_per_sample(
+                    executable, params, executable_out_dirs, instance_type
                 )
-                prettier_print(
-                    f"Samples for {a_h.assay_code}: "
-                    f"{a_h.samples}"
-                )
-
-                # loop over samples and call app / workflow
-                for idx, sample in enumerate(a_h.samples, 1):
-                    prettier_print(
-                        f'\n\nStarting analysis for {sample} - '
-                        f'[{idx}/{len(a_h.samples)}]'
-                    )
-
-                    # create new dict to store sample outputs
-                    a_h.job_outputs.setdefault(a_h.assay_code, {})
-                    a_h.job_outputs[a_h.assay_code].setdefault(sample, {})
-
-                    a_h.build_job_info_per_sample(
-                        executable=executable,
-                        sample=sample,
-                        executable_out_dirs=executable_out_dirs
-                    )
-
-                    job_info = a_h.job_info_per_sample[sample][executable]
-
-                    job_id = a_h.dx_run(
-                        executable=executable,
-                        job_name=job_info["job_name"],
-                        input_dict=job_info["inputs"],
-                        output_dict=job_info["outputs"],
-                        prev_jobs=job_info["dependent_jobs"],
-                        extra_args=job_info["extra_args"],
-                        instance_types=instance_types,
-                        project_id=project_id,
-                    )
-
-                    a_h.jobs.append(job_id)
-
-                    # map analysis id to dx job id for sample
-                    a_h.job_outputs[a_h.assay_code][sample].update(
-                        {params['analysis']: job_id}
-                    )
-
-                    total_jobs += 1
 
             elif params['per_sample'] is False:
-                # run workflow / app on all samples at once
-                a_h.build_jobs_info_per_run(
-                    executable=executable,
-                    executable_out_dirs=executable_out_dirs
+                total_jobs += a_h.call_job_per_run(
+                    executable, params, executable_out_dirs, instance_type
                 )
-
-                run_job_info = a_h.job_info_per_run[executable]
-
-                job_id = a_h.dx_run(
-                    executable=executable,
-                    job_name=run_job_info["job_name"],
-                    input_dict=run_job_info["inputs"],
-                    output_dict=run_job_info["outputs"],
-                    prev_jobs=run_job_info["dependent_jobs"],
-                    extra_args=run_job_info["extra_args"],
-                    instance_types=instance_types,
-                    project_id=project_id,
-                )
-
-                a_h.jobs.append(job_id)
-
-                # map workflow id to created dx job id
-                a_h.job_outputs[a_h.assay_code][params['analysis']] = job_id
-
-                total_jobs += 1
 
             else:
                 # per_sample is not True or False, exit
@@ -913,5 +847,5 @@ def main():
     prettier_print("\nCompleted calling jobs")
 
 
-if __name__ == "__main__":# 
+if __name__ == "__main__":
     main()
