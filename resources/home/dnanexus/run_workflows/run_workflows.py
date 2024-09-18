@@ -465,7 +465,7 @@ def main():
         limiting_nb_per_assay.append(math.ceil(limiting_nb))
         # for the rest get the floor of the rest of the assays
         limiting_nb_per_assay.extend(
-            [math.floor(nb) for nb in range(len(assay_handlers) - 1)]
+            [math.floor(limiting_nb) for i in range(len(assay_handlers) - 1)]
         )
 
     jira = Jira(
