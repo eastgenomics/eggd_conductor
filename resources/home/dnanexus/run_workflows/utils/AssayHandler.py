@@ -88,7 +88,7 @@ class AssayHandler():
         else:
             prettier_print(
                 f"No subset samplesheet found for {self.config['assay']} - "
-                f"{self.config['version']}"
+                f"v{self.config['version']}"
             )
 
     def get_or_create_dx_project(self, run_id, development, testing) -> str:
@@ -338,11 +338,10 @@ class AssayHandler():
             describe = dx.describe(exe)
 
             for input_spec in describe['inputSpec']:
-                input_spec_name = input_class_mapping[exe][input_spec['name']]
-
-                input_spec_name = defaultdict(
+                input_class_mapping[exe][input_spec['name']] = defaultdict(
                     dict
                 )
+                input_spec_name = input_class_mapping[exe][input_spec['name']]
                 input_spec_name['class'] = input_spec['class']
                 input_spec_name['optional'] = input_spec.get('optional', False)
 
