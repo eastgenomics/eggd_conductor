@@ -3,6 +3,7 @@ Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
 
+import concurrent
 import json
 import os
 import re
@@ -12,7 +13,7 @@ import dxpy as dx
 from packaging.version import Version, parse
 
 from utils.utils import prettier_print
-from utils.request_objects import Slack
+from utils.WebClasses import Slack
 
 
 def get_json_configs() -> dict:
@@ -239,45 +240,6 @@ def find_dx_project(project_name) -> str:
     return dx_projects[0]['id']
 
 
-def get_demultiplex_job_details(job_id) -> list:
-    """
-    Given job ID for demultiplexing, return a list of the fastq file IDs
-
-    Parameters
-    ----------
-    job_id : str
-        job ID of demultiplexing job
-
-    Returns
-    -------
-    fastq_ids : list
-        list of tuples with fastq file IDs and file name
-    """
-    prettier_print(f"\nGetting fastqs from given demultiplexing job: {job_id}")
-    demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
-    demultiplex_project = demultiplex_job['project']
-    demultiplex_folder = demultiplex_job['folder']
-
-    # find all fastqs from demultiplex job, return list of dicts with details
-    fastq_details = list(dx.search.find_data_objects(
-        name="*.fastq*", name_mode="glob", project=demultiplex_project,
-        folder=demultiplex_folder, describe=True
-    ))
-    # build list of tuples with fastq name and file ids
-    fastq_details = [
-        (x['id'], x['describe']['name']) for x in fastq_details
-    ]
-    # filter out Undetermined fastqs
-    fastq_details = [
-        x for x in fastq_details if not x[1].startswith('Undetermined')
-    ]
-
-    prettier_print(f'\nFastqs parsed from demultiplexing job {job_id}')
-    prettier_print(fastq_details)
-
-    return fastq_details
-
-
 def get_job_output_details(job_id) -> Tuple[list, list]:
     """
     Get describe details for all output files from a job
@@ -353,3 +315,162 @@ def wait_on_done(analysis, analysis_name, all_job_ids) -> None:
             dx.DXAnalysis(dxid=job).wait_on_done()
 
     print('All jobs to wait on completed')
+
+
+def terminate_jobs(jobs) -> None:
+    """
+    Terminate all launched jobs in testing mode
+
+    Parameters
+    ----------
+    jobs : list
+        list of job / analysis IDs
+    """
+    def terminate_one(job) -> None:
+        """dx call to terminate single job"""
+        if job.startswith('job'):
+            dx.DXJob(dxid=job).terminate()
+        else:
+            dx.DXAnalysis(dxid=job).terminate()
+
+    prettier_print(f"Trying to terminate: {jobs}")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(terminate_one, job_id):
+            job_id for job_id in sorted(jobs, reverse=True)
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                future.result()
+            except Exception as exc:
+                # catch any errors that might get raised
+                prettier_print(
+                    "Error terminating job "
+                    f"{concurrent_jobs[future]}: {exc}"
+                )
+
+    prettier_print("Terminated jobs.")
+
+
+def dx_run(
+    executable, job_name, input_dict, output_dict, prev_jobs,
+    extra_args, instance_types, project_id
+) -> str:
+    """
+    Call workflow / app with populated input and output dicts
+
+    Returns id of submitted job
+
+    Parameters
+    ----------
+    executable : str
+        human readable name of executable (i.e. workflow / app / applet)
+    job_name : str
+        name to assign to job, will be combination of human readable name
+        of exectuable and sample ID
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+    output_dict : dict
+        dict of output directory paths for each app
+    prev_jobs : list
+        list of job ids to wait for completion before starting
+    extra_args : dict
+        mapping of any additional arguments to pass to underlying dx
+        API call, parsed from extra_args field in config file
+    instance_types : dict
+        mapping of instances to use for apps
+    project_id : str
+        DNAnexus project id in which the job will be launched
+    testing : bool
+        Boolean indicating if the execution of conductor is in testing mode
+
+    Returns
+    -------
+    job_id : str
+        DNAnexus job id of newly started analysis
+
+    Raises
+    ------
+    RuntimeError
+        Raised when workflow-, app- or applet- not present in exe name
+    """
+
+    prettier_print(f"\nPopulated input dict for: {executable}")
+    prettier_print(input_dict)
+
+    if os.environ.get('TESTING') == 'true':
+        # running in test mode => don't actually want to run jobs =>
+        # make jobs dependent on conductor job finishing so no launched
+        # jobs actually start running
+        prev_jobs.append(os.environ.get('PARENT_JOB_ID'))
+
+    if 'workflow-' in executable:
+        # get common top level of each apps output destination
+        # to set as output of workflow for consitency of viewing
+        # in the browser
+        parent_path = os.path.commonprefix(list(output_dict.values()))
+
+        job_handle = dx.bindings.dxworkflow.DXWorkflow(
+            dxid=executable,
+            project=project_id
+        ).run(
+            workflow_input=input_dict,
+            folder=parent_path,
+            stage_folders=output_dict,
+            rerun_stages=['*'],
+            depends_on=prev_jobs,
+            name=job_name,
+            extra_args=extra_args,
+            stage_instance_types=instance_types
+        )
+
+    elif 'app-' in executable:
+        job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
+            app_input=input_dict,
+            project=project_id,
+            folder=output_dict.get(executable),
+            ignore_reuse=True,
+            depends_on=prev_jobs,
+            name=job_name,
+            extra_args=extra_args,
+            instance_type=instance_types
+        )
+
+    elif 'applet-' in executable:
+        job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
+            applet_input=input_dict,
+            project=project_id,
+            folder=output_dict.get(executable),
+            ignore_reuse=True,
+            depends_on=prev_jobs,
+            name=job_name,
+            extra_args=extra_args,
+            instance_type=instance_types
+        )
+
+    else:
+        # doesn't appear to be valid workflow or app
+        raise RuntimeError(
+            f'Given executable id is not valid: {executable}'
+        )
+
+    job_details = job_handle.describe()
+    job_id = job_details.get('id')
+
+    prettier_print(
+        f'Started analysis in project {project_id}, '
+        f'job: {job_id}'
+    )
+
+    with open('job_id.log', 'a') as fh:
+        # log of current executable jobs
+        fh.write(f'{job_id} ')
+
+    with open('all_job_ids.log', 'a') as fh:
+        # log of all launched job IDs
+        fh.write(f'{job_id},')
+
+    return job_id

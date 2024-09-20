@@ -6,7 +6,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 
-from utils.utils import prettier_print
+import utils.utils as utils
 
 
 class Slack():
@@ -48,7 +48,7 @@ class Slack():
                 f"eggd_conductor job: {conductor_job_url}"
             )
 
-        prettier_print(
+        utils.prettier_print(
             f"\nSending message to Slack channel {channel}\n\n{message}"
         )
 
@@ -66,12 +66,12 @@ class Slack():
 
             if not response['ok']:
                 # error in sending slack notification
-                prettier_print(
+                utils.prettier_print(
                     "Error in sending slack notification: "
                     f"{response.get('error')}"
                 )
         except Exception as err:
-            prettier_print(
+            utils.prettier_print(
                 f"Error in sending post request for slack notification: {err}"
             )
 
@@ -118,7 +118,7 @@ class Jira():
         -------
         list : list of all tickets with details for given queue
         """
-        prettier_print(
+        utils.prettier_print(
             f"\nGetting all Jira tickets from endpoint: {self.queue_url}"
         )
         start = 0
@@ -148,7 +148,7 @@ class Jira():
             response_data.extend(response['values'])
             start += 50
 
-        prettier_print(f"Found {len(response_data)} tickets")
+        utils.prettier_print(f"Found {len(response_data)} tickets")
 
         return response_data
 
@@ -169,9 +169,9 @@ class Jira():
         str
             ticket ID
         """
-        prettier_print("Filtering Jira tickets for current run")
+        utils.prettier_print("Filtering Jira tickets for current run")
         run_tickets = [x for x in tickets if run_id in x['fields']['summary']]
-        prettier_print(
+        utils.prettier_print(
             f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
         )
 
@@ -206,7 +206,7 @@ class Jira():
                 warn=True
             )
         else:
-            prettier_print(
+            utils.prettier_print(
                 "Slack notification for fail with Jira already sent, "
                 f"won't send current error: {message}"
             )
@@ -226,7 +226,7 @@ class Jira():
         """
 
         if ticket is None:
-            prettier_print(
+            utils.prettier_print(
                 "No ticket passed, continuing without commenting"
             )
             return
@@ -234,7 +234,7 @@ class Jira():
         if not any([self.queue_url, self.issue_url, self.token, self.email]):
             # none of Jira related variables defined in config, assume we
             # aren't wanting to use Jira and continue
-            prettier_print(
+            utils.prettier_print(
                 "No required Jira variables set in config, continuing "
                 "without using Jira"
             )

@@ -12,6 +12,8 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../')
 ))
 
+import utils.WebClasses as WebClasses
+
 
 def prettier_print(log_data) -> None:
     """
@@ -111,9 +113,12 @@ def select_instance_types(run_id, instance_types) -> dict:
     # "S4": "xxxxxDSxx"
 
     matches = []
-    flowcell_id = re.split('[_-]', run_id)[-1]  # flowcell ID is last part of run ID
+    # flowcell ID is last part of run ID
+    flowcell_id = re.split('[_-]', run_id)[-1]
 
-    prettier_print(f"Instance types set for the following keys:\n\t{instance_types}")
+    prettier_print(
+        f"Instance types set for the following keys:\n\t{instance_types}"
+    )
 
     for type in instance_types.keys():
         if type not in ["SP", "S1", "S2", "S4", "*"]:
@@ -132,14 +137,17 @@ def select_instance_types(run_id, instance_types) -> dict:
             if end_x:
                 end_x = f"[\d\w]{{{len(end_x)},}}"
 
-            match = re.search(f"{start_x}{type.strip('x')}{end_x}", flowcell_id)
+            match = re.search(
+                f"{start_x}{type.strip('x')}{end_x}", flowcell_id
+            )
+
             if match:
                 matches.append(type)
 
     if matches:
         # we found a match against the flowcell ID and one of the sets of
         # instance types to use => return this to use
-        assert len(matches) == 1, Slack().send(
+        assert len(matches) == 1, WebClasses.Slack().send(
             "More than one set of instance types set for the same flowcell:"
             f"\n\t{matches}"
         )
@@ -166,7 +174,9 @@ def select_instance_types(run_id, instance_types) -> dict:
             return instance_types['SP']
         else:
             # no instance types defined for SP/S1 flowcell
-            prettier_print('SP/S1 flowcell used but no instance types specified')
+            prettier_print(
+                'SP/S1 flowcell used but no instance types specified'
+            )
 
     if 'DM' in flowcell_id:
         # this is an S2 flowcell, check for S2
