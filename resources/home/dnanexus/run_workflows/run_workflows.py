@@ -501,8 +501,6 @@ def main():
 
     run_time = time_stamp()
 
-# -----------------------------------------------------------------------------
-
     for assay_handler, limiting_nb in zip_longest(
         assay_handlers, limiting_nb_per_assay
     ):
@@ -603,8 +601,6 @@ def main():
             for error in ticket_errors:
                 Slack().send(error)
 
-# -----------------------------------------------------------------------------
-
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
         fastq_details = get_demultiplex_job_details(
@@ -686,8 +682,6 @@ def main():
                 'No fastqs passed or demultiplexing specified. Exiting now'
             )
         )
-
-# -----------------------------------------------------------------------------
 
     for assay_handler in assay_handlers:
         assay_handler.fastq_details = fastq_details
