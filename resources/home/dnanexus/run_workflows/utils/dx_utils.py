@@ -171,7 +171,7 @@ def filter_highest_config_version(all_configs) -> dict:
             if uniq_code in full_code.split('|'):
                 # this single assay code is in the full assay code
                 # parsed from config, add match as 'assay_code': 'version'
-                matches[full_code] = all_assay_codes[full_code]
+                matches[full_code] = parse(all_assay_codes[full_code])
 
         # check we don't have 2 matches with the same version as we
         # can't tell which to use, i.e. EGG2 : 1.0.0 & EGG2|LAB123 : 1.0.0
@@ -184,7 +184,7 @@ def filter_highest_config_version(all_configs) -> dict:
         # for this unique code, select the full assay code with the highest
         # version this one was found in using packaging.version.parse, and
         # then select the full config file data for it
-        full_code_to_use = max(matches, key=parse)
+        full_code_to_use = max(matches, key=matches.get)
         configs_to_use[
             full_code_to_use] = highest_version_config_data[full_code_to_use]
 
