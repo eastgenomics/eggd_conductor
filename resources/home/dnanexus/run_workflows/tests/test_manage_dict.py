@@ -11,13 +11,18 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.manage_dict import ManageDict
+from utils.manage_dict import (
+    search, replace, add_fastqs, add_upload_tars, add_other_inputs,
+    get_dependent_jobs, link_inputs_to_outputs, populate_output_dir_config,
+    filter_job_outputs_dict, check_input_classes, check_all_inputs,
+    populate_tso500_reports_workflow
+)
 from .settings import TEST_DATA_DIR
 
 
 class TestSearchDict():
     """
-    Tests for ManageDict.search() that searches a given dictionary for a
+    Tests for search() that searches a given dictionary for a
     given pattern against either keys or values, and can return the
     keys or values
     """
@@ -26,10 +31,10 @@ class TestSearchDict():
 
     def test_search_key_return_key_level1(self) -> None:
         """
-        Test ManageDict().search() against first level, checking
+        Test search() against first level, checking
         and returning keys
         """
-        output = ManageDict().search(
+        output = search(
             identifier='level1',
             input_dict=self.full_config,
             check_key=True,
@@ -44,10 +49,10 @@ class TestSearchDict():
 
     def test_search_key_return_value_level1(self) -> None:
         """
-        Test ManageDict().search() against first level, checking
+        Test search() against first level, checking
         keys and returning values
         """
-        output = ManageDict().search(
+        output = search(
             identifier='level1',
             input_dict=self.full_config,
             check_key=True,
@@ -68,9 +73,9 @@ class TestSearchDict():
 
     def test_search_key_return_array_values(self) -> None:
         """
-        Test ManageDict().search() against for key where values are an array
+        Test search() against for key where values are an array
         """
-        output = ManageDict().search(
+        output = search(
             identifier='A_level3_key2',
             input_dict=self.full_config,
             check_key=True,
@@ -88,10 +93,10 @@ class TestSearchDict():
 
     def test_search_dict_array(self) -> None:
         """
-        Test ManageDict().search() against for key where values are an array
+        Test search() against for key where values are an array
         of dicts and return each value
         """
-        output = ManageDict().search(
+        output = search(
             identifier='C_array1',
             input_dict=self.full_config,
             check_key=True,
@@ -119,7 +124,7 @@ class TestReplaceDict():
         """
         Test replacing the first level of keys in the dictionary
         """
-        output = ManageDict().replace(
+        output = replace(
             input_dict=self.full_config,
             to_replace='level1',
             replacement='test',
@@ -136,7 +141,7 @@ class TestReplaceDict():
         """
         Test searching replacing all values containing 'value1'
         """
-        output = ManageDict().replace(
+        output = replace(
             input_dict=self.full_config,
             to_replace='value1',
             replacement='test',
@@ -175,7 +180,7 @@ class TestReplaceDict():
         """
         Test replacing all values from keys matching 'B_level3'
         """
-        output = ManageDict().replace(
+        output = replace(
             input_dict=self.full_config,
             to_replace='B_level3',
             replacement='test',
@@ -263,7 +268,7 @@ class TestAddFastqs(unittest.TestCase):
         """
         Test adding R1 fastqs from all samples as input where INPUT-R1 given
         """
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
@@ -286,7 +291,7 @@ class TestAddFastqs(unittest.TestCase):
         """
         Test adding R2 fastqs from all samples as input where INPUT-R2 given
         """
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
@@ -310,7 +315,7 @@ class TestAddFastqs(unittest.TestCase):
         Test adding R1 and R2 fastqs from all samples as input
         where INPUT-R1-R2 given
         """
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
             ),
@@ -338,7 +343,7 @@ class TestAddFastqs(unittest.TestCase):
         Test adding fastqs when a sample defined => fastqs should be for just
         that sample
         """
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
@@ -360,7 +365,7 @@ class TestAddFastqs(unittest.TestCase):
         Test adding fastqs when a sample defined => fastqs should be for just
         that sample
         """
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
@@ -382,7 +387,7 @@ class TestAddFastqs(unittest.TestCase):
         Test adding R1 and R2 fastqs for given sample as input
         where INPUT-R1-R2 given
         """
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
             ),
@@ -413,7 +418,7 @@ class TestAddFastqs(unittest.TestCase):
         )
 
         with pytest.raises(AssertionError):
-            ManageDict().add_fastqs(
+            add_fastqs(
                 input_dict=deepcopy(
                     self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
                 ),
@@ -426,7 +431,7 @@ class TestAddFastqs(unittest.TestCase):
         then an AssertionError is raised
         """
         with pytest.raises(AssertionError):
-            ManageDict().add_fastqs(
+            add_fastqs(
                 input_dict=deepcopy(
                     self.test_input_dict['applet-FvyXygj433GbKPPY0QY8ZKQG']["inputs"]
                 ),
@@ -451,7 +456,7 @@ class TestAddFastqs(unittest.TestCase):
             '2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2_S32_L002_R2_001.fastq.gz')
         ]
 
-        output = ManageDict().add_fastqs(
+        output = add_fastqs(
             input_dict=deepcopy(
                 self.test_input_dict['workflow-GB6J7qQ433Gkf0ZYGbKfF0x6']["inputs"]
             ),
@@ -506,7 +511,7 @@ class TestAddUploadTars():
         {'$dnanexus_link': 'file-GGyqgF84X7kY0fjZBk6jb68P'}
     ]
 
-    parsed_dict = ManageDict().add_upload_tars(
+    parsed_dict = add_upload_tars(
         input_dict=input_dict,
         upload_tars=upload_tars
     )
@@ -540,13 +545,11 @@ class TestAddOtherInputs():
         "run_sample_sheet": {
             "$dnanexus_link": "INPUT-SAMPLESHEET"
         },
-}
+    }
 
-    # set up argparse namespace with required variables
-    args = Namespace()
-    args.dx_project_id = 'project-12345'
-    args.dx_project_name = 'some_analysis_project'
-    args.parent_out_dir = '/output/some_assay-220930-1200'
+    dx_project_id = 'project-12345'
+    dx_project_name = 'some_analysis_project'
+    parent_out_dir = '/output/some_assay-220930-1200'
 
     analysis_output_directories = {
         "analysis_1": "/output/some_assay-220930-1200/my_first_app"
@@ -558,9 +561,11 @@ class TestAddOtherInputs():
     )
 
     # call add_other_inputs() to replace all INPUT-s
-    output = ManageDict().add_other_inputs(
+    output = add_other_inputs(
         input_dict=test_input_dict,
-        args = args,
+        parent_out_dir=parent_out_dir,
+        project_id=dx_project_id,
+        project_name=dx_project_name,
         executable_out_dirs=analysis_output_directories,
         sample='my_sample_with_a_long_name',
         sample_prefix='my_sample'
@@ -661,7 +666,7 @@ class TestGetDependentJobs():
         """
         params = {"depends_on": ["analysis_1", "analysis_2"]}
 
-        jobs = ManageDict().get_dependent_jobs(
+        jobs = get_dependent_jobs(
             params=params,
             job_outputs_dict=self.job_outputs_dict,
             sample="2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2"
@@ -683,7 +688,7 @@ class TestGetDependentJobs():
         """
         params = {"depends_on": ["analysis_1"]}
 
-        jobs = ManageDict().get_dependent_jobs(
+        jobs = get_dependent_jobs(
             params=params,
             job_outputs_dict=self.job_outputs_dict
         )
@@ -704,7 +709,7 @@ class TestGetDependentJobs():
         """
         params = {"depends_on": ["analysis_1", "analysis_2", "analysis_3"]}
 
-        jobs = ManageDict().get_dependent_jobs(
+        jobs = get_dependent_jobs(
             params=params,
             job_outputs_dict=self.job_outputs_dict
         )
@@ -729,7 +734,7 @@ class TestGetDependentJobs():
         """
         params = {"depends_on": ["analysis_5"]}
 
-        jobs = ManageDict().get_dependent_jobs(
+        jobs = get_dependent_jobs(
             params=params,
             job_outputs_dict=self.job_outputs_dict
         )
@@ -746,7 +751,7 @@ class TestGetDependentJobs():
         """
         params = {"depends_on": ["analysis_5"]}
 
-        jobs = ManageDict().get_dependent_jobs(
+        jobs = get_dependent_jobs(
             params=params,
             job_outputs_dict=self.job_outputs_dict,
             sample="2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2"
@@ -799,7 +804,7 @@ class TestLinkInputsToOutputs():
         Tests for building array for all of analysis_1 jobs and adding
         as input
         """
-        output = ManageDict().link_inputs_to_outputs(
+        output = link_inputs_to_outputs(
             job_outputs_dict=self.job_outputs,
             input_dict=deepcopy(self.input_dict_analysis_1),
             analysis='analysis_2',
@@ -816,8 +821,8 @@ class TestLinkInputsToOutputs():
         correct_input = [
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34kQ4Bv4KkyxF4f91V26q',
-                     'field': 'somalier',
-                     'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
+                'field': 'somalier',
+                'stage': 'stage-G9x7x0Q41bQkpZXgBGzqGqX5'}},
             {'$dnanexus_link': {
                 'analysis': 'analysis-GGp34p84Bv40x7Kj4bjB55JG',
                 'field': 'somalier',
@@ -844,7 +849,7 @@ class TestLinkInputsToOutputs():
         """
         Test for adding analysis_1 job ID for given sample
         """
-        output = ManageDict().link_inputs_to_outputs(
+        output = link_inputs_to_outputs(
             job_outputs_dict=self.job_outputs,
             input_dict=deepcopy(self.input_dict_analysis_1),
             analysis='analysis_2',
@@ -870,7 +875,7 @@ class TestLinkInputsToOutputs():
         Test for parsing out job ID of analysis_2 from job_outputs dict
         which is a per_run job and analysis_2 is a root key of the dict
         """
-        output = ManageDict().link_inputs_to_outputs(
+        output = link_inputs_to_outputs(
             job_outputs_dict=self.job_outputs,
             input_dict=deepcopy(self.input_dict_analysis_2),
             analysis='analysis_2',
@@ -926,7 +931,7 @@ class TestPopulateOutputDirConfig():
         """
         Test populating output path for an app
         """
-        output_dict = ManageDict().populate_output_dir_config(
+        output_dict = populate_output_dir_config(
             executable='applet-FvyXygj433GbKPPY0QY8ZKQG',
             exe_names=self.executable_names,
             output_dict=self.app_output_config,
@@ -945,7 +950,7 @@ class TestPopulateOutputDirConfig():
         """
         Test populating output paths for each stage of a workflow
         """
-        output_dict = ManageDict().populate_output_dir_config(
+        output_dict = populate_output_dir_config(
             executable='workflow-GB12vxQ433GygFZK6pPF75q8',
             exe_names=self.executable_names,
             output_dict=self.workflow_output_config,
@@ -972,7 +977,7 @@ class TestPopulateOutputDirConfig():
             "applet-FvyXygj433GbKPPY0QY8ZKQG": "/some/hardcoded/path"
         }
 
-        output_dict = ManageDict().populate_output_dir_config(
+        output_dict = populate_output_dir_config(
             executable='applet-FvyXygj433GbKPPY0QY8ZKQG',
             exe_names=self.executable_names,
             output_dict=output_config,
@@ -1018,15 +1023,15 @@ class TestFilterJobOutputsDict():
         }
 
         # get the jobs for Oncospan sample
-        filtered_output = ManageDict().filter_job_outputs_dict(
+        filtered_output = filter_job_outputs_dict(
             stage='stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file',
             outputs_dict=self.job_outputs_dict,
             filter_dict=inputs_filter
         )
 
         correct_output = {
-        'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
-            'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
+            'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+                'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
             }
         }
 
@@ -1048,18 +1053,18 @@ class TestFilterJobOutputsDict():
         }
 
         # get the jobs for both samples
-        filtered_output = ManageDict().filter_job_outputs_dict(
+        filtered_output = filter_job_outputs_dict(
             stage='stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file',
             outputs_dict=self.job_outputs_dict,
             filter_dict=inputs_filter
         )
 
         correct_output = {
-        '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
-            'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2'
-        },
-        'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
-            'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
+            '2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2': {
+                'analysis_1': 'analysis-GGjgz0j4Bv4P8yqJGp9pyyv2'
+            },
+            'Oncospan-158-1-AA1-BBB-MYE-U-EGG2': {
+                'analysis_1': 'analysis-GGjgz004Bv4P8yqJGp9pyyqb'
             }
         }
 
@@ -1073,7 +1078,8 @@ class TestCheckInputClasses():
     Tests for checking classes of input in input dict to ensure they are
     correct against what the app / workflow expects
     """
-    # mapping of inputs -> class from DXManage.get_input_classes()
+
+    # mapping of inputs -> class from get_input_classes()
     input_classes = {
         'applet-Fz93FfQ433Gvf6pKFZYbXZQf': {
             'custom_coverage':  {
@@ -1168,7 +1174,7 @@ class TestCheckInputClasses():
         Test when an input expects to be an array and a single dict is given
         if this is correctly changed to a list
         """
-        output = ManageDict().check_input_classes(
+        output = check_input_classes(
             input_dict=self.test_input_dict1,
             input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
         )
@@ -1186,7 +1192,7 @@ class TestCheckInputClasses():
         Test when a list with one input given to an input that expects to be
         a single file that it is correctly set to a dict
         """
-        output = ManageDict().check_input_classes(
+        output = check_input_classes(
             input_dict=self.test_input_dict2,
             input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
         )
@@ -1204,7 +1210,7 @@ class TestCheckInputClasses():
         an array with more than one item, as RuntimeError is raised
         """
         with pytest.raises(RuntimeError):
-            ManageDict().check_input_classes(
+            check_input_classes(
                 input_dict=self.test_input_dict3,
                 input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
             )
@@ -1243,7 +1249,7 @@ class TestCheckAllInputs():
         left in input dictionary
         """
         with pytest.raises(AssertionError):
-            ManageDict().check_all_inputs(
+            check_all_inputs(
                 input_dict=self.input_dict_with_unparsed_input
             )
 
@@ -1253,14 +1259,14 @@ class TestCheckAllInputs():
         left in input dictionary
         """
         with pytest.raises(AssertionError):
-            ManageDict().check_all_inputs(
+            check_all_inputs(
                 input_dict=self.input_dict_with_unparsed_analysis
             )
 
 
 class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
     """
-    Tests for ManageDict.populate_tso500_reports_workflow
+    Tests for populate_tso500_reports_workflow
 
     Function handles the specific output -> input parsing of eggd_tso500
     and the downstream per sample eggd_tso500_reports_workflow. Tests
@@ -1275,14 +1281,14 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
         # including the inputs here to link to eggd_tso500 outputs
         self.reports_workflow_input_dict = {
             "stage-multi_fastqc.fastqs": "eggd_tso500.fastqs",
-                "stage-mosdepth.bam": "eggd_tso500.bam",
-                "stage-mosdepth.index": "eggd_tso500.idx",
-                "stage-vcf_rescue.gvcf": "eggd_tso500.vcf",
-                "stage-generate_variant_workbook.additional_files": "eggd_tso500.cvo",
-         }
+            "stage-mosdepth.bam": "eggd_tso500.bam",
+            "stage-mosdepth.index": "eggd_tso500.idx",
+            "stage-vcf_rescue.gvcf": "eggd_tso500.vcf",
+            "stage-generate_variant_workbook.additional_files": "eggd_tso500.cvo",
+        }
 
         # minimal example files as would be returned from finding files in
-        # eggd_tso500 directory with dx_requests.DXManage.get_job_output_details()
+        # eggd_tso500 directory with get_job_output_details()
         self.all_output_files = [
             {'id': 'file-a1', 'describe': {'name': 'sample1_R1.fastq'}},
             {'id': 'file-a2', 'describe': {'name': 'sample1_R2.fastq'}},
@@ -1305,7 +1311,6 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             {'id': 'file-h3', 'describe': {'name': 'sample3_CombinedVariantOutput.tsv'}},
             {'id': 'file-i1', 'describe': {'name': 'metricsOutput.tsv'}},
         ]
-
 
         # example mapping of eggd_tso500 output fields -> $dnanexus_links
         self.job_output_ids = {
@@ -1349,13 +1354,12 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             }
         }
 
-
     def test_inputs_for_dna_sample_correct(self):
         """
         Test that for sample1 that is DNA (has dna_bam output) that the
         input dict is populated correctly
         """
-        populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+        populated_input_dict = populate_tso500_reports_workflow(
             input_dict=self.reports_workflow_input_dict,
             sample='sample1',
             all_output_files=self.all_output_files,
@@ -1378,13 +1382,12 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
 
         self.assertEqual(populated_input_dict, expected_output)
 
-
     def test_inputs_for_rna_sample_correct(self):
         """
         Test that for sample3 that is RNA (has rna_bam output and
         splice_variant vcf) that the input dict is populated correctly
         """
-        populated_input_dict = ManageDict().populate_tso500_reports_workflow(
+        populated_input_dict = populate_tso500_reports_workflow(
             input_dict=self.reports_workflow_input_dict,
             sample='sample3',
             all_output_files=self.all_output_files,
@@ -1407,7 +1410,6 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
 
         self.assertEqual(populated_input_dict, expected_output)
 
-
     def test_missing_files_for_sample_raises_assertion_error(self):
         """
         Test when a sample is missing a file that an AssertionError is raised
@@ -1423,14 +1425,14 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             'No eggd_tso500 files found for sample sample1 '
             'for input eggd_tso500.cvo'
         )
+
         with pytest.raises(AssertionError, match=expected_error):
-            ManageDict().populate_tso500_reports_workflow(
+            populate_tso500_reports_workflow(
                 input_dict=self.reports_workflow_input_dict,
                 sample='sample1',
                 all_output_files=missing_files,
                 job_output_ids=self.job_output_ids
             )
-
 
     def test_missing_metrics_output_raises_assertion_error(self):
         """
@@ -1443,7 +1445,7 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
         expected_error = 'No metrics output file found from tso500 job'
 
         with pytest.raises(AssertionError, match=expected_error):
-            ManageDict().populate_tso500_reports_workflow(
+            populate_tso500_reports_workflow(
                 input_dict=self.reports_workflow_input_dict,
                 sample='sample1',
                 all_output_files=self.all_output_files,

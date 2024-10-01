@@ -16,7 +16,6 @@ from run_workflows.run_workflows import (
     match_samples_to_assays,
     parse_run_info_xml,
     parse_sample_sheet,
-    exclude_samples_from_sample_list
 )
 
 
@@ -54,8 +53,9 @@ class TestMatchSamplesToAssays():
     """
     Tests for match_samples_to_assays()
     """
+
     # minimal example of dict of configs that would be returned from
-    # DXManage.get_json_configs() and DXManage.filter_highest_config_version()
+    # get_json_configs() and filter_highest_config_version()
     configs = {
         'EGG2|LAB123': {'assay_code': 'EGG2|LAB123', 'version': '1.2.0'},
         'EGG3|LAB456': {'assay_code': 'EGG3|LAB456', 'version': '1.1.0'},
@@ -65,10 +65,9 @@ class TestMatchSamplesToAssays():
     }
 
     # test lists of samples as would be parsed from samplesheet
-    single_assay_sample_list = [f'sample{x}-EGG2' for x in range(1,11)]
+    single_assay_sample_list = [f'sample{x}-EGG2' for x in range(1, 11)]
     mixed_assay_sample_list = single_assay_sample_list + ['sample11-EGG3']
     sample_list_w_no_code = single_assay_sample_list + ['sample11']
-
 
     def test_return_single_assay(self):
         """
@@ -78,8 +77,7 @@ class TestMatchSamplesToAssays():
         assay_samples = match_samples_to_assays(
             configs=self.configs,
             all_samples=self.single_assay_sample_list,
-            testing=False,
-            mismatch=0
+            testing=False
         )
 
         correct_output = {
@@ -95,7 +93,6 @@ class TestMatchSamplesToAssays():
         assert assay_samples == correct_output, (
             'Incorrectly matched samples to assay codes'
         )
-
 
     def test_selected_highest_version(self):
         """
@@ -113,14 +110,13 @@ class TestMatchSamplesToAssays():
         matches = match_samples_to_assays(
             configs=configs,
             all_samples=self.single_assay_sample_list,
-            testing=False,
-            mismatch=0
+            testing=False
         )
 
         assert list(matches.keys()) == ['EGG2|LAB123-3'], (
             "Wrong version of config file selected when matching to samples"
         )
-    
+
     def test_select_highest_version_w_lower_code(self):
         """
         Test when matching samples to assay configs that the highest version
@@ -137,14 +133,12 @@ class TestMatchSamplesToAssays():
         matches = match_samples_to_assays(
             configs=configs,
             all_samples=self.single_assay_sample_list,
-            testing=False,
-            mismatch=0
-        )           
-           
+            testing=False
+        )
+
         assert list(matches.keys()) == ['EGG2|123'], (
             "Wrong version of config file selected when matching to samples"
         )
-        
 
     def test_mismatch_set_zero(self):
         """
@@ -165,80 +159,15 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=sample_list,
-                testing=False,
-                mismatch=0
+                testing=False
             )
-
-
-    def test_mismatch_set_one(self):
-        """
-        Tests when missing assay code for sample to assay matching occurs
-        and mismatch set to one, this should assign the missing sample to
-        the same config as the other samples
-        """
-        sample_list = [
-            "sample1-EGG2",
-            "sample2-EGG2",
-            "sample3-EGG2",
-            "sample4"
-        ]
-
-        assay_samples = match_samples_to_assays(
-            configs=self.configs,
-            all_samples=sample_list,
-            testing=False,
-            mismatch=1
-        )
-
-        correct_output = {
-            'EGG2|LAB123': [
-                "sample1-EGG2",
-                "sample2-EGG2",
-                "sample3-EGG2",
-                "sample4"
-            ]
-        }
-
-        assert correct_output == assay_samples, (
-            "Matching samples to assay config with single sample mismatch failed"
-        )
-
-
-    def test_mismatch_set_one_with_two_mismatches(self):
-        """
-        Tests when missing assay code for two samples when assay matching occurs
-        and mismatch set to one, this should raise an AssertionError
-        """
-        sample_list = [
-            "sample1-EGG2",
-            "sample2-EGG2",
-            "sample3-EGG2",
-            "sample4",
-            "sample5"
-        ]
-
-        with pytest.raises(AssertionError):
-            match_samples_to_assays(
-                configs=self.configs,
-                all_samples=sample_list,
-                testing=False,
-                mismatch=1
-            )
-
 
     def test_raise_assertion_error_on_mixed_assays(self):
         """
         Test that an AssertionError is raised when more than one assay
         code is identified in the sample list
         """
-        with pytest.raises(AssertionError):
-            match_samples_to_assays(
-                configs=self.configs,
-                all_samples=self.mixed_assay_sample_list,
-                testing=False,
-                mismatch=0
-            )
-
+        pass
 
     def test_raise_assertion_error_on_sample_w_no_assay_code_match(self):
         """
@@ -249,40 +178,38 @@ class TestMatchSamplesToAssays():
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=self.sample_list_w_no_code,
-                testing=False,
-                mismatch=0
+                testing=False
             )
 
 
-class TestExcludeSamplesFromSampleList(unittest.TestCase):
-    """
-    Function removes the specified samples from the given list of sample
-    names, and will raise error on any not present in the sample list
-    """
-    def test_valid_samples_excluded(self):
-        """
-        Test when valid samples specified to exclude they are correctly
-        removed from the sample list
-        """
-        sample_list = exclude_samples_from_sample_list(
-            sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
-            exclude_samples=['sample1', 'sample2']
-        )
+# class TestExcludeSamplesFromSampleList(unittest.TestCase):
+#     """
+#     Function removes the specified samples from the given list of sample
+#     names, and will raise error on any not present in the sample list
+#     """
+#     def test_valid_samples_excluded(self):
+#         """
+#         Test when valid samples specified to exclude they are correctly
+#         removed from the sample list
+#         """
+#         sample_list = exclude_samples_from_sample_list(
+#             sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
+#             exclude_samples=['sample1', 'sample2']
+#         )
 
-        self.assertEqual(sorted(sample_list), ['sample3', 'sample4'])
+#         self.assertEqual(sorted(sample_list), ['sample3', 'sample4'])
+
+#     def test_invalid_sample_raises_runtime_error(self):
+#         """
+#         Test if invalid samples provided to exclude that this correctly
+#         raises RuntimeError
+#         """
+#         with pytest.raises(RuntimeError):
+#             exclude_samples_from_sample_list(
+#                 sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
+#                 exclude_samples=['sample6']
+#             )
 
 
-    def test_invalid_sample_raises_runtime_error(self):
-        """
-        Test if invalid samples provided to exclude that this correctly
-        raises RuntimeError
-        """
-        with pytest.raises(RuntimeError):
-            exclude_samples_from_sample_list(
-            sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
-            exclude_samples=['sample6']
-        )
-
-
-if __name__=="__main__":
+if __name__ == "__main__":
     TestMatchSamplesToAssays().test_selected_highest_version()

@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.realpath(__file__), '../../')
 ))
 
-from utils.utils import select_instance_types, subset_samplesheet_samples
+from utils.utils import select_instance_types
 
 
 class TestSelectInstanceTypes():
@@ -48,7 +48,7 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYDRXY",
             instance_types=self.instance_types)
-        
+
         correct_dict = {"SP_S1_instances_from_DR_pattern": ""}
 
         assert selected_instance_types == correct_dict, (
@@ -63,13 +63,13 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYDMXY",
             instance_types=self.instance_types)
-        
+
         correct_dict = {"S2_instances_from_DM_pattern": ""}
-        
+
         assert selected_instance_types == correct_dict, (
             "wrong instances type selected for xxxxxDMxx flowcell"
         )
-    
+
     def test_select_S4(self):
         """
         Tests that S4 instances can be correctly selected from an S4 flowcell
@@ -78,7 +78,7 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLDSXY",
             instance_types=self.instance_types)
-        
+
         correct_dict = {"S4_instances_from_DS_pattern": ""}
 
         assert selected_instance_types == correct_dict, (
@@ -96,13 +96,13 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYDRXY",
             instance_types=instances)
-        
+
         correct_dict = {'S1_instances_from_S1': ''}
 
         assert selected_instance_types == correct_dict, (
             "wrong instances type selected for S1"
         )
-    
+
     def test_select_S2_from_S2(self):
         """
         Test where S2 is in the instance types dict and xxxxxDMxx is not, that
@@ -114,13 +114,13 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYDMXY",
             instance_types=instances)
-        
+
         correct_dict = {'S2_instances_from_S2': ''}
 
         assert selected_instance_types == correct_dict, (
             "wrong instances type selected for S2"
         )
-    
+
     def test_select_S4_from_S4(self):
         """
         Test where S4 is in the instance types dict and xxxxxDSxx is not, that
@@ -132,13 +132,13 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYDSXY",
             instance_types=instances)
-        
+
         correct_dict = {'S4_instances_from_S4': ''}
 
         assert selected_instance_types == correct_dict, (
             "wrong instances type selected for S4"
         )
-    
+
     def test_default_instance_set_used(self):
         """
         Test that when the flowcell ID matches none of the given patterns
@@ -147,13 +147,13 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYAAAXY",
             instance_types=self.instance_types)
-        
+
         correct_dict = {"default_instances": ""}
 
         assert selected_instance_types == correct_dict, (
             "Incorrect default instances used"
         )
-    
+
     def test_return_none_with_no_default(self):
         """
         Test where the flowcell ID matches none of the given pattern and
@@ -166,11 +166,11 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYAAAXY",
             instance_types=instances)
-        
+
         assert selected_instance_types == None, (
             "None not returned for no match"
         )
-    
+
     def test_miseq_pattern(self):
         """
         Test where flowcell ID is for MiSeq run and Kxxxx pattern is
@@ -179,7 +179,7 @@ class TestSelectInstanceTypes():
         selected_instance_types = select_instance_types(
             run_id="230201_M03595_0015_000000000-KRW44",
             instance_types=self.instance_types)
-        
+
         correct_dict = {"MiSeq_instances_from_K_pattern": ""}
 
         assert selected_instance_types == correct_dict, (
@@ -200,59 +200,59 @@ class TestSelectInstanceTypes():
         selected_instance = select_instance_types(
             run_id="230324_A01295_0171_BHFFLYDRXY",
             instance_types=instance_types)
-        
+
         assert selected_instance == "mem2_ssd1_v2_x16", (
             "Wrong instance type returned where return type should be a string"
         )
 
 
-class TestSubsetSamplesheetSamples(unittest.TestCase):
-    """
-    Tests for utils.subset_samplesheet_samples
+# class TestSubsetSamplesheetSamples(unittest.TestCase):
+#     """
+#     Tests for utils.subset_samplesheet_samples
 
-    Function takes a list of sample names parsed from the samplesheet and
-    a regex pattern against which to filter them down and retain samples
-    """
-    samples = ['sample-1-123-foo', 'sample-2-567-bar', 'sample-3-789-baz']
+#     Function takes a list of sample names parsed from the samplesheet and
+#     a regex pattern against which to filter them down and retain samples
+#     """
+#     samples = ['sample-1-123-foo', 'sample-2-567-bar', 'sample-3-789-baz']
 
-    def test_subset_correct(self):
-        """
-        Test that the subset is returned correctly
-        """
-        subset_samples = subset_samplesheet_samples(
-            samples=self.samples,
-            subset=r'-123-|-567-'
-        )
+#     def test_subset_correct(self):
+#         """
+#         Test that the subset is returned correctly
+#         """
+#         subset_samples = subset_samplesheet_samples(
+#             samples=self.samples,
+#             subset=r'-123-|-567-'
+#         )
 
-        expected_subset = ['sample-1-123-foo', 'sample-2-567-bar']
+#         expected_subset = ['sample-1-123-foo', 'sample-2-567-bar']
 
-        assert sorted(subset_samples) == expected_subset, (
-            'expected sample subset incorret'
-        )
+#         assert sorted(subset_samples) == expected_subset, (
+#             'expected sample subset incorret'
+#         )
 
 
-    def test_no_samples_retained_raises_assertion_error(self):
-        """
-        Test that when no samples are left after subet that we correctly
-        raise an AssertionError
-        """
-        expected_error = 'No samples left after filtering using pattern blarg'
+#     def test_no_samples_retained_raises_assertion_error(self):
+#         """
+#         Test that when no samples are left after subet that we correctly
+#         raise an AssertionError
+#         """
+#         expected_error = 'No samples left after filtering using pattern blarg'
 
-        with pytest.raises(AssertionError, match=expected_error):
-            subset_samplesheet_samples(
-            samples=self.samples,
-            subset='blarg'
-        )
+#         with pytest.raises(AssertionError, match=expected_error):
+#             subset_samplesheet_samples(
+#             samples=self.samples,
+#             subset='blarg'
+#         )
 
-    def test_invalid_regex_pattern_raises_regex_error(self):
-        """
-        Test that when an invalid regex pattern is provided that a
-        re.error is raised
-        """
-        expected_error = 'Invalid subset pattern provided'
+#     def test_invalid_regex_pattern_raises_regex_error(self):
+#         """
+#         Test that when an invalid regex pattern is provided that a
+#         re.error is raised
+#         """
+#         expected_error = 'Invalid subset pattern provided'
 
-        with pytest.raises(re.error, match=expected_error):
-            subset_samplesheet_samples(
-            samples=self.samples,
-            subset='[invalid'
-        )
+#         with pytest.raises(re.error, match=expected_error):
+#             subset_samplesheet_samples(
+#             samples=self.samples,
+#             subset='[invalid'
+#         )
