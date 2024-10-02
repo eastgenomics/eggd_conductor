@@ -10,8 +10,6 @@ See readme for full documentation of how to structure the config file and what
 inputs are valid.
 """
 import argparse
-from collections import defaultdict
-from xml.etree import ElementTree as ET
 from itertools import zip_longest
 import json
 import math
@@ -20,8 +18,6 @@ import re
 import subprocess
 
 import dxpy as dx
-from packaging.version import parse as parseVersion
-import pandas as pd
 
 from utils.AssayHandler import AssayHandler
 from utils.dx_utils import (
@@ -33,223 +29,21 @@ from utils.dx_utils import (
 from utils import manage_dict
 from utils.WebClasses import Jira, Slack
 from utils.utils import (
+    load_config,
+    load_test_data,
+    match_samples_to_assays,
+    parse_run_info_xml,
+    parse_sample_sheet,
     prettier_print,
-    select_instance_types,
     time_stamp,
+    select_instance_types
 )
 from utils.demultiplexing import (
     demultiplex,
+    get_demultiplex_job_details,
     move_demultiplex_qc_files,
-    set_config_for_demultiplexing,
-    get_demultiplex_job_details
+    set_config_for_demultiplexing
 )
-
-
-def parse_sample_sheet(samplesheet) -> list:
-    """
-    Parses list of sample names from given samplesheet
-
-    Parameters
-    ----------
-    samplesheet : file
-        samplesheet to parse
-
-    Returns
-    -------
-    list
-        list of samplenames
-
-    Raises
-    ------
-    AssertionError
-        Raised when no samples parsed from samplesheet
-    """
-    sheet = pd.read_csv(samplesheet, header=None, usecols=[0])
-    column = sheet[0].tolist()
-    sample_list = column[column.index('Sample_ID') + 1:]
-
-    # sense check some samples found and samplesheet isn't malformed
-    assert sample_list, Slack().send(
-        f"Sample list could not be parsed from samplesheet: {samplesheet}"
-    )
-
-    return sample_list
-
-
-def parse_run_info_xml(xml_file) -> str:
-    """
-    Parses RunID from RunInfo.xml file
-
-    Parameters
-    ----------
-    xml_file : file
-        RunInfo.xml file
-
-    Returns
-    -------
-    str
-        Run ID parsed from file
-    """
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
-    run_attributes = [x.attrib for x in root.findall('Run')]
-    run_id = ''
-
-    if run_attributes:
-        # should always be present
-        run_id = run_attributes[0].get('Id')
-
-    prettier_print(f'\nParsed run ID {run_id} from RunInfo.xml')
-
-    return run_id
-
-
-def match_samples_to_assays(configs, all_samples, testing) -> dict:
-    """
-    Match sample list against configs to identify correct config to use
-    for each sample
-
-    Parameters
-    ----------
-    configs : dict
-        dict of config dicts for each assay
-    all_samples : list
-        list of samples parsed from samplesheet or specified with --samples
-    testing : bool
-        if running in test mode, if not will perform checks on samples
-
-    Returns
-    -------
-    dict
-        dict of assay_code : list of matching samples, i.e.
-            {LAB123 : ['sample1-LAB123', 'sample2-LAB123' ...]}
-
-    Raises
-    ------
-    AssertionError
-        Raised when not all samples have an assay config matched
-    AssertionError
-        Raised when more than one assay config found to use for given samples
-    """
-    # build a dict of assay codes from configs found to samples based off
-    # matching assay_code in sample names
-    prettier_print("\nMatching samples to assay configs")
-    all_config_assay_codes = sorted([
-        x.get('assay_code') for x in configs.values()])
-    assay_to_samples = defaultdict(list)
-
-    prettier_print(
-        f'\nAll assay codes of config files: {all_config_assay_codes}'
-    )
-    prettier_print(f'\nAll samples parsed from samplesheet: {all_samples}')
-
-    # for each sample check each assay code if it matches, then select the
-    # matching config with highest version
-    for sample in all_samples:
-        sample_to_assay_configs = {}
-
-        for code in all_config_assay_codes:
-            # find all config files that match this sample
-            if re.search(code, sample, re.IGNORECASE):
-                sample_to_assay_configs[code] = configs[code]['version']
-
-        if sample_to_assay_configs:
-            # found at least one config to match to sample, select
-            # one with the highest version
-            highest_ver_config = max(
-                sample_to_assay_configs.values(), key=parseVersion)
-
-            # select the config key with for the corresponding value found
-            # to be the highest
-            latest_config_key = list(sample_to_assay_configs)[
-                list(sample_to_assay_configs.values()).index(highest_ver_config)
-            ]
-
-            assay_to_samples[latest_config_key].append(sample)
-        else:
-            # no match found, just log this as an AssertionError will be raised
-            # below for all samples that don't have a match
-            prettier_print(f"No matching config file found for {sample} !\n")
-
-    if not testing:
-        # check all samples have an assay code in one of the configs
-        samples_w_codes = [
-            x for y in list(assay_to_samples.values()) for x in y
-        ]
-        samples_without_codes = '\n\t\t'.join([
-            f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
-        ])
-
-        assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
-            f"Could not identify assay code for all samples!\n\n"
-            f"Configs for assay codes found: "
-            f"`{', '.join(all_config_assay_codes)}`\n\nSamples not matching "
-            f"any available config:\n\t\t{samples_without_codes}"
-        )
-    else:
-        # running in testing mode, check we found at least one sample to config
-        # to actually run. We expect that not all samples may match since if
-        # TESTING_SAMPLE_LIMIT is specified then only a subset of samples
-        # will be in this dict
-        assert assay_to_samples, Slack().send(
-            "No samples matched to available config files for testing"
-        )
-
-    prettier_print(f"\nTotal samples per assay identified: {assay_to_samples}")
-
-    return assay_to_samples
-
-
-def load_config(config_file) -> dict:
-    """
-    Read in given config json to dict
-
-    Parameters
-    ----------
-    config_file : str
-        json config file
-
-    Raises
-    ------
-    RuntimeError: raised when a non-json file passed as config
-
-    Returns
-    -------
-    config : dict
-        dictionary of loaded json file
-    """
-    if not config_file.endswith('.json'):
-        # sense check a json passed
-        raise RuntimeError('Error: invalid config passed - not a json file')
-
-    with open(config_file) as file:
-        config = json.load(file)
-
-    return config
-
-
-def load_test_data(test_samples) -> list:
-    """
-    Read in file ids of fastqs and sample names from test_samples file to test
-    calling workflows
-
-    Parameters
-    ----------
-    test_samples : str
-        filename of test samples to read in
-
-    Returns
-    -------
-    fastq_details : list of tuples
-        list with tuple per fastq containing (DNAnexus file id, filename)
-
-    """
-    with open(test_samples) as f:
-        fastq_details = f.read().splitlines()
-
-    fastq_details = [(x.split()[0], x.split()[1]) for x in fastq_details]
-
-    return fastq_details
 
 
 def parse_args() -> argparse.Namespace:
