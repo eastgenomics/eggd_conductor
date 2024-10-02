@@ -1,15 +1,9 @@
-from argparse import Namespace
 from copy import deepcopy
 import json
 import os
-import sys
 import unittest
 
 import pytest
-
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../../')
-))
 
 from utils.manage_dict import (
     search, replace, add_fastqs, add_upload_tars, add_other_inputs,

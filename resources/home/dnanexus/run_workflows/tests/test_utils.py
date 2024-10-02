@@ -1,15 +1,6 @@
 import os
-import sys
 
 import pytest
-
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../../')
-))
-
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../../../')
-))
 
 from .settings import TEST_DATA_DIR
 from utils.utils import (
@@ -175,7 +166,7 @@ class TestSelectInstanceTypes():
             run_id="230324_A01295_0171_BHFFLYAAAXY",
             instance_types=instances)
 
-        assert selected_instance_types == None, (
+        assert selected_instance_types is None, (
             "None not returned for no match"
         )
 

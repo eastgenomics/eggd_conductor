@@ -1,14 +1,8 @@
 from copy import deepcopy
-import os
 import unittest
 from unittest.mock import patch
-import sys
 
 import pytest
-
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../../')
-))
 
 from utils.dx_utils import (
     filter_highest_config_version, get_job_output_details, wait_on_done
