@@ -24,7 +24,8 @@ from utils.dx_utils import (
     get_json_configs,
     filter_highest_config_version,
     wait_on_done,
-    terminate_jobs
+    terminate_jobs,
+    invite_participants_in_project
 )
 from utils import manage_dict
 from utils.WebClasses import Jira, Slack
@@ -36,7 +37,8 @@ from utils.utils import (
     parse_sample_sheet,
     prettier_print,
     time_stamp,
-    select_instance_types
+    select_instance_types,
+    create_project_name
 )
 from utils.demultiplexing import (
     demultiplex,
@@ -323,9 +325,13 @@ def main():
             assay_handler.project = project
 
         else:
-            assay_handler.get_or_create_dx_project(
-                run_id, args.development, args.testing
+            # create dnanexus project name
+            project_name = create_project_name(
+                run_id, assay_handler.assay, args.development, args.testing
             )
+            assay_handler.get_or_create_dx_project(project_name, run_id)
+            users = assay_handler.config.get('users')
+            invite_participants_in_project(users, assay_handler.project)
 
         assay_handler.create_analysis_project_logs()
 
