@@ -148,9 +148,7 @@ class AssayHandler():
         if users:
             # users specified in config to grant access to project
             for user, access_level in users.items():
-                dx.bindings.dxproject.DXProject(dxid=project_id).invite(
-                    user, access_level, send_email=False
-                )
+                self.project.invite(user, access_level, send_email=False)
                 prettier_print(
                     f"\nGranted {access_level} priviledge to {user}"
                 )
