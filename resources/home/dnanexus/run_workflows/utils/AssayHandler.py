@@ -91,7 +91,7 @@ class AssayHandler():
                 f"v{self.config['version']}"
             )
 
-    def get_or_create_dx_project(self, run_id, development, testing) -> str:
+    def get_or_create_dx_project(self, project_name, run_id) -> str:
         """
         Create new project in DNAnexus if one with given name doesn't
         already exist.
@@ -101,26 +101,15 @@ class AssayHandler():
         str : ID of DNAnexus project
         """
 
-        if development:
-            prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
-        else:
-            prefix = '002_'
-
-        suffix = ''
-
-        if testing:
-            suffix = '-EGGD_CONDUCTOR_TESTING'
-
         assay = self.config.get("assay")
         version = self.config.get("version")
-        output_project = f'{prefix}{run_id}_{assay}{suffix}'
 
-        project_id = find_dx_project(output_project)
+        project_id = find_dx_project(project_name)
 
         if not project_id:
             # create new project and capture returned project id and store
             project_id = dx.bindings.dxproject.DXProject().new(
-                name=output_project,
+                name=project_name,
                 summary=(
                     f'Analysis of run {run_id} with '
                     f'{assay} {version} config'
@@ -131,27 +120,17 @@ class AssayHandler():
                 )
             )
             prettier_print(
-                f"\nCreated new project for output: {output_project} "
+                f"\nCreated new project for output: {project_name} "
                 f"({project_id})"
             )
         else:
             prettier_print(
-                f"\nUsing existing found project: {output_project} "
+                f"\nUsing existing found project: {project_name} "
                 f"({project_id})"
             )
 
         # link project id to config and samples
         self.project = dx.bindings.dxproject.DXProject(dxid=project_id)
-
-        users = self.config.get('users')
-
-        if users:
-            # users specified in config to grant access to project
-            for user, access_level in users.items():
-                self.project.invite(user, access_level, send_email=False)
-                prettier_print(
-                    f"\nGranted {access_level} priviledge to {user}"
-                )
 
     def create_analysis_project_logs(self):
         """ Create an analysis project log with info per config file contained
