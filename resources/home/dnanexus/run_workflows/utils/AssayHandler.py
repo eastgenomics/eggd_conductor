@@ -157,21 +157,21 @@ class AssayHandler():
         if not sentinel_file:
             # sentinel file not provided as input -> no tars to parse
             self.upload_tars = None
+        else:
+            details = dx.bindings.dxrecord.DXRecord(dxid=sentinel_file).describe(
+                incl_details=True
+            )
 
-        details = dx.bindings.dxrecord.DXRecord(dxid=sentinel_file).describe(
-            incl_details=True
-        )
+            upload_tars = details['details']['tar_file_ids']
 
-        upload_tars = details['details']['tar_file_ids']
+            prettier_print(
+                f"\nFollowing upload tars found to add as input: {upload_tars}"
+            )
 
-        prettier_print(
-            f"\nFollowing upload tars found to add as input: {upload_tars}"
-        )
-
-        # format in required format for a dx input
-        self.upload_tars = [
-            {"$dnanexus_link": x} for x in upload_tars
-        ]
+            # format in required format for a dx input
+            self.upload_tars = [
+                {"$dnanexus_link": x} for x in upload_tars
+            ]
 
     def set_parent_out_dir(self, run_time):
         """ Set the parent output directory for each config/assay/project
