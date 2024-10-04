@@ -24,7 +24,7 @@ class AssayHandler():
         self.config = config
         self.assay_code = config.get("assay_code")
         self.assay = config.get("assay")
-        self.assay_version = config.get("assay_version")
+        self.version = config.get("version")
         self.samples = []
         self.job_info_per_sample = {}
         self.job_info_per_run = {}
