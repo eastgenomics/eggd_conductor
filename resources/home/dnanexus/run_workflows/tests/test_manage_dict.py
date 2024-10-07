@@ -8,7 +8,7 @@ import pytest
 from utils.manage_dict import (
     search, replace, add_fastqs, add_upload_tars, add_other_inputs,
     get_dependent_jobs, link_inputs_to_outputs, populate_output_dir_config,
-    filter_job_outputs_dict, check_input_classes, check_all_inputs,
+    filter_job_outputs_dict, fix_invalid_inputs, check_all_inputs,
     populate_tso500_reports_workflow
 )
 from .settings import TEST_DATA_DIR
@@ -1168,7 +1168,7 @@ class TestCheckInputClasses():
         Test when an input expects to be an array and a single dict is given
         if this is correctly changed to a list
         """
-        output = check_input_classes(
+        output = fix_invalid_inputs(
             input_dict=self.test_input_dict1,
             input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
         )
@@ -1186,7 +1186,7 @@ class TestCheckInputClasses():
         Test when a list with one input given to an input that expects to be
         a single file that it is correctly set to a dict
         """
-        output = check_input_classes(
+        output = fix_invalid_inputs(
             input_dict=self.test_input_dict2,
             input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
         )
@@ -1204,7 +1204,7 @@ class TestCheckInputClasses():
         an array with more than one item, as RuntimeError is raised
         """
         with pytest.raises(RuntimeError):
-            check_input_classes(
+            fix_invalid_inputs(
                 input_dict=self.test_input_dict3,
                 input_classes=self.input_classes['workflow-GB12vxQ433GygFZK6pPF75q8']
             )
