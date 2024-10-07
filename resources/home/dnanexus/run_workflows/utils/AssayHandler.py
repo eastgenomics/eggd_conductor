@@ -451,7 +451,7 @@ class AssayHandler():
         )
 
         # check input types correctly set in input dict
-        input_dict = manage_dict.check_input_classes(
+        input_dict = manage_dict.fix_invalid_inputs(
             input_dict=input_dict,
             input_classes=self.input_class_mapping[executable]
         )
@@ -553,7 +553,7 @@ class AssayHandler():
         )
 
         # check input types correctly set in input dict
-        input_dict = manage_dict.check_input_classes(
+        input_dict = manage_dict.fix_invalid_inputs(
             input_dict=input_dict,
             input_classes=self.input_class_mapping[executable]
         )

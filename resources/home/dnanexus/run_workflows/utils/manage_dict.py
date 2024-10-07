@@ -760,7 +760,7 @@ def filter_job_outputs_dict(
         return new_outputs
 
 
-def check_input_classes(input_dict, input_classes) -> dict:
+def fix_invalid_inputs(input_dict, input_classes) -> dict:
     """
     Check populated input dict to ensure that the types match what
     the app / workflow expect (i.e if input is array:file that a
