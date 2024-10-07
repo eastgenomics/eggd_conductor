@@ -221,7 +221,7 @@ class AssayHandler():
         # sense check everything is a valid dx executable
         assert all([
             x.startswith('workflow-')
-            or x.startswith('app')
+            or x.startswith('app-')
             or x.startswith('applet-')
             for x in executables
         ]), Slack().send(
