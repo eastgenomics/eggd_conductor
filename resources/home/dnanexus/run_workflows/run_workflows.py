@@ -280,7 +280,7 @@ def main():
         prettier_print(f"No ticket found for {run_id}")
     else:
         assay_info = [
-            f'{a_h.assay} - {a_h.assay_version}'
+            f'{a_h.assay} - {a_h.version}'
             for a_h in assay_handlers
         ]
         if len(filtered_tickets) > len(assay_handlers):
