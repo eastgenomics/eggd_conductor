@@ -422,3 +422,37 @@ def load_test_data(test_samples) -> list:
     fastq_details = [(x.split()[0], x.split()[1]) for x in fastq_details]
 
     return fastq_details
+
+
+def create_project_name(run_id, assay, development, testing):
+    """ Create a project name given a few parameters
+
+    Parameters
+    ----------
+    run_id : str
+        Name of the run
+    assay : str
+        Assay type i.e. CEN, TWE..
+    development : bool
+        Bool to determine whether the project name should be a 003
+    testing : bool
+        Bool to determine whether to add a suffix to the project name to tag it
+        for testing purposes
+
+    Returns
+    -------
+    str
+        Name of the project to find or to create
+    """
+
+    if development:
+        prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
+    else:
+        prefix = '002_'
+
+    suffix = ''
+
+    if testing:
+        suffix = '-EGGD_CONDUCTOR_TESTING'
+
+    return f'{prefix}{run_id}_{assay}{suffix}'

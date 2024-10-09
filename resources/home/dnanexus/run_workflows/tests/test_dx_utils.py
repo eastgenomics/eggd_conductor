@@ -2,11 +2,28 @@ from copy import deepcopy
 import unittest
 from unittest.mock import patch
 
+import dxpy
 import pytest
 
 from utils.dx_utils import (
-    filter_highest_config_version, get_job_output_details, wait_on_done
+    filter_highest_config_version, get_job_output_details, wait_on_done,
+    invite_participants_in_projects
 )
+
+
+@pytest.mark.parametrize(
+    "users", [
+        {"user1": "ADMIN"}, {"user1": "ADMIN", "user2": "CONTRIB"}
+    ]
+)
+@patch("utils.dx_utils.dx.bindings.dxproject.DXProject.invite")
+def test_users_are_invited_when_getting_dx_project(mock_invite, users):
+    invite_participants_in_projects(users, dxpy.bindings.dxproject.DXProject)
+
+    assert mock_invite.call_count == len(users), (
+        f"Expected {len(users)} calls to invite, "
+        f"got '{mock_invite.call_count}'"
+    )
 
 
 class TestFilterHighestConfigVersion():

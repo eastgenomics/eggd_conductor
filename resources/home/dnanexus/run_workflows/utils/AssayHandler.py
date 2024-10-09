@@ -24,7 +24,7 @@ class AssayHandler():
         self.config = config
         self.assay_code = config.get("assay_code")
         self.assay = config.get("assay")
-        self.assay_version = config.get("assay_version")
+        self.version = config.get("version")
         self.samples = []
         self.job_info_per_sample = {}
         self.job_info_per_run = {}
@@ -91,7 +91,7 @@ class AssayHandler():
                 f"v{self.config['version']}"
             )
 
-    def get_or_create_dx_project(self, run_id, development, testing) -> str:
+    def get_or_create_dx_project(self, project_name, run_id) -> str:
         """
         Create new project in DNAnexus if one with given name doesn't
         already exist.
@@ -101,26 +101,15 @@ class AssayHandler():
         str : ID of DNAnexus project
         """
 
-        if development:
-            prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
-        else:
-            prefix = '002_'
-
-        suffix = ''
-
-        if testing:
-            suffix = '-EGGD_CONDUCTOR_TESTING'
-
         assay = self.config.get("assay")
         version = self.config.get("version")
-        output_project = f'{prefix}{run_id}_{assay}{suffix}'
 
-        project_id = find_dx_project(output_project)
+        project_id = find_dx_project(project_name)
 
         if not project_id:
             # create new project and capture returned project id and store
             project_id = dx.bindings.dxproject.DXProject().new(
-                name=output_project,
+                name=project_name,
                 summary=(
                     f'Analysis of run {run_id} with '
                     f'{assay} {version} config'
@@ -131,29 +120,17 @@ class AssayHandler():
                 )
             )
             prettier_print(
-                f"\nCreated new project for output: {output_project} "
+                f"\nCreated new project for output: {project_name} "
                 f"({project_id})"
             )
         else:
             prettier_print(
-                f"\nUsing existing found project: {output_project} "
+                f"\nUsing existing found project: {project_name} "
                 f"({project_id})"
             )
 
         # link project id to config and samples
         self.project = dx.bindings.dxproject.DXProject(dxid=project_id)
-
-        users = self.config.get('users')
-
-        if users:
-            # users specified in config to grant access to project
-            for user, access_level in users.items():
-                dx.bindings.dxproject.DXProject(dxid=project_id).invite(
-                    user, access_level, send_email=False
-                )
-                prettier_print(
-                    f"\nGranted {access_level} priviledge to {user}"
-                )
 
     def create_analysis_project_logs(self):
         """ Create an analysis project log with info per config file contained
@@ -180,21 +157,21 @@ class AssayHandler():
         if not sentinel_file:
             # sentinel file not provided as input -> no tars to parse
             self.upload_tars = None
+        else:
+            details = dx.bindings.dxrecord.DXRecord(dxid=sentinel_file).describe(
+                incl_details=True
+            )
 
-        details = dx.bindings.dxrecord.DXRecord(dxid=sentinel_file).describe(
-            incl_details=True
-        )
+            upload_tars = details['details']['tar_file_ids']
 
-        upload_tars = details['details']['tar_file_ids']
+            prettier_print(
+                f"\nFollowing upload tars found to add as input: {upload_tars}"
+            )
 
-        prettier_print(
-            f"\nFollowing upload tars found to add as input: {upload_tars}"
-        )
-
-        # format in required format for a dx input
-        self.upload_tars = [
-            {"$dnanexus_link": x} for x in upload_tars
-        ]
+            # format in required format for a dx input
+            self.upload_tars = [
+                {"$dnanexus_link": x} for x in upload_tars
+            ]
 
     def set_parent_out_dir(self, run_time):
         """ Set the parent output directory for each config/assay/project

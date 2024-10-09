@@ -240,6 +240,26 @@ def find_dx_project(project_name) -> str:
     return dx_projects[0]['id']
 
 
+def invite_participants_in_projects(users, project):
+    """ Invite participants in DNAnexus project with the appropriate access
+    level
+
+    Parameters
+    ----------
+    users : dict
+        Dictionary containing DNAnexus usernames and their access level
+    project : dxpy.bindings.dxproject.DXProject
+        DNAnexus project object
+    """
+
+    # users specified in config to grant access to project
+    for user, access_level in users.items():
+        project.invite(user, access_level, send_email=False)
+        prettier_print(
+            f"\nGranted {access_level} priviledge to {user}"
+        )
+
+
 def get_job_output_details(job_id) -> Tuple[list, list]:
     """
     Get describe details for all output files from a job
