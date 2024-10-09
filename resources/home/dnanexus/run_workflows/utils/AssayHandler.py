@@ -4,7 +4,6 @@ as running jobs.
 """
 
 from collections import defaultdict
-from datetime import datetime
 import os
 import random
 import re
@@ -583,69 +582,70 @@ class AssayHandler():
         self.job_info_per_run[executable]["inputs"] = input_dict
         self.job_info_per_run[executable]["outputs"] = output_dict
 
-    def call_jobs_per_sample(
-        self, executable, params, executable_out_dirs, instance_type
+    def call_job_per_sample(
+        self, sample, executable, analysis, instance_type
     ):
-        # run workflow / app on every sample
-        prettier_print(
-            f'\nCalling {params["executable_name"]} per sample'
+        """ Call job per sample using the sample and its job information
+
+        Parameters
+        ----------
+        sample : str
+            Sample name
+        executable : str
+            Executable name
+        analysis : str
+            Analysis name to associate the job id to
+        instance_type : str
+            Name of the instance to use for the executable
+
+        Returns
+        -------
+        int
+            Int to indication that the job started
+        """
+
+        # get the job information given the sample name and the executable
+        job_info = self.job_info_per_sample[sample][executable]
+
+        job_id = dx_run(
+            executable=executable,
+            job_name=job_info["job_name"],
+            input_dict=job_info["inputs"],
+            output_dict=job_info["outputs"],
+            prev_jobs=job_info["dependent_jobs"],
+            extra_args=job_info["extra_args"],
+            instance_types=instance_type,
+            project_id=self.project.id,
         )
-        prettier_print(
-            f"Samples for {self.assay_code}: "
-            f"{self.samples}"
+
+        self.jobs.append(job_id)
+
+        # map analysis id to dx job id for sample
+        self.job_outputs[self.assay_code][sample].update(
+            {analysis: job_id}
         )
 
-        nb_jobs = 0
-
-        # loop over samples and call app / workflow
-        for idx, sample in enumerate(self.samples, 1):
-            prettier_print(
-                f'\n\nStarting analysis for {sample} - '
-                f'[{idx}/{len(self.samples)}]'
-            )
-
-            # create new dict to store sample outputs
-            self.job_outputs.setdefault(self.assay_code, {})
-            self.job_outputs[self.assay_code].setdefault(sample, {})
-
-            self.build_job_info_per_sample(
-                executable=executable,
-                sample=sample,
-                executable_out_dirs=executable_out_dirs
-            )
-
-            job_info = self.job_info_per_sample[sample][executable]
-
-            job_id = dx_run(
-                executable=executable,
-                job_name=job_info["job_name"],
-                input_dict=job_info["inputs"],
-                output_dict=job_info["outputs"],
-                prev_jobs=job_info["dependent_jobs"],
-                extra_args=job_info["extra_args"],
-                instance_types=instance_type,
-                project_id=self.project.id,
-            )
-
-            self.jobs.append(job_id)
-
-            # map analysis id to dx job id for sample
-            self.job_outputs[self.assay_code][sample].update(
-                {params['analysis']: job_id}
-            )
-
-            nb_jobs += 1
-
-        return nb_jobs
+        return 1
 
     def call_job_per_run(
-        self, executable, params, executable_out_dirs, instance_type
+        self, executable, analysis, instance_type
     ):
-        # run workflow / app on all samples at once
-        self.build_jobs_info_per_run(
-            executable=executable,
-            executable_out_dirs=executable_out_dirs
-        )
+        """ Call job that are per run
+
+        Parameters
+        ----------
+        executable : str
+            Name of the executable
+        analysis : str
+            Name of the analysis
+        instance_type : str
+            Instance type to use for the job
+
+        Returns
+        -------
+        int
+            Int to indicate that the job was launched succesfully
+        """
 
         run_job_info = self.job_info_per_run[executable]
 
@@ -663,6 +663,6 @@ class AssayHandler():
         self.jobs.append(job_id)
 
         # map workflow id to created dx job id
-        self.job_outputs[self.assay_code][params['analysis']] = job_id
+        self.job_outputs[self.assay_code][analysis] = job_id
 
         return 1
