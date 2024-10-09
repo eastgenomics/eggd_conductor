@@ -511,6 +511,8 @@ def main():
     total_jobs = 0
 
     for a_h in assay_handlers:
+        prettier_print(f"Samples for {a_h.assay_code}: {a_h.samples}")
+
         # storing output folders used for each workflow/app, might be needed to
         # store data together / access specific dirs of data
         executable_out_dirs = {}
@@ -570,13 +572,33 @@ def main():
                 instance_types=params.get('instance_types'))
 
             if params['per_sample'] is True:
-                total_jobs += a_h.call_jobs_per_sample(
-                    executable, params, executable_out_dirs, instance_type
+                prettier_print(
+                    f'\nCalling {params["executable_name"]} per sample'
                 )
 
+                for sample in a_h.samples:
+                    # create new dict to store sample outputs
+                    a_h.job_outputs.setdefault(a_h.assay_code, {})
+                    a_h.job_outputs[a_h.assay_code].setdefault(sample, {})
+
+                    a_h.build_job_info_per_sample(
+                        executable, sample, executable_out_dirs
+                    )
+
+                for sample in a_h.job_info_per_sample:
+                    total_jobs += a_h.call_job_per_sample(
+                        sample, executable, params["analysis"], instance_type
+                    )
+
             elif params['per_sample'] is False:
+                prettier_print(
+                    f'\nCalling {params["executable_name"]} per run'
+                )
+
+                a_h.build_jobs_info_per_run(executable, executable_out_dirs)
+
                 total_jobs += a_h.call_job_per_run(
-                    executable, params, executable_out_dirs, instance_type
+                    executable, params["analysis"], instance_type
                 )
 
             else:
