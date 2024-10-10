@@ -573,13 +573,11 @@ def main():
                 )
 
                 for sample in a_h.samples:
-                    job_inputs = a_h.build_job_inputs(
-                        executable, params, sample
-                    )
+                    a_h.build_job_inputs(executable, params, sample)
                     # create new dict to store sample outputs
                     a_h.job_outputs.setdefault(a_h.assay_code, {})
                     a_h.job_outputs[a_h.assay_code].setdefault(sample, {})
-                    a_h.populate_output_dir_config(job_inputs, executable)
+                    a_h.populate_output_dir_config(executable, sample)
 
                 for sample in a_h.job_info_per_sample:
                     total_jobs += a_h.call_job(
@@ -591,8 +589,8 @@ def main():
                     f'\nCalling {params["executable_name"]} per run'
                 )
 
-                job_inputs = a_h.build_job_inputs(executable, params)
-                a_h.populate_output_dir_config(job_inputs, executable)
+                a_h.build_job_inputs(executable, params)
+                a_h.populate_output_dir_config(executable)
 
                 total_jobs += a_h.call_job(
                     executable, params["analysis"], instance_type
@@ -627,7 +625,7 @@ def main():
                 wait_on_done(
                     analysis=params['analysis'],
                     analysis_name=params['executable_name'],
-                    all_job_ids=a_h.job_outputs[a_h.config]
+                    all_job_ids=a_h.job_outputs
                 )
 
                 conductor_job.remove_tags(hold_tag)
