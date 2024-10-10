@@ -351,7 +351,9 @@ class AssayHandler():
             self.job_info_per_run.setdefault(executable, {})
             job_info = self.job_info_per_run[executable]
 
-        if params['executable_name'].startswith('TSO500_reports_workflow'):
+        executable_name = self.execution_mapping[executable]['name']
+
+        if executable_name.startswith('TSO500_reports_workflow'):
             input_dict = self.handle_TSO500_inputs(
                 input_dict, sample, self.job_outputs
             )
@@ -387,7 +389,7 @@ class AssayHandler():
             sample_prefix=sample_prefix
         )
 
-        job_info["job_name"] = params.get("executable_name")
+        job_info["job_name"] = executable_name
         job_info["extra_args"] = params.get("extra_args", {})
 
         # add upload tars as input if INPUT-UPLOAD_TARS present
@@ -398,7 +400,7 @@ class AssayHandler():
             )
 
         # set job name as executable name and sample name
-        job_name = f"{params['executable_name']}-{sample}"
+        job_name = f"{executable_name}-{sample}"
         job_info["job_name"] = job_name
 
         # check any inputs dependent on previous job outputs to add
