@@ -202,23 +202,18 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
             f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
         )
 
-    for stage, inputs in input_dict.items():
-        # check each stage in input config for fastqs, format
-        # as required with R1 and R2 fastqs
-        if inputs == 'INPUT-R1':
-            r1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
-            input_dict[stage] = r1_input
+    fastqs_to_add = {
+        "INPUT-R1": [{"$dnanexus_link": x[0]} for x in r1_fastqs],
+        "INPUT-R2": [{"$dnanexus_link": x[0]} for x in r2_fastqs],
+        "INPUT-R1-R2": [
+            {"$dnanexus_link": x[0]} for x in r1_fastqs + r2_fastqs
+        ]
+    }
 
-        if inputs == 'INPUT-R2':
-            r2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
-            input_dict[stage] = r2_input
-
-        if inputs == 'INPUT-R1-R2':
-            # stage requires all fastqs, build one list of dicts
-            r1_r2_input = []
-            r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
-            r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
-            input_dict[stage] = r1_r2_input
+    for key, fastq_links in fastqs_to_add.items():
+        input_dict = replace(
+            input_dict, key, fastq_links, False, False
+        )
 
     return input_dict
 
@@ -322,43 +317,15 @@ def add_other_inputs(
         ('INPUT-SAMPLESHEET', samplesheet)
     ]
 
-    for pair in to_replace:
-        if pair[1]:
+    if sample and sample_prefix:
+        for input_field, input_value in to_replace:
             input_dict = replace(
                 input_dict=input_dict,
-                to_replace=pair[0],
-                replacement=pair[1],
+                to_replace=input_field,
+                replacement=input_value,
                 search_key=False,
                 replace_key=False
             )
-
-    # find and replace any out dirs
-    regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
-    out_dirs = [re.search(regex, x) for x in other_inputs]
-    out_dirs = [x.group(0) for x in out_dirs if x]
-
-    prettier_print(f'\nOut dirs found to replace: {out_dirs}')
-
-    for dir in out_dirs:
-        # find the output directory for the given analysis
-        analysis_out_dir = executable_out_dirs.get(
-            dir.replace('INPUT-', '').replace('-out_dir', ''))
-
-        if not analysis_out_dir:
-            raise KeyError((
-                'Error trying to parse output directory to input dict.'
-                f'\nNo output directory found for given input: {dir}\n'
-                'Please check config to ensure job input is in the '
-                'format: INPUT-analysis_[0-9]-out_dir'
-            ))
-
-        input_dict = replace(
-            input_dict=input_dict,
-            to_replace=dir,
-            replacement=analysis_out_dir,
-            search_key=False,
-            replace_key=False
-        )
 
     prettier_print('\nInput dict after adding other inputs:')
     prettier_print(input_dict)
@@ -946,9 +913,9 @@ def populate_tso500_reports_workflow(
         # the value strings are pretty arbitrary but the main thing is
         # we're not hardcoding the actual stage IDs here in case they
         # change, and then we can just change them in the config
-        config_stage_input = list({
-            k: v for k, v in input_dict.items() if v == stage_input
-        }.keys())
+        config_stage_input = [
+            k for k, v in input_dict.items() if v == stage_input
+        ]
 
         if not config_stage_input:
             # this input not present in config file, likely been
