@@ -351,11 +351,9 @@ class AssayHandler():
             self.job_info_per_run.setdefault(executable, {})
             job_info = self.job_info_per_run[executable]
 
-        job_outputs_config = self.job_outputs[self.assay_code]
-
         if params['executable_name'].startswith('TSO500_reports_workflow'):
             input_dict = self.handle_TSO500_inputs(
-                input_dict, sample, job_outputs_config
+                input_dict, sample, self.job_outputs
             )
 
         # handle other inputs defined in config to add to inputs
@@ -391,7 +389,7 @@ class AssayHandler():
         if params.get("depends_on"):
             dependent_jobs = manage_dict.get_dependent_jobs(
                 params=params,
-                job_outputs_dict=job_outputs_config,
+                job_outputs_dict=self.job_outputs,
                 sample=sample
             )
         else:
@@ -405,7 +403,7 @@ class AssayHandler():
 
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
-            job_outputs_dict=job_outputs_config,
+            job_outputs_dict=self.job_outputs,
             input_dict=input_dict,
             analysis=params["analysis"],
             per_sample=True,
@@ -564,11 +562,9 @@ class AssayHandler():
 
         if sample:
             # map analysis id to dx job id for sample
-            self.job_outputs[self.assay_code][sample].update(
-                {analysis: job_id}
-            )
+            self.job_outputs[sample].update({analysis: job_id})
         else:
             # map workflow id to created dx job id
-            self.job_outputs[self.assay_code][analysis] = job_id
+            self.job_outputs[analysis] = job_id
 
         return job_id
