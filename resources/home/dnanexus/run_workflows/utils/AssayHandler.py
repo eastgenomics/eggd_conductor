@@ -331,6 +331,7 @@ class AssayHandler():
         sample_prefix = sample
 
         if sample:
+            per_sample = True
             self.job_info_per_sample.setdefault(sample, {})
             self.job_info_per_sample[sample].setdefault(executable, {})
             job_info = self.job_info_per_sample[sample][executable]
@@ -348,6 +349,7 @@ class AssayHandler():
                     ))
 
         else:
+            per_sample = False
             self.job_info_per_run.setdefault(executable, {})
             job_info = self.job_info_per_run[executable]
 
@@ -408,7 +410,7 @@ class AssayHandler():
             job_outputs_dict=self.job_outputs,
             input_dict=input_dict,
             analysis=params["analysis"],
-            per_sample=True,
+            per_sample=per_sample,
             sample=sample
         )
 
