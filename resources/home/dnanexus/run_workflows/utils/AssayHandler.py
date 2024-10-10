@@ -323,73 +323,53 @@ class AssayHandler():
 
         self.input_class_mapping = input_class_mapping
 
-    def build_job_info_per_sample(
-        self, executable, sample, executable_out_dirs
-    ):
-        """ Build job information for jobs per sample for their inputs, outputs
-        dependent jobs and job name.
+    def build_job_inputs(self, executable, params, sample=None):
+        # select input and output dict from config for current workflow / app
+        input_dict = self.config['executables'][executable]['inputs']
 
-        Args:
-            executable (str): Name of the executable
-            config (dict): Dict containing the information for the config
-            params (dict): Dict containing the parameters expected that
-            executable
-            sample (str): Sample for which the job information is gathered for
-            executable_out_dirs (dict): Dict containing the executable output
-            directory
-        """
+        sample_prefix = sample
 
-        self.job_info_per_sample.setdefault(sample, {})
-        self.job_info_per_sample[sample].setdefault(executable, {})
+        if sample:
+            self.job_info_per_sample.setdefault(sample, {})
+            self.job_info_per_sample[sample].setdefault(executable, {})
+            job_info = self.job_info_per_sample[sample][executable]
+
+            if params.get("sample_name_delimeter"):
+                # if delimeter specified to split sample name on, use it
+                delim = params.get("sample_name_delimeter")
+
+                if delim in sample:
+                    sample_prefix = sample.split(delim)[0]
+                else:
+                    prettier_print((
+                        f'Specified delimeter ({delim}) is not in sample name '
+                        f'({sample}), ignoring and continuing...'
+                    ))
+
+        else:
+            self.job_info_per_run.setdefault(executable, {})
+            job_info = self.job_info_per_run[executable]
 
         job_outputs_config = self.job_outputs[self.assay_code]
 
-        params = self.config['executables'][executable]
-        # select input and output dict from config for current workflow / app
-        input_dict = self.config['executables'][executable]['inputs']
-        output_dict = self.config['executables'][executable]['output_dirs']
+        if params['executable_name'].startswith('TSO500_reports_workflow'):
+            input_dict = self.handle_TSO500_inputs(
+                input_dict, sample, job_outputs_config
+            )
 
-        self.job_info_per_sample[sample][executable]["extra_args"] = params.get(
-            "extra_args", {}
+        # handle other inputs defined in config to add to inputs
+        # sample_prefix passed to pass to INPUT-SAMPLE_NAME
+        input_dict = manage_dict.add_other_inputs(
+            input_dict=input_dict,
+            parent_out_dir=self.parent_out_dir,
+            project_id=self.project.id,
+            project_name=self.project.name,
+            sample=sample,
+            sample_prefix=sample_prefix
         )
 
-        if params['executable_name'].startswith('TSO500_reports_workflow'):
-            # handle specific inputs of eggd_TSO500 -> TSO500 workflow
-
-            # get the job ID for previous eggd_tso500 job, this _should_ just
-            # be analysis_1, but check anyway incase other apps added in future
-            # per sample jobs would be stored in prev_jobs dict under sample
-            # key, so we can just check for analysis_ for prior apps run once
-            # per run
-            jobs = [
-                job_outputs_config[x]
-                for x in job_outputs_config
-                if x.startswith('analysis_')
-            ]
-            jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
-            tso500_id = [
-                v for k, v in jobs.items() if k.startswith('eggd_tso500')
-            ]
-
-            assert len(tso500_id) == 1, (
-                "Could not correctly find prior eggd_tso500 "
-                f"job, jobs found: {jobs}"
-            )
-
-            tso500_id = tso500_id[0]
-
-            # get details of the job to pull files from
-            all_output_files, job_output_ids = get_job_output_details(
-                tso500_id
-            )
-
-            # try add all eggd_tso500 app outputs to reports workflow input
-            input_dict = manage_dict.populate_tso500_reports_workflow(
-                input_dict=input_dict,
-                sample=sample,
-                all_output_files=all_output_files,
-                job_output_ids=job_output_ids
-            )
+        job_info["job_name"] = params.get("executable_name")
+        job_info["extra_args"] = params.get("extra_args", {})
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
@@ -397,6 +377,13 @@ class AssayHandler():
                 input_dict=input_dict,
                 fastq_details=self.fastq_details,
                 sample=sample
+            )
+
+        # add upload tars as input if INPUT-UPLOAD_TARS present
+        if self.upload_tars:
+            input_dict = manage_dict.add_upload_tars(
+                input_dict=input_dict,
+                upload_tars=self.upload_tars
             )
 
         # find all jobs for previous analyses if next job depends on them
@@ -409,36 +396,11 @@ class AssayHandler():
         else:
             dependent_jobs = []
 
-        self.job_info_per_sample[sample][executable]["dependent_jobs"] = dependent_jobs
+        job_info["dependent_jobs"] = dependent_jobs
 
-        sample_prefix = sample
-
-        if params.get("sample_name_delimeter"):
-            # if delimeter specified to split sample name on, use it
-            delim = params.get("sample_name_delimeter")
-
-            if delim in sample:
-                sample_prefix = sample.split(delim)[0]
-            else:
-                prettier_print((
-                    f'Specified delimeter ({delim}) is not in sample name '
-                    f'({sample}), ignoring and continuing...'
-                ))
-
-        project_id = self.project.id
-        project_name = self.project.name
-
-        # handle other inputs defined in config to add to inputs
-        # sample_prefix passed to pass to INPUT-SAMPLE_NAME
-        input_dict = manage_dict.add_other_inputs(
-            input_dict=input_dict,
-            parent_out_dir=self.parent_out_dir,
-            project_id=project_id,
-            project_name=project_name,
-            executable_out_dirs=executable_out_dirs,
-            sample=sample,
-            sample_prefix=sample_prefix
-        )
+        # set job name as executable name and sample name
+        job_name = f"{params['executable_name']}-{sample}"
+        job_info["job_name"] = job_name
 
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
@@ -458,132 +420,105 @@ class AssayHandler():
         # check that all INPUT- have been parsed in config
         manage_dict.check_all_inputs(input_dict)
 
-        # set job name as executable name and sample name
-        job_name = f"{params['executable_name']}-{sample}"
+        job_info["inputs"] = input_dict
 
-        self.job_info_per_sample[sample][executable]["job_name"] = job_name
+        return job_info
 
-        # create output directory structure in config
-        manage_dict.populate_output_dir_config(
-            executable=executable,
-            exe_names=self.execution_mapping,
-            output_dict=output_dict,
-            out_folder=self.parent_out_dir
+    def handle_TSO500_inputs(
+        self, input_dict, sample, job_outputs_config
+    ):
+        # handle specific inputs of eggd_TSO500 -> TSO500 workflow
+
+        # get the job ID for previous eggd_tso500 job, this _should_ just
+        # be analysis_1, but check anyway incase other apps added in future
+        # per sample jobs would be stored in prev_jobs dict under sample
+        # key, so we can just check for analysis_ for prior apps run once
+        # per run
+        jobs = [
+            job_outputs_config[x]
+            for x in job_outputs_config
+            if x.startswith('analysis_')
+        ]
+        jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
+        tso500_id = [
+            v for k, v in jobs.items() if k.startswith('eggd_tso500')
+        ]
+
+        assert len(tso500_id) == 1, (
+            "Could not correctly find prior eggd_tso500 "
+            f"job, jobs found: {jobs}"
         )
 
-        # call dx run to start jobs
-        prettier_print(
-            f"\nCalling {params['executable_name']} ({executable}) "
-            f"on sample {sample}"
-            )
+        tso500_id = tso500_id[0]
 
-        if input_dict.keys:
-            prettier_print(f'\nInput dict: {input_dict}')
+        # get details of the job to pull files from
+        all_output_files, job_output_ids = get_job_output_details(
+            tso500_id
+        )
 
-        self.job_info_per_sample[sample][executable]["inputs"] = input_dict
-        self.job_info_per_sample[sample][executable]["outputs"] = output_dict
+        # try add all eggd_tso500 app outputs to reports workflow input
+        return manage_dict.populate_tso500_reports_workflow(
+            input_dict=input_dict,
+            sample=sample,
+            all_output_files=all_output_files,
+            job_output_ids=job_output_ids
+        )
 
-    def build_jobs_info_per_run(
-        self,
-        executable,
-        executable_out_dirs
-    ) -> dict:
-        """ Build job information for jobs for the whole run for their inputs,
-        outputs, dependent jobs and job name.
-
-        Args:
-            executable (str): Name of the executable
-            config (dict): Dict containing the information for the config
-            params (dict): Dict containing the parameters expected that
-            executable
-            executable_out_dirs (dict): Dict containing the executable output
-            directory
+    def populate_output_dir_config(self, job_info, executable):
         """
+        Loops over stages in dict for output directory naming and adds
+        worlflow app name.
 
-        self.job_info_per_run.setdefault(executable, {})
+        i.e. will be named /output/{out_folder}/{stage_name}/, where stage
+        name is the human readable name of each stage defined in the config
 
-        params = self.config['executables'][executable]
+        Parameters
+        ----------
+        executable : str
+            human readable name of executable (workflow-, app-, applet-)
+        exe_names : dict
+            mapping of executable IDs to human readable names
+        output_dict : dict
+            dictionary of output paths for each executable
+        out_folder : str
+            name of parent dir path
 
-        # select input and output dict from config for current workflow / app
-        input_dict = self.config['executables'][executable]['inputs']
+        Returns
+        -------
+        output_dict : dict
+            populated dict of output directory paths
+        """
+        prettier_print(f"\nPopulating output dict for {executable}")
+
         output_dict = self.config['executables'][executable]['output_dirs']
 
-        self.job_info_per_run[executable]["job_name"] = params.get(
-            "executable_name"
-        )
-        self.job_info_per_run[executable]["extra_args"] = params.get(
-            "extra_args", {}
-        )
+        for stage, dir_path in output_dict.items():
+            if "OUT-FOLDER" in dir_path:
+                # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
+                dir_path = dir_path.replace("OUT-FOLDER", self.parent_out_dir)
+            if "APP-NAME" in dir_path or "WORKFLOW-NAME" in dir_path:
+                app_name = self.execution_mapping[executable]['name']
+                dir_path = dir_path.replace("APP-NAME", app_name)
+            if "STAGE-NAME" in dir_path:
+                app_name = self.execution_mapping[executable]['stages'][stage]
+                dir_path = dir_path.replace("STAGE-NAME", app_name)
 
-        job_outputs_config = self.job_outputs[self.assay_code]
+            # ensure we haven't accidentally got double slashes in path
+            dir_path = dir_path.replace('//', '/')
 
-        if params["process_fastqs"] is True:
-            input_dict = manage_dict.add_fastqs(input_dict, self.fastq_details)
+            # ensure we don't end up with double /output if given in config and
+            # using OUT-FOLDER
+            dir_path = dir_path.replace('output/output', 'output')
 
-        # add upload tars as input if INPUT-UPLOAD_TARS present
-        if self.upload_tars:
-            input_dict = manage_dict.add_upload_tars(
-                input_dict=input_dict,
-                upload_tars=self.upload_tars
-            )
+            output_dict[stage] = dir
 
-        project_id = self.project.id
-        project_name = self.project.name
+        prettier_print(f'\nOutput dict for {executable}:')
+        prettier_print(output_dict)
 
-        # handle other inputs defined in config to add to inputs
-        input_dict = manage_dict.add_other_inputs(
-            input_dict=input_dict,
-            parent_out_dir=self.parent_out_dir,
-            project_id=project_id,
-            project_name=project_name,
-            executable_out_dirs=executable_out_dirs
-        )
+        job_info["output_dirs"] = output_dict
 
-        # get any filters from config to apply to job inputs
-        input_filter_dict = params.get('inputs_filter')
-
-        # check any inputs dependent on previous job outputs to add
-        input_dict = manage_dict.link_inputs_to_outputs(
-            job_outputs_dict=job_outputs_config,
-            input_dict=input_dict,
-            analysis=params["analysis"],
-            input_filter_dict=input_filter_dict,
-            per_sample=False
-        )
-
-        # check input types correctly set in input dict
-        input_dict = manage_dict.fix_invalid_inputs(
-            input_dict=input_dict,
-            input_classes=self.input_class_mapping[executable]
-        )
-
-        # find all jobs for previous analyses if next job depends on them
-        if params.get("depends_on"):
-            dependent_jobs = manage_dict.get_dependent_jobs(
-                params=params,
-                job_outputs_dict=job_outputs_config
-            )
-        else:
-            dependent_jobs = []
-
-        self.job_info_per_run[executable]["dependent_jobs"] = dependent_jobs
-
-        # check that all INPUT- have been parsed in config
-        manage_dict.check_all_inputs(input_dict)
-
-        # create output directory structure in config
-        manage_dict.populate_output_dir_config(
-            executable=executable,
-            exe_names=self.execution_mapping,
-            output_dict=output_dict,
-            out_folder=self.parent_out_dir
-        )
-
-        self.job_info_per_run[executable]["inputs"] = input_dict
-        self.job_info_per_run[executable]["outputs"] = output_dict
-
-    def call_job_per_sample(
-        self, sample, executable, analysis, instance_type
+    def call_job(
+        self, executable, analysis, instance_type, sample=None
     ):
         """ Call job per sample using the sample and its job information
 
@@ -605,13 +540,16 @@ class AssayHandler():
         """
 
         # get the job information given the sample name and the executable
-        job_info = self.job_info_per_sample[sample][executable]
+        if sample:
+            job_info = self.job_info_per_sample[sample][executable]
+        else:
+            job_info = self.job_info_per_run[executable]
 
         job_id = dx_run(
             executable=executable,
             job_name=job_info["job_name"],
             input_dict=job_info["inputs"],
-            output_dict=job_info["outputs"],
+            output_dict=job_info["output_dirs"],
             prev_jobs=job_info["dependent_jobs"],
             extra_args=job_info["extra_args"],
             instance_types=instance_type,
@@ -620,49 +558,13 @@ class AssayHandler():
 
         self.jobs.append(job_id)
 
-        # map analysis id to dx job id for sample
-        self.job_outputs[self.assay_code][sample].update(
-            {analysis: job_id}
-        )
+        if sample:
+            # map analysis id to dx job id for sample
+            self.job_outputs[self.assay_code][sample].update(
+                {analysis: job_id}
+            )
+        else:
+            # map workflow id to created dx job id
+            self.job_outputs[self.assay_code][analysis] = job_id
 
-        return 1
-
-    def call_job_per_run(
-        self, executable, analysis, instance_type
-    ):
-        """ Call job that are per run
-
-        Parameters
-        ----------
-        executable : str
-            Name of the executable
-        analysis : str
-            Name of the analysis
-        instance_type : str
-            Instance type to use for the job
-
-        Returns
-        -------
-        int
-            Int to indicate that the job was launched succesfully
-        """
-
-        run_job_info = self.job_info_per_run[executable]
-
-        job_id = dx_run(
-            executable=executable,
-            job_name=run_job_info["job_name"],
-            input_dict=run_job_info["inputs"],
-            output_dict=run_job_info["outputs"],
-            prev_jobs=run_job_info["dependent_jobs"],
-            extra_args=run_job_info["extra_args"],
-            instance_types=instance_type,
-            project_id=self.project.id,
-        )
-
-        self.jobs.append(job_id)
-
-        # map workflow id to created dx job id
-        self.job_outputs[self.assay_code][analysis] = job_id
-
-        return 1
+        return job_id
