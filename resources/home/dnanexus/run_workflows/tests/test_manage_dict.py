@@ -7,7 +7,7 @@ import pytest
 
 from utils.manage_dict import (
     search, replace, add_fastqs, add_upload_tars, add_other_inputs,
-    get_dependent_jobs, link_inputs_to_outputs, populate_output_dir_config,
+    get_dependent_jobs, link_inputs_to_outputs,
     filter_job_outputs_dict, fix_invalid_inputs, check_all_inputs,
     populate_tso500_reports_workflow
 )
@@ -156,14 +156,14 @@ class TestReplaceDict():
                 }
             }, {
                 'B_level2': {
-                'B_level3_key1': 'test',
-                'B_level3_key2': 'B_level3_value2',
-                'B_level3_key3': 'B_level3_value3'
-            }}, {'C_level2': [
-                {'C_array1': 'test'},
-                {'C_array1': 'C_array1_value2'},
-                {'C_array1': 'C_array1_value3'}
-            ]}
+                    'B_level3_key1': 'test',
+                    'B_level3_key2': 'B_level3_value2',
+                    'B_level3_key3': 'B_level3_value3'
+                }}, {'C_level2': [
+                    {'C_array1': 'test'},
+                    {'C_array1': 'C_array1_value2'},
+                    {'C_array1': 'C_array1_value3'}
+                ]}
         ]
 
         assert list(output.values()) == correct_output, (
@@ -560,7 +560,6 @@ class TestAddOtherInputs():
         parent_out_dir=parent_out_dir,
         project_id=dx_project_id,
         project_name=dx_project_name,
-        executable_out_dirs=analysis_output_directories,
         sample='my_sample_with_a_long_name',
         sample_prefix='my_sample'
     )
@@ -606,16 +605,6 @@ class TestAddOtherInputs():
         """
         assert self.output['all_analysis_output'] == 'some_assay-220930-1200', (
             'INPUT-parent_out_dir not correctly replaced'
-        )
-
-    def test_adding_analysis_1_out_dir(self):
-        """
-        Test for finding INPUT-analysis_1_out_dir and replacing with the
-        output path stored in the analysis output directories dictionary
-        """
-        correct_path = '/output/some_assay-220930-1200/my_first_app'
-        assert self.output['output_path'] == correct_path, (
-            'INPUT-analysis_1-out_dir not correctly replaced'
         )
 
     def test_adding_samplesheet(self):
@@ -886,104 +875,6 @@ class TestLinkInputsToOutputs():
 
         assert output['stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input'] == correct_output, (
             'job ID for analysis 2 wrongly parsed as input'
-        )
-
-
-class TestPopulateOutputDirConfig():
-    """
-    Tests for populate_output_dir_config() that takes a dict of output paths
-    for a workflow or app and configures them with human readable names etc.
-    """
-    # output directories as would be defined in config
-    app_output_config = {
-        "applet-FvyXygj433GbKPPY0QY8ZKQG": "/OUT-FOLDER/APP-NAME"
-    }
-
-    workflow_output_config = {
-        "stage-G9Z2B8841bQY907z1ygq7K9x": "/OUT-FOLDER/STAGE-NAME",
-        "stage-G9Z2B7Q41bQg2Jy40zVqqGg4": "/OUT-FOLDER/STAGE-NAME"
-    }
-
-    # parent dir set at runtime based off assay name and date time
-    parent_out_folder = '/output/myAssay_timestamp/'
-
-    # dict as generated at run time of human names for each executable
-    executable_names = {
-        'applet-FvyXygj433GbKPPY0QY8ZKQG': {
-            'name': 'multi_fastqc_v1.1.0'
-        },
-        'workflow-GB12vxQ433GygFZK6pPF75q8': {
-            'name': 'somalier_workflow_v1.0.0',
-            'stages': {
-                'stage-G9Z2B7Q41bQg2Jy40zVqqGg4': 'eggd_somalier_relate2multiqc_v1.0.1',
-                'stage-G9Z2B8841bQY907z1ygq7K9x': 'eggd_somalier_relate_v1.0.3'
-            }
-        }
-    }
-
-    def test_populate_app_output_dirs(self):
-        """
-        Test populating output path for an app
-        """
-        output_dict = populate_output_dir_config(
-            executable='applet-FvyXygj433GbKPPY0QY8ZKQG',
-            exe_names=self.executable_names,
-            output_dict=self.app_output_config,
-            out_folder=self.parent_out_folder
-        )
-
-        correct_output = {
-            'applet-FvyXygj433GbKPPY0QY8ZKQG': '/output/myAssay_timestamp/multi_fastqc_v1.1.0'
-        }
-
-        assert output_dict == correct_output, (
-            'Error in populating output path dict for app'
-        )
-
-    def test_populate_workflow_output_dirs(self):
-        """
-        Test populating output paths for each stage of a workflow
-        """
-        output_dict = populate_output_dir_config(
-            executable='workflow-GB12vxQ433GygFZK6pPF75q8',
-            exe_names=self.executable_names,
-            output_dict=self.workflow_output_config,
-            out_folder=self.parent_out_folder
-        )
-
-        correct_output = {
-            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4':
-            '/output/myAssay_timestamp/eggd_somalier_relate2multiqc_v1.0.1',
-            'stage-G9Z2B8841bQY907z1ygq7K9x':
-            '/output/myAssay_timestamp/eggd_somalier_relate_v1.0.3'
-        }
-
-        assert output_dict == correct_output, (
-            'Error in populating output path dict for workflow'
-        )
-
-    def test_not_replacing_hard_coded_paths(self):
-        """
-        Test when paths aren't using keys and are hard coded that they
-        remain unmodified
-        """
-        output_config = {
-            "applet-FvyXygj433GbKPPY0QY8ZKQG": "/some/hardcoded/path"
-        }
-
-        output_dict = populate_output_dir_config(
-            executable='applet-FvyXygj433GbKPPY0QY8ZKQG',
-            exe_names=self.executable_names,
-            output_dict=output_config,
-            out_folder=self.parent_out_folder
-        )
-
-        correct_output = {
-            'applet-FvyXygj433GbKPPY0QY8ZKQG': '/some/hardcoded/path'
-        }
-
-        assert output_dict == correct_output, (
-            'Output path dict with hardcoded paths wrongly modified'
         )
 
 
