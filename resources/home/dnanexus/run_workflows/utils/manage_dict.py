@@ -611,60 +611,6 @@ def link_inputs_to_outputs(
     return input_dict
 
 
-def populate_output_dir_config(
-    executable, exe_names, output_dict, out_folder
-) -> dict:
-    """
-    Loops over stages in dict for output directory naming and adds
-    worlflow app name.
-
-    i.e. will be named /output/{out_folder}/{stage_name}/, where stage
-    name is the human readable name of each stage defined in the config
-
-    Parameters
-    ----------
-    executable : str
-        human readable name of executable (workflow-, app-, applet-)
-    exe_names : dict
-        mapping of executable IDs to human readable names
-    output_dict : dict
-        dictionary of output paths for each executable
-    out_folder : str
-        name of parent dir path
-
-    Returns
-    -------
-    output_dict : dict
-        populated dict of output directory paths
-    """
-    prettier_print(f"\nPopulating output dict for {executable}")
-
-    for stage, dir in output_dict.items():
-        if "OUT-FOLDER" in dir:
-            # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
-            dir = dir.replace("OUT-FOLDER", out_folder)
-        if "APP-NAME" in dir or "WORKFLOW-NAME" in dir:
-            app_name = exe_names[executable]['name']
-            dir = dir.replace("APP-NAME", app_name)
-        if "STAGE-NAME" in dir:
-            app_name = exe_names[executable]['stages'][stage]
-            dir = dir.replace("STAGE-NAME", app_name)
-
-        # ensure we haven't accidentally got double slashes in path
-        dir = dir.replace('//', '/')
-
-        # ensure we don't end up with double /output if given in config and
-        # using OUT-FOLDER
-        dir = dir.replace('output/output', 'output')
-
-        output_dict[stage] = dir
-
-    prettier_print(f'\nOutput dict for {executable}:')
-    prettier_print(output_dict)
-
-    return output_dict
-
-
 def filter_job_outputs_dict(
     stage, outputs_dict, filter_dict
 ) -> dict:
