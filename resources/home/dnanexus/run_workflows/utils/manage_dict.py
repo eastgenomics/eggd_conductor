@@ -248,7 +248,7 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
 
 
 def add_other_inputs(
-    input_dict, parent_out_dir, project_id, project_name, executable_out_dirs,
+    input_dict, parent_out_dir, project_id, project_name,
     sample=None, sample_prefix=None
 ) -> dict:
     """
