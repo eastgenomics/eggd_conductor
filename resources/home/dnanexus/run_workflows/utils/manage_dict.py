@@ -111,7 +111,7 @@ def replace(
 
         if isinstance(replacing, str) and replacing:
             for match in matches:
-                if not match in replacing:
+                if match not in replacing:
                     continue
 
                 # match is in this key / value => replace
@@ -189,7 +189,9 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
         key=lambda x: x[1]
     )
 
-    prettier_print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
+    prettier_print(
+        f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs'
+    )
 
     # sense check we have R2 fastqs before across all samples (i.e.
     # checking this isn't single end sequencing) before checking we
@@ -202,18 +204,23 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
             f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
         )
 
-    fastqs_to_add = {
-        "INPUT-R1": [{"$dnanexus_link": x[0]} for x in r1_fastqs],
-        "INPUT-R2": [{"$dnanexus_link": x[0]} for x in r2_fastqs],
-        "INPUT-R1-R2": [
-            {"$dnanexus_link": x[0]} for x in r1_fastqs + r2_fastqs
-        ]
-    }
+    for stage, inputs in input_dict.items():
+        # check each stage in input config for fastqs, format
+        # as required with R1 and R2 fastqs
+        if inputs == 'INPUT-R1':
+            r1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
+            input_dict[stage] = r1_input
 
-    for key, fastq_links in fastqs_to_add.items():
-        input_dict = replace(
-            input_dict, key, fastq_links, False, False
-        )
+        if inputs == 'INPUT-R2':
+            r2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
+            input_dict[stage] = r2_input
+
+        if inputs == 'INPUT-R1-R2':
+            # stage requires all fastqs, build one list of dicts
+            r1_r2_input = []
+            r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
+            r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
+            input_dict[stage] = r1_r2_input
 
     return input_dict
 
