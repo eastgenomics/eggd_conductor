@@ -26,6 +26,65 @@ def normal_assay_handler():
     del assay_handler
 
 
+@pytest.fixture()
+def executable_assay_handler():
+    config = {
+        "assay_code": "code1",
+        "assay": "assay1",
+        "version": "v1",
+        "executables": {
+            "workflow-id": "value",
+            "app-id": "value"
+        },
+    }
+    assay_handler = AssayHandler(config)
+    yield assay_handler
+    del assay_handler
+
+
+@pytest.fixture()
+def output_dirs_assay_handler(normal_assay_handler):
+    normal_assay_handler.config["executables"] = {
+        "applet-FvyXygj433GbKPPY0QY8ZKQG": {
+            "output_dirs": {
+                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/OUT-FOLDER/APP-NAME",
+            }
+        },
+        "workflow-GB12vxQ433GygFZK6pPF75q8": {
+            "output_dirs": {
+                "stage-G9Z2B8841bQY907z1ygq7K9x": "/OUT-FOLDER/STAGE-NAME",
+                "stage-G9Z2B7Q41bQg2Jy40zVqqGg4": "/OUT-FOLDER/STAGE-NAME"
+            }
+        }
+    }
+
+    # dict as generated at run time of human names for each executable
+    normal_assay_handler.execution_mapping = {
+        'applet-FvyXygj433GbKPPY0QY8ZKQG': {
+            'name': 'multi_fastqc_v1.1.0'
+        },
+        'workflow-GB12vxQ433GygFZK6pPF75q8': {
+            'name': 'somalier_workflow_v1.0.0',
+            'stages': {
+                'stage-G9Z2B7Q41bQg2Jy40zVqqGg4': 'eggd_somalier_relate2multiqc_v1.0.1',
+                'stage-G9Z2B8841bQY907z1ygq7K9x': 'eggd_somalier_relate_v1.0.3'
+            }
+        }
+    }
+    # parent dir set at runtime based off assay name and date time
+    normal_assay_handler.parent_out_dir = '/output/myAssay_timestamp/'
+
+    # fake the creation of the job_info_per_run dict as it is always present
+    # before calling the populate_output_dir_config method
+    normal_assay_handler.job_info_per_run = {
+        "applet-FvyXygj433GbKPPY0QY8ZKQG": {"output_dirs": ""},
+        "workflow-GB12vxQ433GygFZK6pPF75q8": {"output_dirs": ""}
+    }
+
+    yield normal_assay_handler
+    del normal_assay_handler
+
+
 class TestAssayHandler:
     def test_correct_setup(self, normal_assay_handler):
         assert (
@@ -326,3 +385,73 @@ class TestAssayHandler:
                 }
             }
         }
+
+
+class TestPopulateOutputDirConfig:
+    """
+    Tests for populate_output_dir_config() that takes a dict of output paths
+    for a workflow or app and configures them with human readable names etc.
+    """
+
+    def test_populate_app_output_dirs(self, output_dirs_assay_handler):
+        """
+        Test populating output path for an app
+        """
+        output_dirs_assay_handler.populate_output_dir_config(
+            executable='applet-FvyXygj433GbKPPY0QY8ZKQG',
+        )
+
+        correct_output = {
+            'applet-FvyXygj433GbKPPY0QY8ZKQG': '/output/myAssay_timestamp/multi_fastqc_v1.1.0'
+        }
+
+        output_dict = output_dirs_assay_handler.job_info_per_run['applet-FvyXygj433GbKPPY0QY8ZKQG']["output_dirs"]
+
+        assert output_dict == correct_output, (
+            'Error in populating output path dict for app'
+        )
+
+    def test_populate_workflow_output_dirs(self, output_dirs_assay_handler):
+        """
+        Test populating output paths for each stage of a workflow
+        """
+        output_dirs_assay_handler.populate_output_dir_config(
+            executable='workflow-GB12vxQ433GygFZK6pPF75q8',
+        )
+
+        correct_output = {
+            'stage-G9Z2B7Q41bQg2Jy40zVqqGg4':
+            '/output/myAssay_timestamp/eggd_somalier_relate2multiqc_v1.0.1',
+            'stage-G9Z2B8841bQY907z1ygq7K9x':
+            '/output/myAssay_timestamp/eggd_somalier_relate_v1.0.3'
+        }
+
+        output_dict = output_dirs_assay_handler.job_info_per_run['workflow-GB12vxQ433GygFZK6pPF75q8']["output_dirs"]
+
+        assert output_dict == correct_output, (
+            'Error in populating output path dict for workflow'
+        )
+
+    def test_not_replacing_hard_coded_paths(self, output_dirs_assay_handler):
+        """
+        Test when paths aren't using keys and are hard coded that they
+        remain unmodified
+        """
+
+        output_dirs_assay_handler.config["executables"]["applet-FvyXygj433GbKPPY0QY8ZKQG"]["output_dirs"] = {
+            "applet-FvyXygj433GbKPPY0QY8ZKQG": "/some/hardcoded/path"
+        }
+
+        output_dirs_assay_handler.populate_output_dir_config(
+            executable='applet-FvyXygj433GbKPPY0QY8ZKQG',
+        )
+
+        correct_output = {
+            'applet-FvyXygj433GbKPPY0QY8ZKQG': '/some/hardcoded/path'
+        }
+
+        output_dict = output_dirs_assay_handler.config["executables"]["applet-FvyXygj433GbKPPY0QY8ZKQG"]["output_dirs"]
+
+        assert output_dict == correct_output, (
+            'Output path dict with hardcoded paths wrongly modified'
+        )
