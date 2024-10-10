@@ -559,8 +559,7 @@ def main():
             # failing to launch all jobs to be able to terminate all analyses
             open('job_id.log', 'w').close()
 
-            # save name to params to access later to name job
-            params['executable_name'] = a_h.execution_mapping[executable]['name']
+            executable_name = a_h.execution_mapping[executable]['name']
 
             # get instance types to use for executable from config for flowcell
             instance_type = select_instance_types(
@@ -568,9 +567,7 @@ def main():
                 instance_types=params.get('instance_types'))
 
             if params['per_sample'] is True:
-                prettier_print(
-                    f'\nCalling {params["executable_name"]} per sample'
-                )
+                prettier_print(f'\nCalling {executable_name} per sample')
 
                 for sample in a_h.samples:
                     a_h.build_job_inputs(executable, params, sample)
@@ -585,9 +582,7 @@ def main():
                     )
 
             elif params['per_sample'] is False:
-                prettier_print(
-                    f'\nCalling {params["executable_name"]} per run'
-                )
+                prettier_print(f'\nCalling {executable_name} per run')
 
                 a_h.build_job_inputs(executable, params)
                 a_h.populate_output_dir_config(executable)
@@ -616,7 +611,7 @@ def main():
                 conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
                 hold_tag = ([
                     (
-                        f"Holding job until {params['executable_name']} "
+                        f"Holding job until {executable_name} "
                         "job(s) complete"
                     )
                 ])
@@ -624,7 +619,7 @@ def main():
 
                 wait_on_done(
                     analysis=params['analysis'],
-                    analysis_name=params['executable_name'],
+                    analysis_name=executable_name,
                     all_job_ids=a_h.job_outputs
                 )
 
