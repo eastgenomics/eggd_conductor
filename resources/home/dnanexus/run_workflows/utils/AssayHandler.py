@@ -465,7 +465,7 @@ class AssayHandler():
             job_output_ids=job_output_ids
         )
 
-    def populate_output_dir_config(self, job_info, executable):
+    def populate_output_dir_config(self, executable, sample=None):
         """
         Loops over stages in dict for output directory naming and adds
         worlflow app name.
@@ -511,12 +511,15 @@ class AssayHandler():
             # using OUT-FOLDER
             dir_path = dir_path.replace('output/output', 'output')
 
-            output_dict[stage] = dir
+            output_dict[stage] = dir_path
 
         prettier_print(f'\nOutput dict for {executable}:')
         prettier_print(output_dict)
 
-        job_info["output_dirs"] = output_dict
+        if sample:
+            self.job_info_per_sample[sample][executable]["output_dirs"] = output_dict
+        else:
+            self.job_info_per_run[executable]["output_dirs"] = output_dict
 
     def call_job(
         self, executable, analysis, instance_type, sample=None
