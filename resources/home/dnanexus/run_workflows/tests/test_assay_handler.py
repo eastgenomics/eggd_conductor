@@ -1,5 +1,8 @@
+from datetime import datetime
+import os
 import pathlib
 import re
+from unittest import mock
 from unittest.mock import patch
 
 import dxpy as dx
@@ -215,3 +218,111 @@ class TestAssayHandler:
             {"$dnanexus_link": "file_id4"},
             {"$dnanexus_link": "file_id5"}
         ]
+
+    def test_set_parent_out_dir(self, normal_assay_handler):
+        run_time = datetime.now().strftime("%y%m%d_%H%M")
+        mock_os_environment = mock.patch.dict(os.environ, {"DESTINATION": "PROJECT-ID"})
+        mock_os_environment.start()
+
+        normal_assay_handler.set_parent_out_dir(run_time)
+
+        mock_os_environment.stop()
+        expected_output = f"PROJECT-ID/output/{normal_assay_handler.assay}-{run_time}"
+        assert normal_assay_handler.parent_out_dir == expected_output
+
+    @patch("utils.AssayHandler.Slack.send")
+    def test_get_executable_names_per_config_invalid_dx_executable(
+        self, mock_slack_send, normal_assay_handler
+    ):
+        normal_assay_handler.config["executables"] = {
+            "app-id": "value",
+            "applet-id": "value",
+            "invalid_workflow-id": "value"
+        }
+
+        with pytest.raises(AssertionError):
+            normal_assay_handler.get_executable_names_per_config()
+            assert mock_slack_send.call_args == (
+                f'Executable(s) from the config not valid: '
+                f'{normal_assay_handler.config.get("executables").keys()}'
+            )
+
+    @patch("utils.AssayHandler.dx.api.workflow_describe")
+    def test_get_executable_names_per_config(
+        self, mock_describe, executable_assay_handler
+    ):
+        mock_describe.side_effect = [
+            {
+                "name": "workflow-name",
+                "stages": [
+                    {
+                        "id": "stage-id1",
+                        "executable": "applet-id"
+                    },
+                    {
+                        "id": "stage-id2",
+                        "executable": "app-id"
+                    },
+                ],
+            },
+            {
+                "name": "applet-name"
+            },
+            {
+                "name": "app-name"
+            }
+        ]
+
+        executable_assay_handler.get_executable_names_per_config()
+
+        assert executable_assay_handler.execution_mapping == {
+            "workflow-id": {
+                "name": "workflow-name",
+                "stages": {
+                    "stage-id1": "applet-name",
+                    "stage-id2": "id"
+                }
+            },
+            "app-id": {
+                "name": "name"
+            }
+        }
+
+        assert mock_describe.call_count == 3
+
+    @patch("utils.AssayHandler.dx.describe")
+    def test_get_input_classes_per_config(
+        self, mock_describe, executable_assay_handler
+    ):
+        mock_describe.side_effect = [
+            {
+                "inputSpec": [{
+                    "name": "input_name1",
+                    "class": "input_class1",
+                    "optional": True
+                }]
+            },
+            {
+                "inputSpec": [{
+                    "name": "input_name2",
+                    "class": "input_class2",
+                }]
+            }
+        ]
+
+        executable_assay_handler.get_input_classes_per_config()
+
+        assert executable_assay_handler.input_class_mapping == {
+            "workflow-id": {
+                "input_name1": {
+                    "class": "input_class1",
+                    "optional": True
+                }
+            },
+            "app-id": {
+                "input_name2": {
+                    "class": "input_class2",
+                    "optional": False
+                }
+            }
+        }
