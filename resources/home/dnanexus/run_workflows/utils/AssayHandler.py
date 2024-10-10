@@ -157,9 +157,10 @@ class AssayHandler():
             # sentinel file not provided as input -> no tars to parse
             self.upload_tars = None
         else:
-            details = dx.bindings.dxrecord.DXRecord(dxid=sentinel_file).describe(
-                incl_details=True
+            sentinel_file_obj = dx.bindings.dxrecord.DXRecord(
+                dxid=sentinel_file
             )
+            details = sentinel_file_obj.describe(incl_details=True)
 
             upload_tars = details['details']['tar_file_ids']
 
