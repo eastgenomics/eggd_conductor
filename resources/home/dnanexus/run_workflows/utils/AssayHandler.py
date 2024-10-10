@@ -356,6 +356,26 @@ class AssayHandler():
                 input_dict, sample, self.job_outputs
             )
 
+        # check if stage requires fastqs passing
+        if params["process_fastqs"] is True:
+            input_dict = manage_dict.add_fastqs(
+                input_dict=input_dict,
+                fastq_details=self.fastq_details,
+                sample=sample
+            )
+
+        # find all jobs for previous analyses if next job depends on them
+        if params.get("depends_on"):
+            dependent_jobs = manage_dict.get_dependent_jobs(
+                params=params,
+                job_outputs_dict=self.job_outputs,
+                sample=sample
+            )
+        else:
+            dependent_jobs = []
+
+        job_info["dependent_jobs"] = dependent_jobs
+
         # handle other inputs defined in config to add to inputs
         # sample_prefix passed to pass to INPUT-SAMPLE_NAME
         input_dict = manage_dict.add_other_inputs(
@@ -370,32 +390,12 @@ class AssayHandler():
         job_info["job_name"] = params.get("executable_name")
         job_info["extra_args"] = params.get("extra_args", {})
 
-        # check if stage requires fastqs passing
-        if params["process_fastqs"] is True:
-            input_dict = manage_dict.add_fastqs(
-                input_dict=input_dict,
-                fastq_details=self.fastq_details,
-                sample=sample
-            )
-
         # add upload tars as input if INPUT-UPLOAD_TARS present
         if self.upload_tars:
             input_dict = manage_dict.add_upload_tars(
                 input_dict=input_dict,
                 upload_tars=self.upload_tars
             )
-
-        # find all jobs for previous analyses if next job depends on them
-        if params.get("depends_on"):
-            dependent_jobs = manage_dict.get_dependent_jobs(
-                params=params,
-                job_outputs_dict=self.job_outputs,
-                sample=sample
-            )
-        else:
-            dependent_jobs = []
-
-        job_info["dependent_jobs"] = dependent_jobs
 
         # set job name as executable name and sample name
         job_name = f"{params['executable_name']}-{sample}"
@@ -420,8 +420,6 @@ class AssayHandler():
         manage_dict.check_all_inputs(input_dict)
 
         job_info["inputs"] = input_dict
-
-        return job_info
 
     def handle_TSO500_inputs(
         self, input_dict, sample, job_outputs_config
