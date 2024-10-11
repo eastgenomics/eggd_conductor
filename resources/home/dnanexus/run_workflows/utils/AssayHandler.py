@@ -18,7 +18,7 @@ from utils.utils import (
 from utils.WebClasses import Slack
 
 
-class AssayHandler():
+class AssayHandler:
     def __init__(self, config):
         self.config = config
         self.assay_code = config.get("assay_code")
@@ -31,7 +31,7 @@ class AssayHandler():
         self.jobs = []
 
     def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
-        """ Limit samples using a number or specific names
+        """Limit samples using a number or specific names
 
         Args:
             limit_nb (int, optional): Limit number for samples.
@@ -61,7 +61,7 @@ class AssayHandler():
             )
 
     def subset_samples(self):
-        """ Subset samples using the config information
+        """Subset samples using the config information
 
         Raises:
             re.error: Invalid regex pattern provided
@@ -74,15 +74,15 @@ class AssayHandler():
             try:
                 re.compile(subset)
             except re.error:
-                raise re.error('Invalid subset pattern provided')
+                raise re.error("Invalid subset pattern provided")
 
             self.samples = [
                 sample for sample in self.samples if re.search(subset, sample)
             ]
 
-            assert self.samples, (
-                f"No samples left after filtering using pattern {subset}"
-            )
+            assert (
+                self.samples
+            ), f"No samples left after filtering using pattern {subset}"
 
         else:
             prettier_print(
@@ -110,13 +110,13 @@ class AssayHandler():
             project_id = dx.bindings.dxproject.DXProject().new(
                 name=project_name,
                 summary=(
-                    f'Analysis of run {run_id} with '
-                    f'{assay} {version} config'
+                    f"Analysis of run {run_id} with "
+                    f"{assay} {version} config"
                 ),
                 description=(
                     "This project was automatically created by "
                     f"eggd_conductor from {os.environ.get('PARENT_JOB_ID')}"
-                )
+                ),
             )
             prettier_print(
                 f"\nCreated new project for output: {project_name} "
@@ -132,8 +132,8 @@ class AssayHandler():
         self.project = dx.bindings.dxproject.DXProject(dxid=project_id)
 
     def create_analysis_project_logs(self):
-        """ Create an analysis project log with info per config file contained
-        in the DXBuilder object """
+        """Create an analysis project log with info per config file contained
+        in the DXBuilder object"""
 
         with open("analysis_project.log", "w") as f:
             f.write(
@@ -162,19 +162,17 @@ class AssayHandler():
             )
             details = sentinel_file_obj.describe(incl_details=True)
 
-            upload_tars = details['details']['tar_file_ids']
+            upload_tars = details["details"]["tar_file_ids"]
 
             prettier_print(
                 f"\nFollowing upload tars found to add as input: {upload_tars}"
             )
 
             # format in required format for a dx input
-            self.upload_tars = [
-                {"$dnanexus_link": x} for x in upload_tars
-            ]
+            self.upload_tars = [{"$dnanexus_link": x} for x in upload_tars]
 
     def set_parent_out_dir(self, run_time):
-        """ Set the parent output directory for each config/assay/project
+        """Set the parent output directory for each config/assay/project
 
         Args:
             run_time (str): String to represent execution time in YYMMDD_HHMM
@@ -185,7 +183,7 @@ class AssayHandler():
             f"{os.environ.get('DESTINATION', '')}/output/"
             f"{self.assay}-{run_time}"
         )
-        self.parent_out_dir = parent_out_dir.replace('//', '/')
+        self.parent_out_dir = parent_out_dir.replace("//", "/")
 
     def get_executable_names_per_config(self) -> dict:
         """
@@ -213,53 +211,54 @@ class AssayHandler():
         """
 
         executables = self.config.get("executables").keys()
-        prettier_print(
-            f'\nGetting names for all executables: {executables}'
-        )
+        prettier_print(f"\nGetting names for all executables: {executables}")
         execution_mapping = defaultdict(dict)
 
         # sense check everything is a valid dx executable
-        assert all([
-            x.startswith('workflow-')
-            or x.startswith('app-')
-            or x.startswith('applet-')
-            for x in executables
-        ]), Slack().send(
-            f'Executable(s) from the config not valid: {executables}'
+        assert all(
+            [
+                x.startswith("workflow-")
+                or x.startswith("app-")
+                or x.startswith("applet-")
+                for x in executables
+            ]
+        ), Slack().send(
+            f"Executable(s) from the config not valid: {executables}"
         )
 
         for exe in executables:
-            if exe.startswith('workflow-'):
+            if exe.startswith("workflow-"):
                 workflow_details = dx.api.workflow_describe(exe)
-                workflow_name = workflow_details.get('name')
-                workflow_name.replace('/', '-')
-                execution_mapping[exe]['name'] = workflow_name
-                execution_mapping[exe]['stages'] = defaultdict(dict)
+                workflow_name = workflow_details.get("name")
+                workflow_name.replace("/", "-")
+                execution_mapping[exe]["name"] = workflow_name
+                execution_mapping[exe]["stages"] = defaultdict(dict)
 
-                for stage in workflow_details.get('stages'):
-                    stage_id = stage.get('id')
-                    stage_name = stage.get('executable')
+                for stage in workflow_details.get("stages"):
+                    stage_id = stage.get("id")
+                    stage_name = stage.get("executable")
 
-                    if stage_name.startswith('applet-'):
+                    if stage_name.startswith("applet-"):
                         # need an extra describe for applets
-                        stage_name = dx.api.workflow_describe(
-                            stage_name).get('name')
+                        stage_name = dx.api.workflow_describe(stage_name).get(
+                            "name"
+                        )
 
-                    if stage_name.startswith('app-'):
+                    if stage_name.startswith("app-"):
                         # apps are prefixed with app- which is ugly
-                        stage_name = stage_name.replace('app-', '')
+                        stage_name = stage_name.replace("app-", "")
 
                     # app names will be in format app-id/version
-                    stage_name = stage_name.replace('/', '-')
-                    execution_mapping[exe]['stages'][stage_id] = stage_name
+                    stage_name = stage_name.replace("/", "-")
+                    execution_mapping[exe]["stages"][stage_id] = stage_name
 
-            elif exe.startswith('app-') or exe.startswith('applet-'):
+            elif exe.startswith("app-") or exe.startswith("applet-"):
                 app_details = dx.api.workflow_describe(exe)
-                app_name = app_details['name'].replace('/', '-')
+                app_name = app_details["name"].replace("/", "-")
 
-                if app_name.startswith('app-'):
-                    app_name = app_name.replace('app-', '')
-                execution_mapping[exe] = {'name': app_name}
+                if app_name.startswith("app-"):
+                    app_name = app_name.replace("app-", "")
+                execution_mapping[exe] = {"name": app_name}
 
         self.execution_mapping = execution_mapping
 
@@ -314,21 +313,24 @@ class AssayHandler():
         for exe in executables:
             describe = dx.describe(exe)
 
-            for input_spec in describe['inputSpec']:
-                input_class_mapping[exe][input_spec['name']] = defaultdict(
+            for input_spec in describe["inputSpec"]:
+                input_class_mapping[exe][input_spec["name"]] = defaultdict(
                     dict
                 )
-                input_spec_name = input_class_mapping[exe][input_spec['name']]
-                input_spec_name['class'] = input_spec['class']
-                input_spec_name['optional'] = input_spec.get('optional', False)
+                input_spec_name = input_class_mapping[exe][input_spec["name"]]
+                input_spec_name["class"] = input_spec["class"]
+                input_spec_name["optional"] = input_spec.get("optional", False)
 
         self.input_class_mapping = input_class_mapping
 
     def build_job_inputs(self, executable, params, sample=None):
         # select input and output dict from config for current workflow / app
-        input_dict = self.config['executables'][executable]['inputs']
+        input_dict = self.config["executables"][executable]["inputs"]
 
         sample_prefix = sample
+        executable_name = self.execution_mapping[executable]["name"]
+
+        job_name = f"{executable_name}"
 
         if sample:
             per_sample = True
@@ -343,19 +345,24 @@ class AssayHandler():
                 if delim in sample:
                     sample_prefix = sample.split(delim)[0]
                 else:
-                    prettier_print((
-                        f'Specified delimeter ({delim}) is not in sample name '
-                        f'({sample}), ignoring and continuing...'
-                    ))
+                    prettier_print(
+                        (
+                            f"Specified delimeter ({delim}) is not in sample name "
+                            f"({sample}), ignoring and continuing..."
+                        )
+                    )
+
+            # set job name as executable name and sample name
+            job_name += f"-{sample}"
 
         else:
             per_sample = False
             self.job_info_per_run.setdefault(executable, {})
             job_info = self.job_info_per_run[executable]
 
-        executable_name = self.execution_mapping[executable]['name']
+        job_info["job_name"] = job_name
 
-        if executable_name.startswith('TSO500_reports_workflow'):
+        if executable_name.startswith("TSO500_reports_workflow") and sample:
             input_dict = self.handle_TSO500_inputs(
                 input_dict, sample, self.job_outputs
             )
@@ -365,15 +372,13 @@ class AssayHandler():
             input_dict = manage_dict.add_fastqs(
                 input_dict=input_dict,
                 fastq_details=self.fastq_details,
-                sample=sample
+                sample=sample,
             )
 
         # find all jobs for previous analyses if next job depends on them
         if params.get("depends_on"):
             dependent_jobs = manage_dict.get_dependent_jobs(
-                params=params,
-                job_outputs_dict=self.job_outputs,
-                sample=sample
+                params=params, job_outputs_dict=self.job_outputs, sample=sample
             )
         else:
             dependent_jobs = []
@@ -388,22 +393,16 @@ class AssayHandler():
             project_id=self.project.id,
             project_name=self.project.name,
             sample=sample,
-            sample_prefix=sample_prefix
+            sample_prefix=sample_prefix,
         )
 
-        job_info["job_name"] = executable_name
         job_info["extra_args"] = params.get("extra_args", {})
 
         # add upload tars as input if INPUT-UPLOAD_TARS present
         if self.upload_tars:
             input_dict = manage_dict.add_upload_tars(
-                input_dict=input_dict,
-                upload_tars=self.upload_tars
+                input_dict=input_dict, upload_tars=self.upload_tars
             )
-
-        # set job name as executable name and sample name
-        job_name = f"{executable_name}-{sample}"
-        job_info["job_name"] = job_name
 
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
@@ -411,13 +410,13 @@ class AssayHandler():
             input_dict=input_dict,
             analysis=params["analysis"],
             per_sample=per_sample,
-            sample=sample
+            sample=sample,
         )
 
         # check input types correctly set in input dict
         input_dict = manage_dict.fix_invalid_inputs(
             input_dict=input_dict,
-            input_classes=self.input_class_mapping[executable]
+            input_classes=self.input_class_mapping[executable],
         )
 
         # check that all INPUT- have been parsed in config
@@ -425,9 +424,7 @@ class AssayHandler():
 
         job_info["inputs"] = input_dict
 
-    def handle_TSO500_inputs(
-        self, input_dict, sample, job_outputs_config
-    ):
+    def handle_TSO500_inputs(self, input_dict, sample, job_outputs_config):
         # handle specific inputs of eggd_TSO500 -> TSO500 workflow
 
         # get the job ID for previous eggd_tso500 job, this _should_ just
@@ -438,12 +435,10 @@ class AssayHandler():
         jobs = [
             job_outputs_config[x]
             for x in job_outputs_config
-            if x.startswith('analysis_')
+            if x.startswith("analysis_")
         ]
-        jobs = {dx.describe(job_id).get('name'): job_id for job_id in jobs}
-        tso500_id = [
-            v for k, v in jobs.items() if k.startswith('eggd_tso500')
-        ]
+        jobs = {dx.describe(job_id).get("name"): job_id for job_id in jobs}
+        tso500_id = [v for k, v in jobs.items() if k.startswith("eggd_tso500")]
 
         assert len(tso500_id) == 1, (
             "Could not correctly find prior eggd_tso500 "
@@ -453,16 +448,14 @@ class AssayHandler():
         tso500_id = tso500_id[0]
 
         # get details of the job to pull files from
-        all_output_files, job_output_ids = get_job_output_details(
-            tso500_id
-        )
+        all_output_files, job_output_ids = get_job_output_details(tso500_id)
 
         # try add all eggd_tso500 app outputs to reports workflow input
         return manage_dict.populate_tso500_reports_workflow(
             input_dict=input_dict,
             sample=sample,
             all_output_files=all_output_files,
-            job_output_ids=job_output_ids
+            job_output_ids=job_output_ids,
         )
 
     def populate_output_dir_config(self, executable, sample=None):
@@ -491,40 +484,40 @@ class AssayHandler():
         """
         prettier_print(f"\nPopulating output dict for {executable}")
 
-        output_dict = self.config['executables'][executable]['output_dirs']
+        output_dict = self.config["executables"][executable]["output_dirs"]
 
         for stage, dir_path in output_dict.items():
             if "OUT-FOLDER" in dir_path:
                 # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
                 dir_path = dir_path.replace("OUT-FOLDER", self.parent_out_dir)
             if "APP-NAME" in dir_path or "WORKFLOW-NAME" in dir_path:
-                app_name = self.execution_mapping[executable]['name']
+                app_name = self.execution_mapping[executable]["name"]
                 dir_path = dir_path.replace("APP-NAME", app_name)
             if "STAGE-NAME" in dir_path:
-                app_name = self.execution_mapping[executable]['stages'][stage]
+                app_name = self.execution_mapping[executable]["stages"][stage]
                 dir_path = dir_path.replace("STAGE-NAME", app_name)
 
             # ensure we haven't accidentally got double slashes in path
-            dir_path = dir_path.replace('//', '/')
+            dir_path = dir_path.replace("//", "/")
 
             # ensure we don't end up with double /output if given in config and
             # using OUT-FOLDER
-            dir_path = dir_path.replace('output/output', 'output')
+            dir_path = dir_path.replace("output/output", "output")
 
             output_dict[stage] = dir_path
 
-        prettier_print(f'\nOutput dict for {executable}:')
+        prettier_print(f"\nOutput dict for {executable}:")
         prettier_print(output_dict)
 
         if sample:
-            self.job_info_per_sample[sample][executable]["output_dirs"] = output_dict
+            self.job_info_per_sample[sample][executable][
+                "output_dirs"
+            ] = output_dict
         else:
             self.job_info_per_run[executable]["output_dirs"] = output_dict
 
-    def call_job(
-        self, executable, analysis, instance_type, sample=None
-    ):
-        """ Call job per sample using the sample and its job information
+    def call_job(self, executable, analysis, instance_type, sample=None):
+        """Call job per sample using the sample and its job information
 
         Parameters
         ----------
