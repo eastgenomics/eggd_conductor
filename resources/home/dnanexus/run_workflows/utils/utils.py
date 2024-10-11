@@ -10,9 +10,9 @@ import re
 import sys
 from xml.etree import ElementTree as ET
 
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../')
-))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.realpath(__file__), "../"))
+)
 
 from packaging.version import parse as parseVersion
 import pandas as pd
@@ -38,17 +38,17 @@ def prettier_print(log_data) -> None:
     log_data : anything json dumpable
         data to print
     """
-    start = end = ''
+    start = end = ""
 
     if isinstance(log_data, str):
         # nicely handle line breaks for spacing in logs
-        if log_data.startswith('\n'):
-            start = '\n'
-            log_data = log_data.lstrip('\n')
+        if log_data.startswith("\n"):
+            start = "\n"
+            log_data = log_data.lstrip("\n")
 
-        if log_data.endswith('\n'):
-            end = '\n'
-            log_data = log_data.rstrip('\n')
+        if log_data.endswith("\n"):
+            end = "\n"
+            log_data = log_data.rstrip("\n")
 
     print(
         f"{start}[{datetime.now().strftime('%H:%M:%S')}] - "
@@ -100,10 +100,10 @@ def select_instance_types(run_id, instance_types) -> dict:
         single instance type is defined, or dict if it is a mapping (i.e for
         multiple stages of a workflow)
     """
-    prettier_print('Selecting instance types from assay config file')
+    prettier_print("Selecting instance types from assay config file")
     if not instance_types:
         # empty dict provided => no user defined instances in config
-        prettier_print('No instance types set to use from config')
+        prettier_print("No instance types set to use from config")
         return None
 
     if isinstance(instance_types, str):
@@ -120,7 +120,7 @@ def select_instance_types(run_id, instance_types) -> dict:
 
     matches = []
     # flowcell ID is last part of run ID
-    flowcell_id = re.split('[_-]', run_id)[-1]
+    flowcell_id = re.split("[_-]", run_id)[-1]
 
     prettier_print(
         f"Instance types set for the following keys:\n\t{instance_types}"
@@ -133,8 +133,8 @@ def select_instance_types(run_id, instance_types) -> dict:
             # than x's, we turn it into a regex pattern matching >= n x's if
             # there are alphanumeric characters at start or end
             prettier_print(f"Illumina flowcell pattern found: {type}")
-            start_x = re.search(r'^x*', type).group()
-            end_x = re.search(r'x*$', type).group()
+            start_x = re.search(r"^x*", type).group()
+            end_x = re.search(r"x*$", type).group()
 
             # make x's n or more character regex pattern (e.g. [\d\w]{5,})
             if start_x:
@@ -165,54 +165,54 @@ def select_instance_types(run_id, instance_types) -> dict:
     # no match against Illumina patterns found in instances types dict and
     # the current flowcell ID, check for SP / S1 / S2 / S4
     prettier_print(
-        'No matches found for Illumina flowcell patterns, '
-        'checking for SP, S1, S2 and S4'
+        "No matches found for Illumina flowcell patterns, "
+        "checking for SP, S1, S2 and S4"
     )
-    if 'DR' in flowcell_id:
+    if "DR" in flowcell_id:
         # this is an SP or S1 flowcell, both use the same identifier
         # therefore try select S1 first from the instance types since
         # we can't differetiate the two
-        if instance_types.get('S1'):
+        if instance_types.get("S1"):
             prettier_print("Match found for S1 instances")
-            return instance_types['S1']
-        elif instance_types.get('SP'):
+            return instance_types["S1"]
+        elif instance_types.get("SP"):
             prettier_print("Match found for SP instances")
-            return instance_types['SP']
+            return instance_types["SP"]
         else:
             # no instance types defined for SP/S1 flowcell
             prettier_print(
-                'SP/S1 flowcell used but no instance types specified'
+                "SP/S1 flowcell used but no instance types specified"
             )
 
-    if 'DM' in flowcell_id:
+    if "DM" in flowcell_id:
         # this is an S2 flowcell, check for S2
-        if instance_types.get('S2'):
+        if instance_types.get("S2"):
             prettier_print("Match found for S2 instances")
-            return instance_types['S2']
+            return instance_types["S2"]
         else:
             # no instance type defined for S2 flowcell
-            prettier_print('S2 flowcell used but no isntance types specified')
+            prettier_print("S2 flowcell used but no isntance types specified")
 
-    if 'DS' in flowcell_id:
+    if "DS" in flowcell_id:
         # this is an S4 flowcell, check for S4
-        if instance_types.get('S4'):
+        if instance_types.get("S4"):
             prettier_print("Match found for S4 instances")
-            return instance_types['S4']
+            return instance_types["S4"]
         else:
             # no instance type defined for S2 flowcell
-            prettier_print('S4 flowcell used but no isntance types specified')
+            prettier_print("S4 flowcell used but no isntance types specified")
 
     # if we get here then we haven't identified a match for the flowcell
     # used for sequencing against what we have defined in the config,
     # check for '*' being present (i.e. the catch all instances), else
     # return None to use app / workflow defaults
-    if instance_types.get('*'):
+    if instance_types.get("*"):
         prettier_print("Match found for default (*) instances")
-        return instance_types['*']
+        return instance_types["*"]
     else:
         prettier_print(
-            'No defined instances types found for flowcell used, will use '
-            'app / workflow defaults'
+            "No defined instances types found for flowcell used, will use "
+            "app / workflow defaults"
         )
         return None
 
@@ -238,7 +238,7 @@ def parse_sample_sheet(samplesheet) -> list:
     """
     sheet = pd.read_csv(samplesheet, header=None, usecols=[0])
     column = sheet[0].tolist()
-    sample_list = column[column.index('Sample_ID') + 1:]
+    sample_list = column[column.index("Sample_ID") + 1 :]
 
     # sense check some samples found and samplesheet isn't malformed
     assert sample_list, Slack().send(
@@ -264,14 +264,14 @@ def parse_run_info_xml(xml_file) -> str:
     """
     tree = ET.parse(xml_file)
     root = tree.getroot()
-    run_attributes = [x.attrib for x in root.findall('Run')]
-    run_id = ''
+    run_attributes = [x.attrib for x in root.findall("Run")]
+    run_id = ""
 
     if run_attributes:
         # should always be present
-        run_id = run_attributes[0].get('Id')
+        run_id = run_attributes[0].get("Id")
 
-    prettier_print(f'\nParsed run ID {run_id} from RunInfo.xml')
+    prettier_print(f"\nParsed run ID {run_id} from RunInfo.xml")
 
     return run_id
 
@@ -306,14 +306,15 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     # build a dict of assay codes from configs found to samples based off
     # matching assay_code in sample names
     prettier_print("\nMatching samples to assay configs")
-    all_config_assay_codes = sorted([
-        x.get('assay_code') for x in configs.values()])
+    all_config_assay_codes = sorted(
+        [x.get("assay_code") for x in configs.values()]
+    )
     assay_to_samples = defaultdict(list)
 
     prettier_print(
-        f'\nAll assay codes of config files: {all_config_assay_codes}'
+        f"\nAll assay codes of config files: {all_config_assay_codes}"
     )
-    prettier_print(f'\nAll samples parsed from samplesheet: {all_samples}')
+    prettier_print(f"\nAll samples parsed from samplesheet: {all_samples}")
 
     # for each sample check each assay code if it matches, then select the
     # matching config with highest version
@@ -323,18 +324,21 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         for code in all_config_assay_codes:
             # find all config files that match this sample
             if re.search(code, sample, re.IGNORECASE):
-                sample_to_assay_configs[code] = configs[code]['version']
+                sample_to_assay_configs[code] = configs[code]["version"]
 
         if sample_to_assay_configs:
             # found at least one config to match to sample, select
             # one with the highest version
             highest_ver_config = max(
-                sample_to_assay_configs.values(), key=parseVersion)
+                sample_to_assay_configs.values(), key=parseVersion
+            )
 
             # select the config key with for the corresponding value found
             # to be the highest
             latest_config_key = list(sample_to_assay_configs)[
-                list(sample_to_assay_configs.values()).index(highest_ver_config)
+                list(sample_to_assay_configs.values()).index(
+                    highest_ver_config
+                )
             ]
 
             assay_to_samples[latest_config_key].append(sample)
@@ -348,9 +352,9 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         samples_w_codes = [
             x for y in list(assay_to_samples.values()) for x in y
         ]
-        samples_without_codes = '\n\t\t'.join([
-            f'`{x}`' for x in sorted(set(all_samples) - set(samples_w_codes))
-        ])
+        samples_without_codes = "\n\t\t".join(
+            [f"`{x}`" for x in sorted(set(all_samples) - set(samples_w_codes))]
+        )
 
         assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
             f"Could not identify assay code for all samples!\n\n"
@@ -390,9 +394,9 @@ def load_config(config_file) -> dict:
     config : dict
         dictionary of loaded json file
     """
-    if not config_file.endswith('.json'):
+    if not config_file.endswith(".json"):
         # sense check a json passed
-        raise RuntimeError('Error: invalid config passed - not a json file')
+        raise RuntimeError("Error: invalid config passed - not a json file")
 
     with open(config_file) as file:
         config = json.load(file)
@@ -425,7 +429,7 @@ def load_test_data(test_samples) -> list:
 
 
 def create_project_name(run_id, assay, development, testing):
-    """ Create a project name given a few parameters
+    """Create a project name given a few parameters
 
     Parameters
     ----------
@@ -448,11 +452,11 @@ def create_project_name(run_id, assay, development, testing):
     if development:
         prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
     else:
-        prefix = '002_'
+        prefix = "002_"
 
-    suffix = ''
+    suffix = ""
 
     if testing:
-        suffix = '-EGGD_CONDUCTOR_TESTING'
+        suffix = "-EGGD_CONDUCTOR_TESTING"
 
-    return f'{prefix}{run_id}_{assay}{suffix}'
+    return f"{prefix}{run_id}_{assay}{suffix}"

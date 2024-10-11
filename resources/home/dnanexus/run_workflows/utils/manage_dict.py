@@ -2,6 +2,7 @@
 Functions related to populating and formatting input and output
 dictionaries for passing to dx run.
 """
+
 from copy import deepcopy
 import os
 import re
@@ -9,9 +10,9 @@ import sys
 
 from flatten_json import flatten, unflatten_list
 
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../../')
-))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.realpath(__file__), "../../"))
+)
 
 from utils.utils import prettier_print
 from utils.WebClasses import Slack
@@ -39,7 +40,7 @@ def search(identifier, input_dict, check_key, return_key) -> list:
     """
     # flatten to single level dict with keys as paths to end values
     # for easy searching
-    flattened_dict = flatten(input_dict, '|')
+    flattened_dict = flatten(input_dict, "|")
     found = []
 
     for key, value in flattened_dict.items():
@@ -52,7 +53,7 @@ def search(identifier, input_dict, check_key, return_key) -> list:
             # to_check is True, False, a number or None
             continue
 
-        match = re.search(rf'[^|]*{identifier}[^|]*', to_check)
+        match = re.search(rf"[^|]*{identifier}[^|]*", to_check)
         if match:
             if return_key:
                 found.append(match.group())
@@ -63,8 +64,7 @@ def search(identifier, input_dict, check_key, return_key) -> list:
 
 
 def replace(
-    input_dict, to_replace, replacement,
-    search_key, replace_key
+    input_dict, to_replace, replacement, search_key, replace_key
 ) -> dict:
     """
     Recursively traverse through nested dictionary and replace any matching
@@ -91,13 +91,13 @@ def replace(
         identifier=to_replace,
         input_dict=input_dict,
         check_key=search_key,
-        return_key=replace_key
+        return_key=replace_key,
     )
 
     if not matches:
         return input_dict
 
-    flattened_dict = flatten(input_dict, '|')
+    flattened_dict = flatten(input_dict, "|")
     new_dict = {}
 
     for key, value in flattened_dict.items():
@@ -128,7 +128,7 @@ def replace(
             # match not in this key - value => add original pair back
             new_dict[key] = value
 
-    return unflatten_list(new_dict, '|')
+    return unflatten_list(new_dict, "|")
 
 
 def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
@@ -163,7 +163,7 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
 
     if sample:
         sample_regex = re.compile(
-            rf'{sample}_[A-za-z0-9]*_L00[0-9]_R[1,2]_001.fastq(.gz)?'
+            rf"{sample}_[A-za-z0-9]*_L00[0-9]_R[1,2]_001.fastq(.gz)?"
         )
         for fastq in fastq_details:
             # sample specified => running per sample, if not using
@@ -174,29 +174,29 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
                 sample_fastqs.append(fastq)
 
         # ensure some fastqs found
-        assert sample_fastqs, Slack().send(f'No fastqs found for {sample}')
+        assert sample_fastqs, Slack().send(f"No fastqs found for {sample}")
     else:
         # sample not specified => use all fastqs
         sample_fastqs = fastq_details
 
     # fastqs should always be named with R1/2_001
     r1_fastqs = sorted(
-        [x for x in sample_fastqs if 'R1_001.fastq' in x[1]],
-        key=lambda x: x[1]
+        [x for x in sample_fastqs if "R1_001.fastq" in x[1]],
+        key=lambda x: x[1],
     )
     r2_fastqs = sorted(
-        [x for x in sample_fastqs if 'R2_001.fastq' in x[1]],
-        key=lambda x: x[1]
+        [x for x in sample_fastqs if "R2_001.fastq" in x[1]],
+        key=lambda x: x[1],
     )
 
     prettier_print(
-        f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs'
+        f"Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs"
     )
 
     # sense check we have R2 fastqs before across all samples (i.e.
     # checking this isn't single end sequencing) before checking we
     # have equal numbers for the current sample
-    all_r2_fastqs = [x for x in fastq_details if 'R2_001.fastq' in x[1]]
+    all_r2_fastqs = [x for x in fastq_details if "R2_001.fastq" in x[1]]
 
     if all_r2_fastqs:
         assert len(r1_fastqs) == len(r2_fastqs), Slack().send(
@@ -207,15 +207,15 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     for stage, inputs in input_dict.items():
         # check each stage in input config for fastqs, format
         # as required with R1 and R2 fastqs
-        if inputs == 'INPUT-R1':
+        if inputs == "INPUT-R1":
             r1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
             input_dict[stage] = r1_input
 
-        if inputs == 'INPUT-R2':
+        if inputs == "INPUT-R2":
             r2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
             input_dict[stage] = r2_input
 
-        if inputs == 'INPUT-R1-R2':
+        if inputs == "INPUT-R1-R2":
             # stage requires all fastqs, build one list of dicts
             r1_r2_input = []
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
@@ -241,15 +241,19 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
         dict of input parameters for calling workflow / app
     """
     for app_input, value in input_dict.items():
-        if value == 'INPUT-UPLOAD_TARS':
+        if value == "INPUT-UPLOAD_TARS":
             input_dict[app_input] = upload_tars
 
     return input_dict
 
 
 def add_other_inputs(
-    input_dict, parent_out_dir, project_id, project_name,
-    sample=None, sample_prefix=None
+    input_dict,
+    parent_out_dir,
+    project_id,
+    project_name,
+    sample=None,
+    sample_prefix=None,
 ) -> dict:
     """
     Generalised function for adding other INPUT-s, currently handles
@@ -287,41 +291,41 @@ def add_other_inputs(
         Raised when no output dir has been given where a downsteam analysis
         requires it as an input
     """
-    prettier_print('\nAdding other inputs, input dict passed to check:')
+    prettier_print("\nAdding other inputs, input dict passed to check:")
     prettier_print(input_dict)
 
     # first checking if any INPUT- in dict to fill
     other_inputs = search(
-        identifier='INPUT-',
+        identifier="INPUT-",
         input_dict=input_dict,
         check_key=False,
-        return_key=False
+        return_key=False,
     )
 
     if not other_inputs:
         return input_dict
     else:
-        prettier_print(f'\nOther inputs found to replace: {other_inputs}')
+        prettier_print(f"\nOther inputs found to replace: {other_inputs}")
 
     # removing /output prefix for now to fit to MultiQC
-    parent_out_dir = re.sub(r'^/output/', '', parent_out_dir)
+    parent_out_dir = re.sub(r"^/output/", "", parent_out_dir)
 
     samplesheet = ""
-    if os.environ.get('SAMPLESHEET_ID'):
+    if os.environ.get("SAMPLESHEET_ID"):
         # get just the ID of samplesheet in case of being formatted as
         # {'$dnanexus_link': 'file_id'}
-        match = re.search(r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID'))
+        match = re.search(r"file-[\d\w]*", os.environ.get("SAMPLESHEET_ID"))
         if match:
             samplesheet = match.group()
 
     # mapping of potential user defined keys and variables to replace with
     to_replace = [
-        ('INPUT-SAMPLE-NAME', sample),
-        ('INPUT-SAMPLE-PREFIX', sample_prefix),
-        ('INPUT-dx_project_id', project_id),
-        ('INPUT-dx_project_name', project_name),
-        ('INPUT-parent_out_dir', parent_out_dir),
-        ('INPUT-SAMPLESHEET', samplesheet)
+        ("INPUT-SAMPLE-NAME", sample),
+        ("INPUT-SAMPLE-PREFIX", sample_prefix),
+        ("INPUT-dx_project_id", project_id),
+        ("INPUT-dx_project_name", project_name),
+        ("INPUT-parent_out_dir", parent_out_dir),
+        ("INPUT-SAMPLESHEET", samplesheet),
     ]
 
     for input_field, input_value in to_replace:
@@ -331,10 +335,10 @@ def add_other_inputs(
                 to_replace=input_field,
                 replacement=input_value,
                 search_key=False,
-                replace_key=False
+                replace_key=False,
             )
 
-    prettier_print('\nInput dict after adding other inputs:')
+    prettier_print("\nInput dict after adding other inputs:")
     prettier_print(input_dict)
 
     return input_dict
@@ -379,8 +383,7 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None) -> list:
     """
     # get jobs in root of job outputs dict => just per run jobs
     per_run_jobs = {
-        k: v for k, v in job_outputs_dict.items()
-        if k.startswith('analysis_')
+        k: v for k, v in job_outputs_dict.items() if k.startswith("analysis_")
     }
 
     if sample:
@@ -400,7 +403,7 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None) -> list:
                 identifier=analysis_id,
                 input_dict=job_outputs_dict,
                 check_key=True,
-                return_key=False
+                return_key=False,
             )
             if job_ids:
                 for job in job_ids:
@@ -415,14 +418,18 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None) -> list:
                     # found ID in per run jobs dict => wait on completing
                     dependent_jobs.append(job)
 
-    prettier_print(f'\nDependent jobs found: {dependent_jobs}')
+    prettier_print(f"\nDependent jobs found: {dependent_jobs}")
 
     return dependent_jobs
 
 
 def link_inputs_to_outputs(
-    job_outputs_dict, input_dict, analysis, per_sample,
-    input_filter_dict=None, sample=None
+    job_outputs_dict,
+    input_dict,
+    analysis,
+    per_sample,
+    input_filter_dict=None,
+    sample=None,
 ) -> dict:
     """
     Check input dict for 'analysis_', these will be for linking outputs of
@@ -482,8 +489,9 @@ def link_inputs_to_outputs(
         # parsed from there, these will be in the top level of the
         # job _outputs dict (i.e. {'analysis_1': "job-xxx"})
         per_run_outputs = {
-            k: v for k, v in job_outputs_dict.items()
-            if k.startswith('analysis_')
+            k: v
+            for k, v in job_outputs_dict.items()
+            if k.startswith("analysis_")
         }
 
         job_outputs_dict = {**per_run_outputs, **sample_outputs}
@@ -493,10 +501,10 @@ def link_inputs_to_outputs(
 
     # check if input dict has any analysis_X => need to link a previous job
     all_analysis_ids = search(
-        identifier='analysis_',
+        identifier="analysis_",
         input_dict=input_dict,
         check_key=False,
-        return_key=False
+        return_key=False,
     )
 
     prettier_print(f"\nFound analyses to replace: {all_analysis_ids}")
@@ -511,12 +519,14 @@ def link_inputs_to_outputs(
     for analysis_id in all_analysis_ids:
         # for each input, use the analysis id to get the job id containing
         # the required output from the job outputs dict
-        if not re.search(r'^analysis_[0-9]{1,2}$', analysis_id):
+        if not re.search(r"^analysis_[0-9]{1,2}$", analysis_id):
             # doesn't seem to be a valid analysis_X
-            raise RuntimeError((
-                f'{analysis_id} does not seem to be a valid analysis id, '
-                'check config and try again'
-            ))
+            raise RuntimeError(
+                (
+                    f"{analysis_id} does not seem to be a valid analysis id, "
+                    "check config and try again"
+                )
+            )
 
         if per_sample:
             # job_outputs_dict has analysis_X: job-id
@@ -528,11 +538,13 @@ def link_inputs_to_outputs(
             if not job_id:
                 # this shouldn't happen as it will be caught with
                 # the regex but double checking anyway
-                raise ValueError((
-                    "No job id found for given analysis id: "
-                    f"{analysis_id}, please check that it has the "
-                    "same analysis as a previous job in the config"
-                ))
+                raise ValueError(
+                    (
+                        "No job id found for given analysis id: "
+                        f"{analysis_id}, please check that it has the "
+                        "same analysis as a previous job in the config"
+                    )
+                )
 
             # replace analysis id with given job id in input dict
             input_dict = replace(
@@ -540,7 +552,7 @@ def link_inputs_to_outputs(
                 to_replace=analysis_id,
                 replacement=job_id[0],
                 search_key=False,
-                replace_key=False
+                replace_key=False,
             )
         else:
             # current executable is running on all samples => need to
@@ -553,16 +565,18 @@ def link_inputs_to_outputs(
                 identifier=analysis_id,
                 input_dict=job_outputs_dict,
                 check_key=True,
-                return_key=False
+                return_key=False,
             )
 
             # sense check job IDs prev. launched for given analysis ID
             if not job_ids:
-                raise ValueError((
-                    "No job id found for given analysis id: "
-                    f"{analysis_id}, please check that it has the "
-                    "same analysis as a previous job in the config"
-                ))
+                raise ValueError(
+                    (
+                        "No job id found for given analysis id: "
+                        f"{analysis_id}, please check that it has the "
+                        "same analysis as a previous job in the config"
+                    )
+                )
 
             prettier_print(f"\nFound job IDs to link as inputs: {job_ids}")
 
@@ -588,7 +602,7 @@ def link_inputs_to_outputs(
                     job_outputs_dict_copy = filter_job_outputs_dict(
                         stage=input_field,
                         outputs_dict=job_outputs_dict,
-                        filter_dict=input_filter_dict
+                        filter_dict=input_filter_dict,
                     )
 
                     # gather all job IDs for current analysis ID
@@ -596,7 +610,7 @@ def link_inputs_to_outputs(
                         identifier=analysis_id,
                         input_dict=job_outputs_dict_copy,
                         check_key=True,
-                        return_key=False
+                        return_key=False,
                     )
 
                     # copy input structure from input dict, turn into an array
@@ -611,16 +625,14 @@ def link_inputs_to_outputs(
                             to_replace=analysis_id,
                             replacement=job,
                             search_key=False,
-                            replace_key=False
+                            replace_key=False,
                         )
                         input_dict[input_field].append(stage_input_tmp)
 
     return input_dict
 
 
-def filter_job_outputs_dict(
-    stage, outputs_dict, filter_dict
-) -> dict:
+def filter_job_outputs_dict(stage, outputs_dict, filter_dict) -> dict:
     """
     Filter given dict of sample names -> job IDs to only keep job IDs
     of jobs for those sample(s) matching given pattern(s).
@@ -649,10 +661,10 @@ def filter_job_outputs_dict(
         return outputs_dict
 
     prettier_print(
-        f'\nFiltering job outputs dict by sample name patterns for {stage}'
+        f"\nFiltering job outputs dict by sample name patterns for {stage}"
     )
-    prettier_print(f'\nJob outputs dict before filtering: {outputs_dict}')
-    prettier_print(f'\nFilter dict:{filter_dict}')
+    prettier_print(f"\nJob outputs dict before filtering: {outputs_dict}")
+    prettier_print(f"\nFilter dict:{filter_dict}")
 
     new_outputs = {}
     stage_match = False
@@ -668,13 +680,13 @@ def filter_job_outputs_dict(
 
     if not stage_match:
         # stage has no filters to apply => just return the outputs dict
-        prettier_print(f'\nNo filters to apply for stage: {stage}')
+        prettier_print(f"\nNo filters to apply for stage: {stage}")
         return outputs_dict
     else:
         # there was a filter for given stage to apply, if no
         # matches were found against the given pattern(s) this
         # will be an empty dict
-        prettier_print('\nJob outputs dict after filtering')
+        prettier_print("\nJob outputs dict after filtering")
         prettier_print(new_outputs)
 
         return new_outputs
@@ -720,24 +732,26 @@ def fix_invalid_inputs(input_dict, input_classes) -> dict:
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
 
-        assert input_details, (
-            f"'{input_field}' doesn't exist in the input_dict"
-        )
+        assert (
+            input_details
+        ), f"'{input_field}' doesn't exist in the input_dict"
 
-        expected_class = input_details.get('class')
-        optional = input_details.get('optional')
+        expected_class = input_details.get("class")
+        optional = input_details.get("optional")
 
-        if expected_class not in ['file', 'array:file']:
+        if expected_class not in ["file", "array:file"]:
             # we only care about single files and arrays as they are the
             # only ones likely to be wrongly formatted
             continue
 
-        if expected_class == 'array:file' and isinstance(configured_input, dict):
+        if expected_class == "array:file" and isinstance(
+            configured_input, dict
+        ):
             # we expect a list and have a dict (i.e. only one file
             # being passed) => turn it into a list
             configured_input = [configured_input]
 
-        if expected_class == 'file' and isinstance(configured_input, list):
+        if expected_class == "file" and isinstance(configured_input, list):
             # input wants to be a single file and we have a list
             # if its just one => then use it
             # if its empty => could still be okay if input is optional,
@@ -759,11 +773,13 @@ def fix_invalid_inputs(input_dict, input_classes) -> dict:
                 configured_input = configured_input[0]
 
             else:
-                raise RuntimeError((
-                    "Input expects to be a single file but multiple "
-                    f"files were found and provided.\nInput field: "
-                    f"{input_field}\nInput found: {configured_input}"
-                ))
+                raise RuntimeError(
+                    (
+                        "Input expects to be a single file but multiple "
+                        f"files were found and provided.\nInput field: "
+                        f"{input_field}\nInput found: {configured_input}"
+                    )
+                )
 
         input_dict_copy[input_field] = configured_input
 
@@ -788,7 +804,8 @@ def check_all_inputs(input_dict) -> None:
         Raised if any 'INPUT-' or 'analysis_' are found in the input dict
     """
     unparsed_inputs = search(
-        'INPUT-', input_dict, check_key=False, return_key=False)
+        "INPUT-", input_dict, check_key=False, return_key=False
+    )
 
     assert not unparsed_inputs, Slack().send(
         f"unparsed `INPUT-` still in config, please check readme for "
@@ -796,7 +813,8 @@ def check_all_inputs(input_dict) -> None:
     )
 
     unparsed_inputs = search(
-        'analysis_', input_dict, check_key=False, return_key=False)
+        "analysis_", input_dict, check_key=False, return_key=False
+    )
 
     assert not unparsed_inputs, Slack().send(
         f"unparsed `analysis-` still in config, please check readme for "
@@ -805,10 +823,7 @@ def check_all_inputs(input_dict) -> None:
 
 
 def populate_tso500_reports_workflow(
-    input_dict,
-    sample,
-    all_output_files,
-    job_output_ids
+    input_dict, sample, all_output_files, job_output_ids
 ) -> dict:
     """
     Handle the irritating running of the TSO500 reports workflow
@@ -854,11 +869,11 @@ def populate_tso500_reports_workflow(
     # mapping of the value expected in the input dict parsed from
     # the config file -> the eggd_tso500 app output fields to select from
     tso500_input_fields = {
-        "eggd_tso500.fastqs": ['fastqs'],
-        "eggd_tso500.bam": ['dna_bams', 'rna_bams'],
-        "eggd_tso500.idx": ['dna_bam_index', 'rna_bam_index'],
-        "eggd_tso500.vcf": ['gvcfs', 'splice_variants_vcfs'],
-        "eggd_tso500.cvo": ['cvo']
+        "eggd_tso500.fastqs": ["fastqs"],
+        "eggd_tso500.bam": ["dna_bams", "rna_bams"],
+        "eggd_tso500.idx": ["dna_bam_index", "rna_bam_index"],
+        "eggd_tso500.vcf": ["gvcfs", "splice_variants_vcfs"],
+        "eggd_tso500.cvo": ["cvo"],
     }
 
     for stage_input, output_fields in tso500_input_fields.items():
@@ -887,7 +902,8 @@ def populate_tso500_reports_workflow(
         # (i.e. dna_bams and rna_bams) we expect at least one to
         # be present, and for cvo they should always be present
         dx_links = [
-            job_output_ids.get(x) for x in output_fields
+            job_output_ids.get(x)
+            for x in output_fields
             if job_output_ids.get(x)
         ]
 
@@ -897,13 +913,11 @@ def populate_tso500_reports_workflow(
         )
 
         file_ids = [
-            id.get('$dnanexus_link') for sublist in dx_links for id in sublist
+            id.get("$dnanexus_link") for sublist in dx_links for id in sublist
         ]
-        file_details = [
-            x for x in all_output_files if x['id'] in file_ids
-        ]
+        file_details = [x for x in all_output_files if x["id"] in file_ids]
         sample_file = [
-            x for x in file_details if x['describe']['name'].startswith(sample)
+            x for x in file_details if x["describe"]["name"].startswith(sample)
         ]
 
         assert sample_file, (
@@ -911,20 +925,20 @@ def populate_tso500_reports_workflow(
             f"input {stage_input}"
         )
 
-        if output_fields == ['fastqs']:
+        if output_fields == ["fastqs"]:
             # handle fastqs separately since they should be an array
             input_dict[config_stage_input] = [
-                {'$dnanexus_link': x['id']} for x in sample_file
+                {"$dnanexus_link": x["id"]} for x in sample_file
             ]
         else:
             input_dict[config_stage_input] = {
-                '$dnanexus_link': sample_file[0]['id']
+                "$dnanexus_link": sample_file[0]["id"]
             }
 
     # get the dnanexus_link we already added for the cvo, and turn
     # this into an array input with the metricsOutput
     additional_files_stage = [
-        x for x in input_dict if x.endswith('.additional_files')
+        x for x in input_dict if x.endswith(".additional_files")
     ]
 
     if additional_files_stage:
@@ -932,12 +946,13 @@ def populate_tso500_reports_workflow(
 
         # make additional files for generate_workbook also take in the
         # per run metricsOutput file, should already have the sample cvo
-        metrics_output = job_output_ids.get('metricsOutput')
+        metrics_output = job_output_ids.get("metricsOutput")
         assert metrics_output, "No metrics output file found from tso500 job"
 
         cvo_dnanexus_link = input_dict[additional_files_stage]
         input_dict[additional_files_stage] = [
-            cvo_dnanexus_link, metrics_output
+            cvo_dnanexus_link,
+            metrics_output,
         ]
 
     print(f"Inputs added to input dict:\n\n{input_dict}")
