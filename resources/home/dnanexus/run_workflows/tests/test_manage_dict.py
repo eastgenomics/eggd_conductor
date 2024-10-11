@@ -1188,6 +1188,16 @@ class TestFixInvalidInputs:
                 ],
             )
 
+    def test_unknown_input_field(self):
+        with pytest.raises(
+            AssertionError,
+            match="'not_existing_field' doesn't exist in the input_dict"
+        ):
+            fix_invalid_inputs(
+                input_dict={"not_existing_field": None},
+                input_classes={"existing_field": None}
+            )
+
 
 class TestCheckAllInputs:
     """
