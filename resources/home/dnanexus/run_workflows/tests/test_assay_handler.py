@@ -10,11 +10,9 @@ import dxpy as dx
 import pytest
 
 from utils.AssayHandler import AssayHandler
+from .settings import TEST_DATA_DIR
 
-
-test_data_folder = pathlib.Path(
-    "resources/home/dnanexus/run_workflows/tests/data/build_job_inputs/"
-)
+test_data_folder = pathlib.Path(f"{TEST_DATA_DIR}/build_job_inputs")
 
 
 @pytest.fixture()
