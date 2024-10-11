@@ -646,9 +646,10 @@ class TestBuildJobInputs:
 
         assert expected_output == job_inputs_assay_handler.job_info_per_run
 
+    @patch("utils.AssayHandler.dx.describe")
     @patch("utils.AssayHandler.manage_dict.fix_invalid_inputs")
     def test_build_job_inputs_TSO500(
-        self, mock_fixed_inputs, job_inputs_assay_handler
+        self, mock_fixed_inputs, mock_describe, job_inputs_assay_handler
     ):
         mock_fixed_inputs.return_value = {
             "stage-athena.cutoff_threshold": 100,
@@ -739,6 +740,7 @@ class TestBuildJobInputs:
                 }
             },
         }
+        mock_describe.return_value = {"name": "eggd_tso500"}
         params = job_inputs_assay_handler.config["executables"][
             "app-GjF8gFQ4yyVBg4Y62BV10Vp2"
         ]
