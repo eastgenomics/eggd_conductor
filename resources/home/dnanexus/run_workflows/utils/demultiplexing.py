@@ -3,19 +3,15 @@ import re
 
 import dxpy as dx
 
-from utils.utils import (
-    prettier_print,
-    select_instance_types,
-    time_stamp
-)
+from utils.utils import prettier_print, select_instance_types, time_stamp
 from utils.WebClasses import Slack
 
 
 def set_config_for_demultiplexing(*configs):
-    """ Select the config parameters that will be used in the
+    """Select the config parameters that will be used in the
     demultiplexing job using the biggest instance type as the tie breaker.
     This also allows selection of additional args that could be
-    antagonistic. """
+    antagonistic."""
 
     demultiplex_configs = []
     core_nbs = []
@@ -38,7 +34,7 @@ def set_config_for_demultiplexing(*configs):
 def move_demultiplex_qc_files(
     project_id, demultiplex_project, demultiplex_folder
 ):
-    """ Move demultiplexing QC files to the given project
+    """Move demultiplexing QC files to the given project
 
     Args:
         project_id (str): DNAnexus project id to move the QC files to
@@ -47,45 +43,42 @@ def move_demultiplex_qc_files(
     # check for and copy / move the required files for multiQC from
     # bclfastq or bclconvert into a folder in root of the analysis project
     qc_files = [
-        "Stats.json",              # bcl2fastq
-        "RunInfo.xml",             # ↧ bclconvert
+        "Stats.json",  # bcl2fastq
+        "RunInfo.xml",  # ↧ bclconvert
         "Demultiplex_Stats.csv",
         "Quality_Metrics.csv",
         "Adapter_Metrics.csv",
-        "Top_Unknown_Barcodes.csv"
+        "Top_Unknown_Barcodes.csv",
     ]
 
     # need to first create destination folder
     dx.api.project_new_folder(
         object_id=project_id,
-        input_params={
-            'folder': '/demultiplex_multiqc_files',
-            'parents': True
-        }
+        input_params={"folder": "/demultiplex_multiqc_files", "parents": True},
     )
 
     for file in qc_files:
-        dx_object = list(dx.bindings.search.find_data_objects(
-            name=file,
-            project=demultiplex_project,
-            folder=demultiplex_folder
-        ))
+        dx_object = list(
+            dx.bindings.search.find_data_objects(
+                name=file,
+                project=demultiplex_project,
+                folder=demultiplex_folder,
+            )
+        )
 
         if dx_object:
             dx_file = dx.DXFile(
-                dxid=dx_object[0]['id'],
-                project=dx_object[0]['project']
+                dxid=dx_object[0]["id"], project=dx_object[0]["project"]
             )
 
             if project_id == demultiplex_project:
                 # demultiplex output in the analysis project => need to move
                 # instead of cloning (this is most likely just for testing)
-                dx_file.move(folder='/demultiplex_multiqc_files')
+                dx_file.move(folder="/demultiplex_multiqc_files")
             else:
                 # copying to separate analysis project
                 dx_file.clone(
-                    project=project_id,
-                    folder='/demultiplex_multiqc_files'
+                    project=project_id, folder="/demultiplex_multiqc_files"
                 )
 
 
@@ -105,24 +98,27 @@ def get_demultiplex_job_details(job_id) -> list:
     """
     prettier_print(f"\nGetting fastqs from given demultiplexing job: {job_id}")
     demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
-    demultiplex_project = demultiplex_job['project']
-    demultiplex_folder = demultiplex_job['folder']
+    demultiplex_project = demultiplex_job["project"]
+    demultiplex_folder = demultiplex_job["folder"]
 
     # find all fastqs from demultiplex job, return list of dicts with details
-    fastq_details = list(dx.search.find_data_objects(
-        name="*.fastq*", name_mode="glob", project=demultiplex_project,
-        folder=demultiplex_folder, describe=True
-    ))
+    fastq_details = list(
+        dx.search.find_data_objects(
+            name="*.fastq*",
+            name_mode="glob",
+            project=demultiplex_project,
+            folder=demultiplex_folder,
+            describe=True,
+        )
+    )
     # build list of tuples with fastq name and file ids
-    fastq_details = [
-        (x['id'], x['describe']['name']) for x in fastq_details
-    ]
+    fastq_details = [(x["id"], x["describe"]["name"]) for x in fastq_details]
     # filter out Undetermined fastqs
     fastq_details = [
-        x for x in fastq_details if not x[1].startswith('Undetermined')
+        x for x in fastq_details if not x[1].startswith("Undetermined")
     ]
 
-    prettier_print(f'\nFastqs parsed from demultiplexing job {job_id}')
+    prettier_print(f"\nFastqs parsed from demultiplexing job {job_id}")
     prettier_print(fastq_details)
 
     return fastq_details
@@ -135,7 +131,7 @@ def demultiplex(
     demultiplex_config,
     demultiplex_output,
     sentinel_file,
-    run_id
+    run_id,
 ) -> str:
     """
     Run demultiplexing app, holds until app completes.
@@ -168,27 +164,23 @@ def demultiplex(
             # set output path to parent of sentinel file
             out = dx.describe(sentinel_file)
             sentinel_path = f"{out.get('project')}:{out.get('folder')}"
-            demultiplex_output = sentinel_path.replace('/runs', '')
+            demultiplex_output = sentinel_path.replace("/runs", "")
     else:
         if not demultiplex_output:
             # running in testing and going to demultiplex -> dump output to
             # our testing analysis project to not go to sentinel file dir
-            demultiplex_output = (
-                f'{run_id}:/demultiplex_{time_stamp()}'
-            )
+            demultiplex_output = f"{run_id}:/demultiplex_{time_stamp()}"
 
-    (
-        demultiplex_project, demultiplex_folder
-    ) = demultiplex_output.split(':')
+    (demultiplex_project, demultiplex_folder) = demultiplex_output.split(":")
 
-    prettier_print(f'demultiplex app ID set: {app_id}')
-    prettier_print(f'demultiplex app name set: {app_name}')
+    prettier_print(f"demultiplex app ID set: {app_id}")
+    prettier_print(f"demultiplex app name set: {app_name}")
     prettier_print(
-        f'optional config specified for demultiplexing: {demultiplex_config}'
+        f"optional config specified for demultiplexing: {demultiplex_config}"
     )
-    prettier_print(f'demultiplex out: {demultiplex_output}')
-    prettier_print(f'demultiplex project: {demultiplex_project}')
-    prettier_print(f'demultiplex folder: {demultiplex_folder}')
+    prettier_print(f"demultiplex out: {demultiplex_output}")
+    prettier_print(f"demultiplex project: {demultiplex_project}")
+    prettier_print(f"demultiplex folder: {demultiplex_folder}")
 
     instance_type = None
     additional_args = None
@@ -201,44 +193,39 @@ def demultiplex(
         # instance type defined in config is a mapping for multiple
         # flowcells, select appropriate one for current flowcell
         instance_type = select_instance_types(
-            run_id=run_id,
-            instance_types=instance_type
+            run_id=run_id, instance_types=instance_type
         )
 
     prettier_print(
         f"Instance type selected for demultiplexing: {instance_type}"
     )
 
-    inputs = {
-        'upload_sentinel_record': {
-            "$dnanexus_link": sentinel_file
-        }
-    }
+    inputs = {"upload_sentinel_record": {"$dnanexus_link": sentinel_file}}
 
     if additional_args:
-        inputs['advanced_opts'] = additional_args
+        inputs["advanced_opts"] = additional_args
 
     if os.environ.get("SAMPLESHEET_ID"):
         #  get just the ID of samplesheet in case of being formatted as
         # {'$dnanexus_link': 'file_id'} and add to inputs as this
-        match = re.search(
-            r'file-[\d\w]*', os.environ.get('SAMPLESHEET_ID')
-        )
+        match = re.search(r"file-[\d\w]*", os.environ.get("SAMPLESHEET_ID"))
 
         if match:
-            inputs['sample_sheet'] = {'$dnanexus_link': match.group()}
+            inputs["sample_sheet"] = {"$dnanexus_link": match.group()}
 
     prettier_print(f"\nInputs set for running demultiplexing: {inputs}")
 
     # check no fastqs are already present in the output directory for
     # demultiplexing, exit if any present to prevent making a mess
     # with demultiplexing output
-    fastqs = list(dx.find_data_objects(
-        name="*.fastq*",
-        name_mode='glob',
-        project=demultiplex_project,
-        folder=demultiplex_folder
-    ))
+    fastqs = list(
+        dx.find_data_objects(
+            name="*.fastq*",
+            name_mode="glob",
+            project=demultiplex_project,
+            folder=demultiplex_folder,
+        )
+    )
 
     assert not fastqs, Slack().send(
         "FastQs already present in output directory for demultiplexing: "
@@ -249,15 +236,15 @@ def demultiplex(
         "output directory with `-iDEMULTIPLEX_OUT`"
     )
 
-    if app_id.startswith('applet-'):
+    if app_id.startswith("applet-"):
         job = dx.bindings.dxapplet.DXApplet(dxid=app_id).run(
             applet_input=inputs,
             project=demultiplex_project,
             folder=demultiplex_folder,
-            priority='high',
-            instance_type=instance_type
+            priority="high",
+            instance_type=instance_type,
         )
-    elif app_id.startswith('app-') or app_name:
+    elif app_id.startswith("app-") or app_name:
         # running from app, prefer name over ID
         # have to set to None to only use ID or name if both set
         if app_name:
@@ -269,17 +256,18 @@ def demultiplex(
             app_input=inputs,
             project=demultiplex_project,
             folder=demultiplex_folder,
-            priority='high',
-            instance_type=instance_type
+            priority="high",
+            instance_type=instance_type,
         )
     else:
         raise RuntimeError(
-            f'Provided demultiplex app ID does not appear valid: {app_id}')
+            f"Provided demultiplex app ID does not appear valid: {app_id}"
+        )
 
     # tag demultiplexing job so we easily know it was launched by conductor
-    job.add_tags(tags=[
-        f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}'
-    ])
+    job.add_tags(
+        tags=[f'Job run by eggd_conductor: {os.environ.get("PARENT_JOB_ID")}']
+    )
 
     prettier_print(
         f"Starting demultiplexing ({job.id}), "

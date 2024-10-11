@@ -9,10 +9,11 @@ from requests.auth import HTTPBasicAuth
 import utils.utils as utils
 
 
-class Slack():
+class Slack:
     """
     Slack related functions
     """
+
     def __init__(self) -> None:
         self.slack_token = os.getenv("SLACK_TOKEN")
         self.slack_alert_channel = os.getenv("SLACK_ALERT_CHANNEL")
@@ -32,7 +33,7 @@ class Slack():
             if to send the alert as a warning or an error (default False =>
             send Slack alert as an error)
         """
-        conductor_job_url = os.environ.get('conductor_job_url')
+        conductor_job_url = os.environ.get("conductor_job_url")
         channel = self.slack_alert_channel
 
         if warn:
@@ -53,18 +54,20 @@ class Slack():
         )
 
         http = requests.Session()
-        retries = Retry(total=5, backoff_factor=10, allowed_methods=['POST'])
+        retries = Retry(total=5, backoff_factor=10, allowed_methods=["POST"])
         http.mount("https://", HTTPAdapter(max_retries=retries))
 
         try:
             response = http.post(
-                'https://slack.com/api/chat.postMessage', {
-                    'token': self.slack_token,
-                    'channel': f"#{channel}",
-                    'text': message
-                }).json()
+                "https://slack.com/api/chat.postMessage",
+                {
+                    "token": self.slack_token,
+                    "channel": f"#{channel}",
+                    "text": message,
+                },
+            ).json()
 
-            if not response['ok']:
+            if not response["ok"]:
                 # error in sending slack notification
                 utils.prettier_print(
                     "Error in sending slack notification: "
@@ -77,14 +80,15 @@ class Slack():
 
         if exit_fail:
             # write file to know in bash script a fail alert already sent
-            open('slack_fail_sent.log', 'w').close()
+            open("slack_fail_sent.log", "w").close()
 
 
-class Jira():
+class Jira:
     """
     Jira related functions for getting sequencing run ticket for a given
     run to tag analysis links to
     """
+
     def __init__(self, queue_url, issue_url, token, email) -> None:
         self.queue_url = queue_url
         self.issue_url = issue_url
@@ -92,7 +96,7 @@ class Jira():
         self.email = email
         self.headers = {
             "Accept": "application/json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         self.auth = HTTPBasicAuth(self.email, self.token)
         self.http = self.create_session()
@@ -106,7 +110,7 @@ class Jira():
         session : http session object
         """
         http = requests.Session()
-        retries = Retry(total=5, backoff_factor=10, allowed_methods=['POST'])
+        retries = Retry(total=5, backoff_factor=10, allowed_methods=["POST"])
         http.mount("https://", HTTPAdapter(max_retries=retries))
         return http
 
@@ -128,7 +132,7 @@ class Jira():
             response = self.http.get(
                 url=f"{self.queue_url}/issue?start={start}",
                 headers=self.headers,
-                auth=self.auth
+                auth=self.auth,
             )
 
             if not response.ok:
@@ -142,10 +146,10 @@ class Jira():
             else:
                 response = response.json()
 
-            if response['size'] == 0:
+            if response["size"] == 0:
                 break
 
-            response_data.extend(response['values'])
+            response_data.extend(response["values"])
             start += 50
 
         utils.prettier_print(f"Found {len(response_data)} tickets")
@@ -170,7 +174,7 @@ class Jira():
             ticket ID
         """
         utils.prettier_print("Filtering Jira tickets for current run")
-        run_tickets = [x for x in tickets if run_id in x['fields']['summary']]
+        run_tickets = [x for x in tickets if run_id in x["fields"]["summary"]]
         utils.prettier_print(
             f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
         )
@@ -197,14 +201,10 @@ class Jira():
         message : str
             message to send to Slack
         """
-        if not os.path.exists('jira_alert.log'):
+        if not os.path.exists("jira_alert.log"):
             # create file to not send multiple Slack messages
-            os.mknod('jira_alert.log')
-            Slack().send(
-                message=message,
-                exit_fail=False,
-                warn=True
-            )
+            os.mknod("jira_alert.log")
+            Slack().send(message=message, exit_fail=False, warn=True)
         else:
             utils.prettier_print(
                 "Slack notification for fail with Jira already sent, "
@@ -262,43 +262,38 @@ class Jira():
 
         comment_url = f"{self.issue_url}/{ticket}/comment"
 
-        payload = json.dumps({
-            "body": {
-                "type": "doc",
-                "version": 1,
-                "content": [{
-                    "type": "paragraph",
+        payload = json.dumps(
+            {
+                "body": {
+                    "type": "doc",
+                    "version": 1,
                     "content": [
                         {
-                            "text": f"{comment}",
-                            "type": "text"
-                        },
-                        {
-                            "text": f"{url}",
-                            "type": "text",
-                            "marks": [{
-                                "type": "link",
-                                "attrs": {
-                                    "href": f"{url}"
-                                }
-                            }]
+                            "type": "paragraph",
+                            "content": [
+                                {"text": f"{comment}", "type": "text"},
+                                {
+                                    "text": f"{url}",
+                                    "type": "text",
+                                    "marks": [
+                                        {
+                                            "type": "link",
+                                            "attrs": {"href": f"{url}"},
+                                        }
+                                    ],
+                                },
+                            ],
                         }
-                    ]
-                }]
-            },
-            "properties": [{
-                "key": "sd.public.comment",
-                "value": {
-                    "internal": True
-                }
-            }]
-        })
+                    ],
+                },
+                "properties": [
+                    {"key": "sd.public.comment", "value": {"internal": True}}
+                ],
+            }
+        )
 
         response = self.http.post(
-            url=comment_url,
-            data=payload,
-            headers=self.headers,
-            auth=self.auth
+            url=comment_url, data=payload, headers=self.headers, auth=self.auth
         )
 
         if not response.status_code == 201:

@@ -35,45 +35,54 @@ def get_json_configs() -> dict:
     AssertionError
         Raised when no config files found at the given path
     """
-    config_path = os.environ.get('ASSAY_CONFIG_PATH', '')
+    config_path = os.environ.get("ASSAY_CONFIG_PATH", "")
 
     # check for valid project:path structure
-    assert re.match(r'project-[\d\w]*:/.*', config_path), Slack().send(
-        f'ASSAY_CONFIG_PATH from config appears invalid: {config_path}'
+    assert re.match(r"project-[\d\w]*:/.*", config_path), Slack().send(
+        f"ASSAY_CONFIG_PATH from config appears invalid: {config_path}"
     )
 
     prettier_print(
         f"\nSearching following path for assay configs: {config_path}"
     )
 
-    project, path = config_path.split(':')
+    project, path = config_path.split(":")
 
-    files = list(dx.find_data_objects(
-        name="*.json",
-        name_mode='glob',
-        project=project,
-        folder=path,
-        describe=True
-    ))
+    files = list(
+        dx.find_data_objects(
+            name="*.json",
+            name_mode="glob",
+            project=project,
+            folder=path,
+            describe=True,
+        )
+    )
 
     # sense check we find config files
     assert files, Slack().send(
-        f"No config files found in given path: {project}:{path}")
+        f"No config files found in given path: {project}:{path}"
+    )
 
-    files_ids = '\n\t'.join([
-        f"{x['describe']['name']} ({x['id']} - "
-        f"{x['describe']['archivalState']})" for x in files])
+    files_ids = "\n\t".join(
+        [
+            f"{x['describe']['name']} ({x['id']} - "
+            f"{x['describe']['archivalState']})"
+            for x in files
+        ]
+    )
     prettier_print(f"\nAssay config files found:\n\t{files_ids}")
 
     all_configs = []
     for file in files:
-        if file['describe']['archivalState'] == 'live':
+        if file["describe"]["archivalState"] == "live":
             config_data = json.loads(
                 dx.bindings.dxfile.DXFile(
-                    project=file['project'], dxid=file['id']).read())
+                    project=file["project"], dxid=file["id"]
+                ).read()
+            )
 
             # add file ID as field into the config file
-            config_data['file_id'] = file['id']
+            config_data["file_id"] = file["id"]
             all_configs.append(config_data)
         else:
             prettier_print(
@@ -123,8 +132,8 @@ def filter_highest_config_version(all_configs) -> dict:
     highest_version_config_data = {}
 
     for config in all_configs:
-        current_config_code = config.get('assay_code')
-        current_config_ver = config.get('version')
+        current_config_code = config.get("assay_code")
+        current_config_ver = config.get("version")
 
         # sense check config file has code and version fields
         assert current_config_code and current_config_ver, Slack().send(
@@ -135,7 +144,8 @@ def filter_highest_config_version(all_configs) -> dict:
         # get highest stored version of config file for current code
         # we have found so far
         highest_version = highest_version_config_data.get(
-            current_config_code, {}).get('version', '0')
+            current_config_code, {}
+        ).get("version", "0")
 
         if Version(current_config_ver) > Version(highest_version):
             # higher version than stored one for same code => replace
@@ -143,16 +153,16 @@ def filter_highest_config_version(all_configs) -> dict:
 
     # build simple dict of assay_code : version
     all_assay_codes = {
-        x['assay_code']: x['version']
+        x["assay_code"]: x["version"]
         for x in highest_version_config_data.values()
     }
 
     # get unique list of single codes from all assay codes, split on '|'
     # i.e. ['EGG1', 'EGG2', 'EGG2|LAB123'] -> ['EGG1', 'EGG2', 'LAB123']
-    uniq_codes = [
-        x.split('|') for x in all_assay_codes.keys()]
-    uniq_codes = list(set([
-        code for split_codes in uniq_codes for code in split_codes]))
+    uniq_codes = [x.split("|") for x in all_assay_codes.keys()]
+    uniq_codes = list(
+        set([code for split_codes in uniq_codes for code in split_codes])
+    )
 
     prettier_print(
         "\nUnique assay codes parsed from all config "
@@ -168,15 +178,16 @@ def filter_highest_config_version(all_configs) -> dict:
     for uniq_code in uniq_codes:
         matches = {}
         for full_code in all_assay_codes.keys():
-            if uniq_code in full_code.split('|'):
+            if uniq_code in full_code.split("|"):
                 # this single assay code is in the full assay code
                 # parsed from config, add match as 'assay_code': 'version'
                 matches[full_code] = parse(all_assay_codes[full_code])
 
         # check we don't have 2 matches with the same version as we
         # can't tell which to use, i.e. EGG2 : 1.0.0 & EGG2|LAB123 : 1.0.0
-        assert sorted(list(matches.values())) == \
-            sorted(list(set(matches.values()))), Slack().send(
+        assert sorted(list(matches.values())) == sorted(
+            list(set(matches.values()))
+        ), Slack().send(
             f"More than one version of config file found for a single "
             f"assay code!\n\t{matches}"
         )
@@ -185,13 +196,16 @@ def filter_highest_config_version(all_configs) -> dict:
         # version this one was found in using packaging.version.parse, and
         # then select the full config file data for it
         full_code_to_use = max(matches, key=matches.get)
-        configs_to_use[
-            full_code_to_use] = highest_version_config_data[full_code_to_use]
+        configs_to_use[full_code_to_use] = highest_version_config_data[
+            full_code_to_use
+        ]
 
     # add to log record of highest version of each config found
-    usable_configs = '\n\t'.join(
-        [f"{k} ({v['version']}): {v['file_id']}"
-        for k, v in configs_to_use.items()]
+    usable_configs = "\n\t".join(
+        [
+            f"{k} ({v['version']}): {v['file_id']}"
+            for k, v in configs_to_use.items()
+        ]
     )
 
     prettier_print(
@@ -224,7 +238,7 @@ def find_dx_project(project_name) -> str:
     """
     dx_projects = list(dx.bindings.search.find_projects(name=project_name))
 
-    prettier_print('Found the following DNAnexus projects:')
+    prettier_print("Found the following DNAnexus projects:")
     prettier_print(dx_projects)
 
     if not dx_projects:
@@ -237,11 +251,11 @@ def find_dx_project(project_name) -> str:
         f"project name: {project_name}"
     )
 
-    return dx_projects[0]['id']
+    return dx_projects[0]["id"]
 
 
 def invite_participants_in_project(users, project):
-    """ Invite participants in DNAnexus project with the appropriate access
+    """Invite participants in DNAnexus project with the appropriate access
     level
 
     Parameters
@@ -255,9 +269,7 @@ def invite_participants_in_project(users, project):
     # users specified in config to grant access to project
     for user, access_level in users.items():
         project.invite(user, access_level, send_email=False)
-        prettier_print(
-            f"\nGranted {access_level} priviledge to {user}"
-        )
+        prettier_print(f"\nGranted {access_level} priviledge to {user}")
 
 
 def get_job_output_details(job_id) -> Tuple[list, list]:
@@ -279,17 +291,20 @@ def get_job_output_details(job_id) -> Tuple[list, list]:
     print(f"Querying output files for {job_id}")
     # find files in given jobs out directory
     job_details = dx.DXJob(dxid=job_id).describe()
-    job_output_ids = job_details.get('output')
-    all_output_files = list(dx.find_data_objects(
-        project=job_details.get('project'),
-        folder=job_details.get('folder'),
-        describe=True
-    ))
+    job_output_ids = job_details.get("output")
+    all_output_files = list(
+        dx.find_data_objects(
+            project=job_details.get("project"),
+            folder=job_details.get("folder"),
+            describe=True,
+        )
+    )
 
     # ensure these files only came from our given job
     all_output_files = [
-        x for x in all_output_files
-        if x['describe']['createdBy']['job'] == job_id
+        x
+        for x in all_output_files
+        if x["describe"]["createdBy"]["job"] == job_id
     ]
 
     print(f"Found {len(all_output_files)} from {job_id}")
@@ -315,26 +330,25 @@ def wait_on_done(analysis, analysis_name, all_job_ids) -> None:
     # {'analysis_1': 'job-xxx'} and per sample as
     # {'sample1': {'analysis_2': 'job-xxx'}...} => try and get both
     job_ids = [all_job_ids.get(analysis)]
-    job_ids.extend([
-        x.get(analysis) for x in all_job_ids.values()
-        if isinstance(x, dict)
-    ])
+    job_ids.extend(
+        [x.get(analysis) for x in all_job_ids.values() if isinstance(x, dict)]
+    )
 
     # ensure we don't have any Nones
     job_ids = [x for x in job_ids if x]
 
     prettier_print(
-        f'Holding conductor until {len(job_ids)} '
+        f"Holding conductor until {len(job_ids)} "
         f'{analysis_name} job(s) complete: {", ".join(job_ids)}'
     )
 
     for job in job_ids:
-        if job.startswith('job-'):
+        if job.startswith("job-"):
             dx.DXJob(dxid=job).wait_on_done()
         else:
             dx.DXAnalysis(dxid=job).wait_on_done()
 
-    print('All jobs to wait on completed')
+    print("All jobs to wait on completed")
 
 
 def terminate_jobs(jobs) -> None:
@@ -346,9 +360,10 @@ def terminate_jobs(jobs) -> None:
     jobs : list
         list of job / analysis IDs
     """
+
     def terminate_one(job) -> None:
         """dx call to terminate single job"""
-        if job.startswith('job'):
+        if job.startswith("job"):
             dx.DXJob(dxid=job).terminate()
         else:
             dx.DXAnalysis(dxid=job).terminate()
@@ -357,8 +372,8 @@ def terminate_jobs(jobs) -> None:
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
         concurrent_jobs = {
-            executor.submit(terminate_one, job_id):
-            job_id for job_id in sorted(jobs, reverse=True)
+            executor.submit(terminate_one, job_id): job_id
+            for job_id in sorted(jobs, reverse=True)
         }
 
         for future in concurrent.futures.as_completed(concurrent_jobs):
@@ -376,8 +391,14 @@ def terminate_jobs(jobs) -> None:
 
 
 def dx_run(
-    executable, job_name, input_dict, output_dict, prev_jobs,
-    extra_args, instance_types, project_id
+    executable,
+    job_name,
+    input_dict,
+    output_dict,
+    prev_jobs,
+    extra_args,
+    instance_types,
+    project_id,
 ) -> str:
     """
     Call workflow / app with populated input and output dicts
@@ -421,33 +442,32 @@ def dx_run(
     prettier_print(f"\nPopulated input dict for: {executable}")
     prettier_print(input_dict)
 
-    if os.environ.get('TESTING') == 'true':
+    if os.environ.get("TESTING") == "true":
         # running in test mode => don't actually want to run jobs =>
         # make jobs dependent on conductor job finishing so no launched
         # jobs actually start running
-        prev_jobs.append(os.environ.get('PARENT_JOB_ID'))
+        prev_jobs.append(os.environ.get("PARENT_JOB_ID"))
 
-    if 'workflow-' in executable:
+    if "workflow-" in executable:
         # get common top level of each apps output destination
         # to set as output of workflow for consitency of viewing
         # in the browser
         parent_path = os.path.commonprefix(list(output_dict.values()))
 
         job_handle = dx.bindings.dxworkflow.DXWorkflow(
-            dxid=executable,
-            project=project_id
+            dxid=executable, project=project_id
         ).run(
             workflow_input=input_dict,
             folder=parent_path,
             stage_folders=output_dict,
-            rerun_stages=['*'],
+            rerun_stages=["*"],
             depends_on=prev_jobs,
             name=job_name,
             extra_args=extra_args,
-            stage_instance_types=instance_types
+            stage_instance_types=instance_types,
         )
 
-    elif 'app-' in executable:
+    elif "app-" in executable:
         job_handle = dx.bindings.dxapp.DXApp(dxid=executable).run(
             app_input=input_dict,
             project=project_id,
@@ -456,10 +476,10 @@ def dx_run(
             depends_on=prev_jobs,
             name=job_name,
             extra_args=extra_args,
-            instance_type=instance_types
+            instance_type=instance_types,
         )
 
-    elif 'applet-' in executable:
+    elif "applet-" in executable:
         job_handle = dx.bindings.dxapplet.DXApplet(dxid=executable).run(
             applet_input=input_dict,
             project=project_id,
@@ -468,29 +488,26 @@ def dx_run(
             depends_on=prev_jobs,
             name=job_name,
             extra_args=extra_args,
-            instance_type=instance_types
+            instance_type=instance_types,
         )
 
     else:
         # doesn't appear to be valid workflow or app
-        raise RuntimeError(
-            f'Given executable id is not valid: {executable}'
-        )
+        raise RuntimeError(f"Given executable id is not valid: {executable}")
 
     job_details = job_handle.describe()
-    job_id = job_details.get('id')
+    job_id = job_details.get("id")
 
     prettier_print(
-        f'Started analysis in project {project_id}, '
-        f'job: {job_id}'
+        f"Started analysis in project {project_id}, " f"job: {job_id}"
     )
 
-    with open('job_id.log', 'a') as fh:
+    with open("job_id.log", "a") as fh:
         # log of current executable jobs
-        fh.write(f'{job_id} ')
+        fh.write(f"{job_id} ")
 
-    with open('all_job_ids.log', 'a') as fh:
+    with open("all_job_ids.log", "a") as fh:
         # log of all launched job IDs
-        fh.write(f'{job_id},')
+        fh.write(f"{job_id},")
 
     return job_id
