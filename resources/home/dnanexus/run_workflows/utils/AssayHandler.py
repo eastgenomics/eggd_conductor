@@ -591,10 +591,11 @@ class AssayHandler:
         self.jobs.append(job_id)
 
         if sample:
+            self.job_outputs.setdefault(sample, {})
             # map analysis id to dx job id for sample
             self.job_outputs[sample].update({analysis: job_id})
         else:
             # map workflow id to created dx job id
             self.job_outputs[analysis] = job_id
 
-        return job_id
+        return 1
