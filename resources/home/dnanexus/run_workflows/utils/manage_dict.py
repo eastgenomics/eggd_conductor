@@ -111,7 +111,7 @@ def replace(
 
         if isinstance(replacing, str) and replacing:
             for match in matches:
-                if not match in replacing:
+                if match not in replacing:
                     continue
 
                 # match is in this key / value => replace
@@ -189,7 +189,9 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
         key=lambda x: x[1]
     )
 
-    prettier_print(f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs')
+    prettier_print(
+        f'Found {len(r1_fastqs)} R1 fastqs & {len(r2_fastqs)} R2 fastqs'
+    )
 
     # sense check we have R2 fastqs before across all samples (i.e.
     # checking this isn't single end sequencing) before checking we
@@ -246,7 +248,7 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
 
 
 def add_other_inputs(
-    input_dict, parent_out_dir, project_id, project_name, executable_out_dirs,
+    input_dict, parent_out_dir, project_id, project_name,
     sample=None, sample_prefix=None
 ) -> dict:
     """
@@ -322,43 +324,15 @@ def add_other_inputs(
         ('INPUT-SAMPLESHEET', samplesheet)
     ]
 
-    for pair in to_replace:
-        if pair[1]:
+    if sample and sample_prefix:
+        for input_field, input_value in to_replace:
             input_dict = replace(
                 input_dict=input_dict,
-                to_replace=pair[0],
-                replacement=pair[1],
+                to_replace=input_field,
+                replacement=input_value,
                 search_key=False,
                 replace_key=False
             )
-
-    # find and replace any out dirs
-    regex = re.compile(r'^INPUT-analysis_[0-9]{1,2}-out_dir$')
-    out_dirs = [re.search(regex, x) for x in other_inputs]
-    out_dirs = [x.group(0) for x in out_dirs if x]
-
-    prettier_print(f'\nOut dirs found to replace: {out_dirs}')
-
-    for dir in out_dirs:
-        # find the output directory for the given analysis
-        analysis_out_dir = executable_out_dirs.get(
-            dir.replace('INPUT-', '').replace('-out_dir', ''))
-
-        if not analysis_out_dir:
-            raise KeyError((
-                'Error trying to parse output directory to input dict.'
-                f'\nNo output directory found for given input: {dir}\n'
-                'Please check config to ensure job input is in the '
-                'format: INPUT-analysis_[0-9]-out_dir'
-            ))
-
-        input_dict = replace(
-            input_dict=input_dict,
-            to_replace=dir,
-            replacement=analysis_out_dir,
-            search_key=False,
-            replace_key=False
-        )
 
     prettier_print('\nInput dict after adding other inputs:')
     prettier_print(input_dict)
@@ -644,60 +618,6 @@ def link_inputs_to_outputs(
     return input_dict
 
 
-def populate_output_dir_config(
-    executable, exe_names, output_dict, out_folder
-) -> dict:
-    """
-    Loops over stages in dict for output directory naming and adds
-    worlflow app name.
-
-    i.e. will be named /output/{out_folder}/{stage_name}/, where stage
-    name is the human readable name of each stage defined in the config
-
-    Parameters
-    ----------
-    executable : str
-        human readable name of executable (workflow-, app-, applet-)
-    exe_names : dict
-        mapping of executable IDs to human readable names
-    output_dict : dict
-        dictionary of output paths for each executable
-    out_folder : str
-        name of parent dir path
-
-    Returns
-    -------
-    output_dict : dict
-        populated dict of output directory paths
-    """
-    prettier_print(f"\nPopulating output dict for {executable}")
-
-    for stage, dir in output_dict.items():
-        if "OUT-FOLDER" in dir:
-            # OUT-FOLDER => /output/{ASSAY}_{TIMESTAMP}
-            dir = dir.replace("OUT-FOLDER", out_folder)
-        if "APP-NAME" in dir or "WORKFLOW-NAME" in dir:
-            app_name = exe_names[executable]['name']
-            dir = dir.replace("APP-NAME", app_name)
-        if "STAGE-NAME" in dir:
-            app_name = exe_names[executable]['stages'][stage]
-            dir = dir.replace("STAGE-NAME", app_name)
-
-        # ensure we haven't accidentally got double slashes in path
-        dir = dir.replace('//', '/')
-
-        # ensure we don't end up with double /output if given in config and
-        # using OUT-FOLDER
-        dir = dir.replace('output/output', 'output')
-
-        output_dict[stage] = dir
-
-    prettier_print(f'\nOutput dict for {executable}:')
-    prettier_print(output_dict)
-
-    return output_dict
-
-
 def filter_job_outputs_dict(
     stage, outputs_dict, filter_dict
 ) -> dict:
@@ -760,7 +680,7 @@ def filter_job_outputs_dict(
         return new_outputs
 
 
-def check_input_classes(input_dict, input_classes) -> dict:
+def fix_invalid_inputs(input_dict, input_classes) -> dict:
     """
     Check populated input dict to ensure that the types match what
     the app / workflow expect (i.e if input is array:file that a
@@ -799,6 +719,11 @@ def check_input_classes(input_dict, input_classes) -> dict:
 
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
+
+        assert input_details, (
+            f"'{input_field}' doesn't exist in the input_dict"
+        )
+
         expected_class = input_details.get('class')
         optional = input_details.get('optional')
 
@@ -946,9 +871,9 @@ def populate_tso500_reports_workflow(
         # the value strings are pretty arbitrary but the main thing is
         # we're not hardcoding the actual stage IDs here in case they
         # change, and then we can just change them in the config
-        config_stage_input = list({
-            k: v for k, v in input_dict.items() if v == stage_input
-        }.keys())
+        config_stage_input = [
+            k for k, v in input_dict.items() if v == stage_input
+        ]
 
         if not config_stage_input:
             # this input not present in config file, likely been

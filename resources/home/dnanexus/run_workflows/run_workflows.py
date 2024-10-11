@@ -280,8 +280,8 @@ def main():
         prettier_print(f"No ticket found for {run_id}")
     else:
         assay_info = [
-            f'{a_h.assay} - {a_h.assay_version}'
-            for a_h in assay_handlers
+            f'{handler.assay} - {handler.version}'
+            for handler in assay_handlers
         ]
         if len(filtered_tickets) > len(assay_handlers):
             ticket_errors.append(
@@ -510,16 +510,14 @@ def main():
 
     total_jobs = 0
 
-    for a_h in assay_handlers:
-        # storing output folders used for each workflow/app, might be needed to
-        # store data together / access specific dirs of data
-        executable_out_dirs = {}
-        project_id = a_h.project.id
+    for handler in assay_handlers:
+        prettier_print(f"Samples for {handler.assay_code}: {handler.samples}")
+        project_id = handler.project.id
 
         # set context to project for running jobs
         dx.set_workspace_id(project_id)
 
-        for executable, params in a_h.config['executables'].items():
+        for executable, params in handler.config['executables'].items():
             # for each workflow/app, check if its per sample or all samples and
             # run correspondingly
             prettier_print(
@@ -550,7 +548,7 @@ def main():
                 # dict to add all stage output names and job ids for every
                 # sample to used to pass correct job ids to subsequent
                 # workflow / app calls
-                a_h.job_outputs[params["analysis"]] = previous_job
+                handler.job_outputs[params["analysis"]] = previous_job
 
                 continue
 
@@ -561,8 +559,7 @@ def main():
             # failing to launch all jobs to be able to terminate all analyses
             open('job_id.log', 'w').close()
 
-            # save name to params to access later to name job
-            params['executable_name'] = a_h.execution_mapping[executable]['name']
+            executable_name = handler.execution_mapping[executable]['name']
 
             # get instance types to use for executable from config for flowcell
             instance_type = select_instance_types(
@@ -570,13 +567,28 @@ def main():
                 instance_types=params.get('instance_types'))
 
             if params['per_sample'] is True:
-                total_jobs += a_h.call_jobs_per_sample(
-                    executable, params, executable_out_dirs, instance_type
-                )
+                prettier_print(f'\nCalling {executable_name} per sample')
+
+                for sample in handler.samples:
+                    handler.build_job_inputs(executable, params, sample)
+                    # create new dict to store sample outputs
+                    handler.job_outputs.setdefault(handler.assay_code, {})
+                    handler.job_outputs[handler.assay_code].setdefault(sample, {})
+                    handler.populate_output_dir_config(executable, sample)
+
+                for sample in handler.job_info_per_sample:
+                    total_jobs += handler.call_job(
+                        executable, params["analysis"], instance_type, sample
+                    )
 
             elif params['per_sample'] is False:
-                total_jobs += a_h.call_job_per_run(
-                    executable, params, executable_out_dirs, instance_type
+                prettier_print(f'\nCalling {executable_name} per run')
+
+                handler.build_job_inputs(executable, params)
+                handler.populate_output_dir_config(executable)
+
+                total_jobs += handler.call_job(
+                    executable, params["analysis"], instance_type
                 )
 
             else:
@@ -599,7 +611,7 @@ def main():
                 conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
                 hold_tag = ([
                     (
-                        f"Holding job until {params['executable_name']} "
+                        f"Holding job until {executable_name} "
                         "job(s) complete"
                     )
                 ])
@@ -607,8 +619,8 @@ def main():
 
                 wait_on_done(
                     analysis=params['analysis'],
-                    analysis_name=params['executable_name'],
-                    all_job_ids=a_h.job_outputs[a_h.config]
+                    analysis_name=executable_name,
+                    all_job_ids=handler.job_outputs
                 )
 
                 conductor_job.remove_tags(hold_tag)
@@ -621,9 +633,9 @@ def main():
             ),
             url=(
                 "http://platform.dnanexus.com/panx/projects/"
-                f"{a_h.project.name.replace('project-', '')}/monitor/"
+                f"{handler.project.name.replace('project-', '')}/monitor/"
             ),
-            ticket=a_h.ticket
+            ticket=handler.ticket
         )
 
     if args.testing:
