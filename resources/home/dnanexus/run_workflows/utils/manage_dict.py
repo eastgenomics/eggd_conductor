@@ -324,8 +324,8 @@ def add_other_inputs(
         ('INPUT-SAMPLESHEET', samplesheet)
     ]
 
-    if sample and sample_prefix:
-        for input_field, input_value in to_replace:
+    for input_field, input_value in to_replace:
+        if input_value:
             input_dict = replace(
                 input_dict=input_dict,
                 to_replace=input_field,

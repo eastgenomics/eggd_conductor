@@ -240,7 +240,7 @@ def find_dx_project(project_name) -> str:
     return dx_projects[0]['id']
 
 
-def invite_participants_in_projects(users, project):
+def invite_participants_in_project(users, project):
     """ Invite participants in DNAnexus project with the appropriate access
     level
 
