@@ -398,14 +398,9 @@ class TestAssayHandler:
 
     def test_set_parent_out_dir(self, normal_assay_handler):
         run_time = datetime.now().strftime("%y%m%d_%H%M")
-        mock_os_environment = mock.patch.dict(
-            os.environ, {"DESTINATION": "PROJECT-ID"}
-        )
-        mock_os_environment.start()
+        with mock.patch.dict(os.environ, {"DESTINATION": "PROJECT-ID"}):
+            normal_assay_handler.set_parent_out_dir(run_time)
 
-        normal_assay_handler.set_parent_out_dir(run_time)
-
-        mock_os_environment.stop()
         expected_output = (
             f"PROJECT-ID/output/{normal_assay_handler.assay}-{run_time}"
         )
