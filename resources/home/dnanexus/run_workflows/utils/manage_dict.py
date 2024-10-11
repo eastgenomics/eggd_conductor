@@ -719,6 +719,11 @@ def fix_invalid_inputs(input_dict, input_classes) -> dict:
 
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
+
+        assert input_details, (
+            f"'{input_field}' doesn't exist in the input_dict"
+        )
+
         expected_class = input_details.get('class')
         optional = input_details.get('optional')
 
