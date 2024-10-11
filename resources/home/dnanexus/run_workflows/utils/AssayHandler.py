@@ -323,7 +323,22 @@ class AssayHandler:
 
         self.input_class_mapping = input_class_mapping
 
-    def build_job_inputs(self, executable, params, sample=None):
+    def build_job_inputs(
+        self, executable: str, params: dict, sample: str = None
+    ):
+        """Build the job inputs dictionary by adding necessary information or
+        replacing placeholders in the description of the inputs
+
+        Parameters
+        ----------
+        executable : str
+            Executable name
+        params : dict
+            Dict containing the parameters set in the config for the executable
+        sample : str, optional
+            Sample name, by default None
+        """
+
         # select input and output dict from config for current workflow / app
         input_dict = self.config["executables"][executable]["inputs"]
 
@@ -424,7 +439,27 @@ class AssayHandler:
 
         job_info["inputs"] = input_dict
 
-    def handle_TSO500_inputs(self, input_dict, sample, job_outputs_config):
+    def handle_TSO500_inputs(
+        self, input_dict: dict, sample: str, job_outputs_config: dict
+    ):
+        """Small wrapper for the populate_tso500_reports_workflow function with
+        gathering of tso500 job files/ids
+
+        Parameters
+        ----------
+        input_dict : dict
+            Dict containing the inputs needed for the future job to run
+        sample : str
+            Sample name
+        job_outputs_config : dict
+            Dict containing the jobs that have been launched
+
+        Returns
+        -------
+        dict
+            Modified input_dict
+        """
+
         # handle specific inputs of eggd_TSO500 -> TSO500 workflow
 
         # get the job ID for previous eggd_tso500 job, this _should_ just
