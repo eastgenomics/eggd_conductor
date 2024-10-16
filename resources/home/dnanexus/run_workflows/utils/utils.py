@@ -138,10 +138,10 @@ def select_instance_types(run_id, instance_types) -> dict:
 
             # make x's n or more character regex pattern (e.g. [\d\w]{5,})
             if start_x:
-                start_x = f"[\d\w]{{{len(start_x)},}}"
+                start_x = rf"[\d\w]{{{len(start_x)},}}"
 
             if end_x:
-                end_x = f"[\d\w]{{{len(end_x)},}}"
+                end_x = rf"[\d\w]{{{len(end_x)},}}"
 
             match = re.search(
                 f"{start_x}{type.strip('x')}{end_x}", flowcell_id
