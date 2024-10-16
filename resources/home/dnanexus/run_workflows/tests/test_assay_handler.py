@@ -522,9 +522,7 @@ class TestAssayHandler:
         normal_assay_handler.jobs = []
         normal_assay_handler.job_outputs = {}
 
-        normal_assay_handler.call_job(
-            "executable1", "analysis1", "instance1"
-        )
+        normal_assay_handler.call_job("executable1", "analysis1", "instance1")
 
         expected_output = {"analysis1": "job-id"}
 
