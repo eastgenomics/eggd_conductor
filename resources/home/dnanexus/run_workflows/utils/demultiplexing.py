@@ -21,8 +21,10 @@ def set_config_for_demultiplexing(*configs):
 
         if demultiplex_config:
             instance_type = demultiplex_config.get("instance_type", 0)
-            demultiplex_configs.append(config)
-            core_nbs.append(int(instance_type.split("_")[-1].strip("x")))
+
+            if instance_type:
+                demultiplex_configs.append(config)
+                core_nbs.append(int(instance_type.split("_")[-1].strip("x")))
 
     if core_nbs:
         bigger_core_nb = max(core_nbs)
