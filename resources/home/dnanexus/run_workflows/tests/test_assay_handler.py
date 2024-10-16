@@ -484,6 +484,29 @@ class TestAssayHandler:
             },
         }
 
+    @patch("utils.AssayHandler.dx_run")
+    def test_job_calling_per_sample(self, mock_job_id, normal_assay_handler):
+        mock_job_id.return_value = "job-id"
+        normal_assay_handler.job_info_per_sample["sample1"] = {
+            "executable1": {
+                "job_name": "job_name1",
+                "inputs": "inputs1",
+                "output_dirs": "output_dirs1",
+                "dependent_jobs": "dependent_jobs1",
+                "extra_args": "extra_args1",
+            }
+        }
+        normal_assay_handler.jobs = []
+        normal_assay_handler.job_outputs = {}
+
+        normal_assay_handler.call_job(
+            "executable1", "analysis1", "instance1", "sample1"
+        )
+
+        expected_output = {"sample1": {"analysis1": "job-id"}}
+
+        assert expected_output == normal_assay_handler.job_outputs
+
 
 class TestPopulateOutputDirConfig:
     """
