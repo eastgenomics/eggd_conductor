@@ -45,7 +45,7 @@ class AssayHandler:
             # to a single config in testing
             self.samples = random.sample(self.samples, limit_nb)
 
-        sample_list = self.samples
+        original_sample_list = self.samples
         excluded_samples = set()
 
         for pattern in patterns_to_exclude:
@@ -78,7 +78,7 @@ class AssayHandler:
 
         self.samples = list(set(self.samples).difference(excluded_samples))
 
-        if sample_list == self.samples:
+        if sorted(original_sample_list) == sorted(self.samples):
             prettier_print(
                 (
                     "No samples were removed using the following pattern(s): "
