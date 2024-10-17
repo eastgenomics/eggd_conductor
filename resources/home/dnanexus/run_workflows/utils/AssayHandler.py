@@ -46,20 +46,52 @@ class AssayHandler:
             self.samples = random.sample(self.samples, limit_nb)
 
         sample_list = self.samples
+        excluded_samples = set()
 
-        for pattern_to_exclude in patterns_to_exclude:
-            # keep samples that don't match the pattern
-            self.samples = [
-                sample
-                for sample in self.samples
-                if not re.search(pattern_to_exclude, sample)
-            ]
+        for pattern in patterns_to_exclude:
+            # identify if the pattern is a specimen ID
+            if re.search(r"^[0-9]+-[0-9]+[A-Z][0-9]+", pattern):
+                # use match rather than search to match the pattern to the
+                # sample in order to be sure that we are hitting the beginning
+                # of the sample name
+                self.samples = [
+                    sample
+                    for sample in self.samples
+                    if not re.match(pattern, sample)
+                ]
+            else:
+                for sample in self.samples:
+                    all_matches = re.findall(pattern, sample)
+
+                    if len(all_matches) > 1:
+                        # found multiple matches in the pattern
+                        raise AssertionError(
+                            (
+                                f"Multiple matches in {sample} using {pattern}"
+                                ". Did you forget a dash?"
+                            )
+                        )
+                    elif len(all_matches) == 1:
+                        # assume that the user entered a correct pattern thing
+                        # and exclude that sample
+                        excluded_samples.add(sample)
+
+        self.samples = list(set(self.samples).difference(excluded_samples))
 
         if sample_list == self.samples:
-            prettier_print(f"No samples were removed: {samples_to_exclude}")
+            prettier_print(
+                (
+                    "No samples were removed using the following pattern(s): "
+                    f"{patterns_to_exclude}"
+                )
+            )
         else:
             prettier_print(
-                f"The following samples were removed: {samples_to_exclude}"
+                (
+                    f"Using '{patterns_to_exclude}', the following samples "
+                    "were excluded: "
+                    f"{list(set(sample_list).difference(self.samples))}"
+                )
             )
 
     def subset_samples(self):
