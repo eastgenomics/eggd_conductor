@@ -30,13 +30,13 @@ class AssayHandler:
         self.job_outputs = {}
         self.jobs = []
 
-    def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
+    def limit_samples(self, limit_nb=None, patterns_to_exclude=[]):
         """Limit samples using a number or specific names
 
         Args:
             limit_nb (int, optional): Limit number for samples.
             Defaults to None.
-            samples_to_exclude (list, optional): List of samples to exclude.
+            patterns_to_exclude (list, optional): List of samples to exclude.
             Defaults to [].
         """
 
@@ -47,11 +47,13 @@ class AssayHandler:
 
         sample_list = self.samples
 
-        self.samples = [
-            sample
-            for sample in self.samples
-            if sample not in samples_to_exclude
-        ]
+        for pattern_to_exclude in patterns_to_exclude:
+            # keep samples that don't match the pattern
+            self.samples = [
+                sample
+                for sample in self.samples
+                if not re.search(pattern_to_exclude, sample)
+            ]
 
         if sample_list == self.samples:
             prettier_print(f"No samples were removed: {samples_to_exclude}")
