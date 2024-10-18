@@ -100,7 +100,7 @@
       "label": "job reuse",
       "class": "string",
       "optional": true,
-      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{\"analysis_1\": \"job-xxx\"}')"
+      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. {\"analysis_1\": \"job-xxx\"} or if using mixed assay runs '{\"TSO500\": {\"analysis_1\": \"job-xxx\"}}')"
     },
     {
       "name": "exclude_samples",
