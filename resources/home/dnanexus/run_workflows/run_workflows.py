@@ -314,7 +314,7 @@ def main():
                 f"{assay_handler.assay}: {args.exclude_samples}"
             )
             assay_handler.limit_samples(
-                samples_to_exclude=args.exclude_samples
+                patterns_to_exclude=args.exclude_samples
             )
 
         assay_handler.subset_samples()
@@ -429,7 +429,7 @@ def main():
         ]
     ):
         demultiplex_config = set_config_for_demultiplexing(
-            assay_handler.config for assay_handler in assay_handlers
+            *[assay_handler.config for assay_handler in assay_handlers]
         )
 
         demultiplex_app_id = None
@@ -539,6 +539,9 @@ def main():
                 )
 
                 if params["per_sample"]:
+                    # TODO change the job reuse thing to have the config as the
+                    # top level otherwise it could break mixed assay runs
+
                     # ensure we're only doing this for per run jobs for now
                     raise NotImplementedError(
                         "-iJOB_REUSE not yet implemented for per sample jobs"
@@ -582,10 +585,35 @@ def main():
                     )
                     handler.populate_output_dir_config(executable, sample)
 
-                for sample in handler.job_info_per_sample:
-                    total_jobs += handler.call_job(
-                        executable, params["analysis"], instance_type, sample
+                if handler.missing_output_samples:
+                    # detected missing output files after eggd_tso, create a
+                    # comment in the ticket
+                    jira.add_comment(
+                        comment=(
+                            "The following samples have a missing output "
+                            "file after running eggd_tso. They have been "
+                            "skipped for the reports workflow: "
+                            f"{' | '.join(handler.missing_output_samples)}:\n"
+                        ),
+                        url=(
+                            "http://platform.dnanexus.com/panx/projects/"
+                            f"{handler.project.name.replace('project-', '')}/monitor/"
+                        ),
+                        ticket=handler.ticket,
                     )
+
+                    # need to clear missing output samples variable otherwise
+                    # every subsequent job will add a comment
+                    handler.missing_output_samples = []
+
+                for sample in handler.job_info_per_sample:
+                    if sample not in handler.missing_output_samples:
+                        total_jobs += handler.call_job(
+                            executable,
+                            params["analysis"],
+                            instance_type,
+                            sample,
+                        )
 
             elif params["per_sample"] is False:
                 prettier_print(f"\nCalling {executable_name} per run")
