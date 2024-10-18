@@ -479,7 +479,7 @@ def link_inputs_to_outputs(
         sample_outputs = job_outputs_dict.get(sample, {})
 
         if not sample_outputs:
-            print(
+            prettier_print(
                 f"Sample key {sample} not found in previous outputs, this "
                 "is expected if all previous steps were only from per run "
                 "jobs. Will continue with checking for analysis inputs."
