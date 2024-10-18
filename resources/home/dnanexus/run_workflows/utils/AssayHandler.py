@@ -91,7 +91,7 @@ class AssayHandler:
                 (
                     f"Using '{patterns_to_exclude}', the following samples "
                     "were excluded: "
-                    f"{list(set(sample_list).difference(self.samples))}"
+                    f"{list(set(original_sample_list).difference(self.samples))}"
                 )
             )
 
