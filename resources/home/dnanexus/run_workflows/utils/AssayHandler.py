@@ -29,6 +29,7 @@ class AssayHandler:
         self.job_info_per_run = {}
         self.job_outputs = {}
         self.jobs = []
+        self.missing_output_samples = []
 
     def limit_samples(self, limit_nb=None, patterns_to_exclude=[]):
         """Limit samples using a number or specific names
@@ -412,9 +413,13 @@ class AssayHandler:
         job_info["job_name"] = job_name
 
         if executable_name.startswith("TSO500_reports_workflow") and sample:
-            input_dict = self.handle_TSO500_inputs(
+            input_dict, missing_output_sample = self.handle_TSO500_inputs(
                 input_dict, sample, self.job_outputs
             )
+
+            if missing_output_sample:
+                # send message
+                self.missing_output_samples.append(missing_output_sample)
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
