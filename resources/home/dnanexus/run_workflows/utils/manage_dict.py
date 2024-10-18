@@ -205,27 +205,27 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
             f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
         )
 
-    original_input_dict = deepcopy(input_dict)
+    modified_input_dict = deepcopy(input_dict)
 
-    for stage, inputs in input_dict.items():
+    for stage, inputs in modified_input_dict.items():
         # check each stage in input config for fastqs, format
         # as required with R1 and R2 fastqs
         if inputs == "INPUT-R1":
             r1_input = [{"$dnanexus_link": x[0]} for x in r1_fastqs]
-            input_dict[stage] = r1_input
+            modified_input_dict[stage] = r1_input
 
         if inputs == "INPUT-R2":
             r2_input = [{"$dnanexus_link": x[0]} for x in r2_fastqs]
-            input_dict[stage] = r2_input
+            modified_input_dict[stage] = r2_input
 
         if inputs == "INPUT-R1-R2":
             # stage requires all fastqs, build one list of dicts
             r1_r2_input = []
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
-            input_dict[stage] = r1_r2_input
+            modified_input_dict[stage] = r1_r2_input
 
-    diff_res = list(diff(original_input_dict, input_dict))
+    diff_res = list(diff(modified_input_dict, input_dict))
 
     if diff_res:
         prettier_print("\nAdded fastqs, review changes:")
@@ -233,7 +233,7 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     else:
         prettier_print("\nNo fastqs were added")
 
-    return input_dict
+    return modified_input_dict
 
 
 def add_upload_tars(input_dict, upload_tars) -> dict:
@@ -252,13 +252,13 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
         dict of input parameters for calling workflow / app
     """
 
-    original_input_dict = deepcopy(input_dict)
+    modified_input_dict = deepcopy(input_dict)
 
-    for app_input, value in input_dict.items():
+    for app_input, value in modified_input_dict.items():
         if value == "INPUT-UPLOAD_TARS":
-            input_dict[app_input] = upload_tars
+            modified_input_dict[app_input] = upload_tars
 
-    diff_res = list(diff(original_input_dict, input_dict))
+    diff_res = list(diff(modified_input_dict, input_dict))
 
     if diff_res:
         prettier_print("\nAdded upload tars, review changes:")
@@ -266,7 +266,7 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
     else:
         prettier_print("\nNo upload tars were added")
 
-    return input_dict
+    return modified_input_dict
 
 
 def add_other_inputs(
@@ -348,19 +348,19 @@ def add_other_inputs(
         ("INPUT-SAMPLESHEET", samplesheet),
     ]
 
-    original_input_dict = deepcopy(input_dict)
+    modified_input_dict = deepcopy(input_dict)
 
     for input_field, input_value in to_replace:
         if input_value:
-            input_dict = replace(
-                input_dict=input_dict,
+            modified_input_dict = replace(
+                input_dict=modified_input_dict,
                 to_replace=input_field,
                 replacement=input_value,
                 search_key=False,
                 replace_key=False,
             )
 
-    diff_res = list(diff(original_input_dict, input_dict))
+    diff_res = list(diff(modified_input_dict, input_dict))
 
     if diff_res:
         prettier_print("\nAdded other inputs, review changes:")
@@ -368,7 +368,7 @@ def add_other_inputs(
     else:
         prettier_print("\nNo other inputs were added")
 
-    return input_dict
+    return modified_input_dict
 
 
 def get_dependent_jobs(params, job_outputs_dict, sample=None) -> list:
@@ -532,11 +532,11 @@ def link_inputs_to_outputs(
 
     prettier_print(f"\nFound analyses to replace: {all_analysis_ids}")
 
-    original_input_dict = deepcopy(input_dict)
+    modified_input_dict = deepcopy(input_dict)
 
     if not all_analysis_ids:
         # no inputs found to replace
-        return input_dict
+        return modified_input_dict
 
     for analysis_id in all_analysis_ids:
         # for each input, use the analysis id to get the job id containing
@@ -569,8 +569,8 @@ def link_inputs_to_outputs(
                 )
 
             # replace analysis id with given job id in input dict
-            input_dict = replace(
-                input_dict=input_dict,
+            modified_input_dict = replace(
+                input_dict=modified_input_dict,
                 to_replace=analysis_id,
                 replacement=job_id[0],
                 search_key=False,
@@ -606,7 +606,7 @@ def link_inputs_to_outputs(
             # => need to link job IDs to the input. If true, turn that
             # input into an array and create one dict of input structure
             # per job for the given analysis_X found.
-            for input_field, link_dict in input_dict.items():
+            for input_field, link_dict in modified_input_dict.items():
                 if not isinstance(link_dict, dict):
                     # input is not a dnanexus file or output link
                     continue
@@ -638,7 +638,7 @@ def link_inputs_to_outputs(
                     # copy input structure from input dict, turn into an array
                     # input and populate with a link to each job
                     stage_input_template = deepcopy(link_dict)
-                    input_dict[input_field] = []
+                    modified_input_dict[input_field] = []
 
                     for job in job_ids:
                         stage_input_tmp = deepcopy(stage_input_template)
@@ -649,9 +649,11 @@ def link_inputs_to_outputs(
                             search_key=False,
                             replace_key=False,
                         )
-                        input_dict[input_field].append(stage_input_tmp)
+                        modified_input_dict[input_field].append(
+                            stage_input_tmp
+                        )
 
-    diff_res = list(diff(original_input_dict, input_dict))
+    diff_res = list(diff(modified_input_dict, input_dict))
 
     if diff_res:
         prettier_print("\nLinked inputs to outputs, review changes:")
@@ -659,7 +661,7 @@ def link_inputs_to_outputs(
     else:
         prettier_print("\nNo inputs were linked to outputs")
 
-    return input_dict
+    return modified_input_dict
 
 
 def filter_job_outputs_dict(stage, outputs_dict, filter_dict) -> dict:
@@ -901,6 +903,9 @@ def populate_tso500_reports_workflow(
     dict
         populated input dict
     """
+
+    modified_input_dict = deepcopy(input_dict)
+
     print("Adding input files for TSO500 reports workflow")
 
     missing_output_sample = None
@@ -926,7 +931,7 @@ def populate_tso500_reports_workflow(
         # we're not hardcoding the actual stage IDs here in case they
         # change, and then we can just change them in the config
         config_stage_input = [
-            k for k, v in input_dict.items() if v == stage_input
+            k for k, v in modified_input_dict.items() if v == stage_input
         ]
 
         if not config_stage_input:
@@ -962,22 +967,22 @@ def populate_tso500_reports_workflow(
         if not sample_file:
             # store sample name for creating a comment
             missing_output_sample = sample
-            return input_dict, missing_output_sample
+            return modified_input_dict, missing_output_sample
 
         if output_fields == ["fastqs"]:
             # handle fastqs separately since they should be an array
-            input_dict[config_stage_input] = [
+            modified_input_dict[config_stage_input] = [
                 {"$dnanexus_link": x["id"]} for x in sample_file
             ]
         else:
-            input_dict[config_stage_input] = {
+            modified_input_dict[config_stage_input] = {
                 "$dnanexus_link": sample_file[0]["id"]
             }
 
     # get the dnanexus_link we already added for the cvo, and turn
     # this into an array input with the metricsOutput
     additional_files_stage = [
-        x for x in input_dict if x.endswith(".additional_files")
+        x for x in modified_input_dict if x.endswith(".additional_files")
     ]
 
     if additional_files_stage:
@@ -988,12 +993,20 @@ def populate_tso500_reports_workflow(
         metrics_output = job_output_ids.get("metricsOutput")
         assert metrics_output, "No metrics output file found from tso500 job"
 
-        cvo_dnanexus_link = input_dict[additional_files_stage]
-        input_dict[additional_files_stage] = [
+        cvo_dnanexus_link = modified_input_dict[additional_files_stage]
+        modified_input_dict[additional_files_stage] = [
             cvo_dnanexus_link,
             metrics_output,
         ]
 
-    print(f"Inputs added to input dict:\n\n{input_dict}")
+    diff_res = list(diff(modified_input_dict, input_dict))
 
-    return input_dict, missing_output_sample
+    if diff_res:
+        prettier_print(
+            "\nPopulating for TSO500 reports_workflow, review changes:"
+        )
+        prettier_print(diff_res)
+    else:
+        prettier_print("\nNo populating for TSO500 reports_workflow required")
+
+    return modified_input_dict, missing_output_sample
