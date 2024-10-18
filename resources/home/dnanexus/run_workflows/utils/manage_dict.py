@@ -866,6 +866,8 @@ def populate_tso500_reports_workflow(
     """
     print("Adding input files for TSO500 reports workflow")
 
+    missing_output_sample = None
+
     # mapping of the value expected in the input dict parsed from
     # the config file -> the eggd_tso500 app output fields to select from
     tso500_input_fields = {
@@ -920,10 +922,10 @@ def populate_tso500_reports_workflow(
             x for x in file_details if x["describe"]["name"].startswith(sample)
         ]
 
-        assert sample_file, (
-            f"No eggd_tso500 files found for sample {sample} for "
-            f"input {stage_input}"
-        )
+        if not sample_file:
+            # store sample name for creating a comment
+            missing_output_sample = sample
+            return input_dict, missing_output_sample
 
         if output_fields == ["fastqs"]:
             # handle fastqs separately since they should be an array
@@ -957,4 +959,4 @@ def populate_tso500_reports_workflow(
 
     print(f"Inputs added to input dict:\n\n{input_dict}")
 
-    return input_dict
+    return input_dict, missing_output_sample
