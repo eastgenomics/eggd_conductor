@@ -8,6 +8,7 @@ import os
 import re
 import sys
 
+from dictdiffer import diff
 from flatten_json import flatten, unflatten_list
 
 sys.path.append(
@@ -204,6 +205,8 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
             f"R1: {r1_fastqs} \nR2: {r2_fastqs}"
         )
 
+    original_input_dict = input_dict.deepcopy()
+
     for stage, inputs in input_dict.items():
         # check each stage in input config for fastqs, format
         # as required with R1 and R2 fastqs
@@ -221,6 +224,9 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r1_fastqs])
             r1_r2_input.extend([{"$dnanexus_link": x[0]} for x in r2_fastqs])
             input_dict[stage] = r1_r2_input
+
+    prettier_print("\nAdded fastqs, review changes:")
+    prettier_print(list(diff(original_input_dict, input_dict)))
 
     return input_dict
 
@@ -240,9 +246,15 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
     input_dict : dict
         dict of input parameters for calling workflow / app
     """
+
+    original_input_dict = input_dict.deepcopy()
+
     for app_input, value in input_dict.items():
         if value == "INPUT-UPLOAD_TARS":
             input_dict[app_input] = upload_tars
+
+    prettier_print("\nAdded upload tars, review changes:")
+    prettier_print(list(diff(original_input_dict, input_dict)))
 
     return input_dict
 
@@ -291,8 +303,6 @@ def add_other_inputs(
         Raised when no output dir has been given where a downsteam analysis
         requires it as an input
     """
-    prettier_print("\nAdding other inputs, input dict passed to check:")
-    prettier_print(input_dict)
 
     # first checking if any INPUT- in dict to fill
     other_inputs = search(
@@ -328,6 +338,8 @@ def add_other_inputs(
         ("INPUT-SAMPLESHEET", samplesheet),
     ]
 
+    original_input_dict = input_dict.deepcopy()
+
     for input_field, input_value in to_replace:
         if input_value:
             input_dict = replace(
@@ -338,8 +350,8 @@ def add_other_inputs(
                 replace_key=False,
             )
 
-    prettier_print("\nInput dict after adding other inputs:")
-    prettier_print(input_dict)
+    prettier_print("\nAdded other inputs, review changes:")
+    prettier_print(list(diff(original_input_dict, input_dict)))
 
     return input_dict
 
@@ -466,10 +478,6 @@ def link_inputs_to_outputs(
         No job id found for given analysis stage from `job_outputs_dict`
     """
 
-    prettier_print("\nSearching input dict for inputs to link to outputs")
-    prettier_print("Input dict before:")
-    prettier_print(input_dict)
-
     if analysis == "analysis_1":
         # first analysis => no previous outputs to link to inputs
         return input_dict
@@ -509,8 +517,7 @@ def link_inputs_to_outputs(
 
     prettier_print(f"\nFound analyses to replace: {all_analysis_ids}")
 
-    prettier_print("Input dictionary before modifying")
-    prettier_print(input_dict)
+    original_input_dict = input_dict.deepcopy()
 
     if not all_analysis_ids:
         # no inputs found to replace
@@ -628,6 +635,9 @@ def link_inputs_to_outputs(
                             replace_key=False,
                         )
                         input_dict[input_field].append(stage_input_tmp)
+
+    prettier_print("Added other inputs, review changes:")
+    prettier_print("\n".join(list(diff(original_input_dict, input_dict))))
 
     return input_dict
 
