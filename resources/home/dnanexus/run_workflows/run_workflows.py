@@ -593,7 +593,7 @@ def main():
                             "The following samples have a missing output "
                             "file after running eggd_tso. They have been "
                             "skipped for the reports workflow: "
-                            f"{' | '.join(handler.missing_output_samples)}:\n"
+                            f"{' | '.join(handler.missing_output_samples)}\n"
                         ),
                         url=(
                             "http://platform.dnanexus.com/panx/projects/"
