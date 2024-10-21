@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 import json
 import os
+import pathlib
 import re
 import sys
 from xml.etree import ElementTree as ET
@@ -14,6 +15,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.realpath(__file__), "../"))
 )
 
+import dxpy as dx
 from packaging.version import parse as parseVersion
 import pandas as pd
 
@@ -460,3 +462,65 @@ def create_project_name(run_id, assay, development, testing):
         suffix = "-EGGD_CONDUCTOR_TESTING"
 
     return f"{prefix}{run_id}_{assay}{suffix}"
+
+
+def write_job_summary(*handlers):
+    """Write a job summary file for the whole conductor job"""
+    for handler in handlers:
+        nb_jobs_per_assay = 0
+        assay = handler.assay
+        project = handler.project
+
+        path_to_job_summary = pathlib.Path(
+            f"/home/dnanexus/out/job_summaries/{project.name}-job_summary.txt"
+        )
+
+        path_to_job_summary.parent.mkdir(parents=True, exist_ok=True)
+
+        with path_to_job_summary.open("w") as f:
+            # write config information
+            f.write(f"Project: {project.name}\n")
+            f.write(f"Assay: {assay}\n")
+
+            for executable, info in handler.job_summary.items():
+                nb_jobs_per_executable = 0
+                executable_dict = dx.bindings.dxdataobject_functions.describe(
+                    executable
+                )
+
+                exe_name = executable_dict.get("name")
+                exe_version = executable_dict.get("version")
+
+                f.write(f"Jobs started for '{exe_name}")
+
+                if exe_version:
+                    f.write(f" - {exe_version}'")
+                else:
+                    f.write("'")
+
+                if info is dict:
+                    f.write(":\n")
+
+                    for sample, job_id in info.items():
+                        if job_id is None:
+                            f.write(
+                                f" - {sample}: No job started due to missing previous output\n"
+                            )
+                        else:
+                            f.write(f" - {sample}: {job_id}\n")
+
+                        nb_jobs_per_assay += 1
+                        nb_jobs_per_executable += 1
+                else:
+                    f.write(f" '{info}'\n")
+
+                    nb_jobs_per_assay += 1
+                    nb_jobs_per_executable += 1
+
+                f.write(
+                    f"\nNumber of jobs started for {exe_name}: {nb_jobs_per_executable}\n"
+                )
+
+            f.write(
+                f"Number of jobs started for {assay}: {nb_jobs_per_assay}\n"
+            )
