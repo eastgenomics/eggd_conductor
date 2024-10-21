@@ -40,6 +40,7 @@ from utils.utils import (
     time_stamp,
     select_instance_types,
     create_project_name,
+    write_job_summary,
 )
 from utils.demultiplexing import (
     demultiplex,
@@ -586,11 +587,6 @@ def main():
                         f"Build job inputs for {sample}: {i}/{len(handler.samples)}"
                     )
                     handler.build_job_inputs(executable, params, sample)
-                    # create new dict to store sample outputs
-                    handler.job_outputs.setdefault(handler.assay_code, {})
-                    handler.job_outputs[handler.assay_code].setdefault(
-                        sample, {}
-                    )
                     handler.populate_output_dir_config(executable, sample)
 
                 if handler.missing_output_samples:
@@ -609,6 +605,7 @@ def main():
                         ),
                         ticket=handler.ticket,
                     )
+                    handler.job_summary[executable][sample] = None
 
                 for i, sample in enumerate(handler.job_info_per_sample, 1):
                     if sample not in handler.missing_output_samples:
@@ -684,6 +681,8 @@ def main():
             ),
             ticket=handler.ticket,
         )
+
+    write_job_summary(*[handler for handler in assay_handlers])
 
     if args.testing:
         terminate_jobs(
