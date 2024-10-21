@@ -169,6 +169,13 @@
       "class": "string",
       "optional": true,
       "help": "file IDs of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
+    },
+    {
+      "name": "job_summaries",
+      "label": "Job summary files",
+      "class": "array:file",
+      "optional": true,
+      "help": "File containing the information of job that have been started"
     }
   ],
   "runSpec": {
