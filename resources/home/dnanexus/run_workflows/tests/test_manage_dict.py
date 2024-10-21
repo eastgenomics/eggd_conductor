@@ -1410,6 +1410,25 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
 
         self.assertEqual(populated_input_dict, expected_output)
 
+    def test_missing_tso_output_file(self):
+        """Test to ensure that the input dict is untouched if a sample is
+        detected to be absent after processing by the eggd_tso app.
+        """
+
+        unmodified_input_dict = populate_tso500_reports_workflow(
+            input_dict=self.reports_workflow_input_dict,
+            sample="missing_sample",
+            all_output_files=self.all_output_files,
+            job_output_ids=self.job_output_ids,
+        )
+
+        expected_output = (
+            self.reports_workflow_input_dict,
+            "missing_sample",
+        )
+
+        self.assertEqual(unmodified_input_dict, expected_output)
+
     def test_missing_metrics_output_raises_assertion_error(self):
         """
         Test when run level metricsOutput is missing that an AssertionError
