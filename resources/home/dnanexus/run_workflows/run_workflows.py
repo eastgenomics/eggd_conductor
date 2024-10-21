@@ -40,6 +40,7 @@ from utils.utils import (
     time_stamp,
     select_instance_types,
     create_project_name,
+    write_job_summary,
 )
 from utils.demultiplexing import (
     demultiplex,
@@ -314,7 +315,7 @@ def main():
                 f"{assay_handler.assay}: {args.exclude_samples}"
             )
             assay_handler.limit_samples(
-                samples_to_exclude=args.exclude_samples
+                patterns_to_exclude=args.exclude_samples
             )
 
         assay_handler.subset_samples()
@@ -429,7 +430,7 @@ def main():
         ]
     ):
         demultiplex_config = set_config_for_demultiplexing(
-            assay_handler.config for assay_handler in assay_handlers
+            *[assay_handler.config for assay_handler in assay_handlers]
         )
 
         demultiplex_app_id = None
@@ -529,32 +530,40 @@ def main():
                 "start jobs"
             )
 
-            # first check if specified to reuse a previous job for this step
-            if args.job_reuse.get(params["analysis"]):
-                previous_job = args.job_reuse.get(params["analysis"])
+            if args.job_reuse:
+                # check if the assay matches the top level in the job reuse arg
+                if handler.assay in args.job_reuse:
+                    analysis = args.job_reuse.get(handler.assay)
+                else:
+                    analysis = args.job_reuse
 
-                assert re.match(r"(job|analysis)-[\w]+", previous_job), (
-                    "Job specified to reuse does not appear valid: "
-                    f"{previous_job}"
-                )
+                # first check if specified to reuse a previous job for this
+                # step
+                if analysis.get(params["analysis"]):
+                    previous_job = analysis.get(params["analysis"])
 
-                if params["per_sample"]:
-                    # ensure we're only doing this for per run jobs for now
-                    raise NotImplementedError(
-                        "-iJOB_REUSE not yet implemented for per sample jobs"
+                    assert re.match(r"(job|analysis)-[\w]+", previous_job), (
+                        "Job specified to reuse does not appear valid: "
+                        f"{previous_job}"
                     )
 
-                prettier_print(
-                    f"Reusing provided job {previous_job} for analysis step "
-                    f"{params['analysis']} for {params['name']}"
-                )
+                    if params["per_sample"]:
+                        # ensure we're only doing this for per run jobs for now
+                        raise NotImplementedError(
+                            "-iJOB_REUSE not yet implemented for per sample jobs"
+                        )
 
-                # dict to add all stage output names and job ids for every
-                # sample to used to pass correct job ids to subsequent
-                # workflow / app calls
-                handler.job_outputs[params["analysis"]] = previous_job
+                    prettier_print(
+                        f"Reusing provided job {previous_job} for analysis step "
+                        f"{params['analysis']} for {params['name']}"
+                    )
 
-                continue
+                    # dict to add all stage output names and job ids for every
+                    # sample to used to pass correct job ids to subsequent
+                    # workflow / app calls
+                    handler.job_outputs[params["analysis"]] = previous_job
+
+                    continue
 
             prettier_print("\nParams parsed from config before modifying:")
             prettier_print(params)
@@ -573,19 +582,51 @@ def main():
             if params["per_sample"] is True:
                 prettier_print(f"\nCalling {executable_name} per sample")
 
-                for sample in handler.samples:
-                    handler.build_job_inputs(executable, params, sample)
-                    # create new dict to store sample outputs
-                    handler.job_outputs.setdefault(handler.assay_code, {})
-                    handler.job_outputs[handler.assay_code].setdefault(
-                        sample, {}
+                for i, sample in enumerate(handler.samples, 1):
+                    prettier_print(
+                        f"Build job inputs for {sample}: {i}/{len(handler.samples)}"
                     )
+                    handler.build_job_inputs(executable, params, sample)
                     handler.populate_output_dir_config(executable, sample)
 
-                for sample in handler.job_info_per_sample:
-                    total_jobs += handler.call_job(
-                        executable, params["analysis"], instance_type, sample
+                if handler.missing_output_samples:
+                    # detected missing output files after eggd_tso, create a
+                    # comment in the ticket
+                    jira.add_comment(
+                        comment=(
+                            "The following samples have a missing output "
+                            "file after running eggd_tso. They have been "
+                            "skipped for the reports workflow: "
+                            f"{' | '.join(handler.missing_output_samples)}\n"
+                        ),
+                        url=(
+                            "http://platform.dnanexus.com/panx/projects/"
+                            f"{handler.project.name.replace('project-', '')}/monitor/"
+                        ),
+                        ticket=handler.ticket,
                     )
+                    handler.job_summary[executable][sample] = None
+
+                for i, sample in enumerate(handler.job_info_per_sample, 1):
+                    if sample not in handler.missing_output_samples:
+                        prettier_print(
+                            f"Starting job for {sample}: {i}/{len(handler.samples)}"
+                        )
+                        total_jobs += handler.call_job(
+                            executable,
+                            params["analysis"],
+                            instance_type,
+                            sample,
+                        )
+                    else:
+                        prettier_print(
+                            f"Skipping job start for {sample}: {i}/{len(handler.samples)}"
+                        )
+
+                if handler.missing_output_samples:
+                    # need to clear missing output samples variable otherwise
+                    # every potential subsequent job will add a comment
+                    handler.missing_output_samples = []
 
             elif params["per_sample"] is False:
                 prettier_print(f"\nCalling {executable_name} per run")
@@ -640,6 +681,8 @@ def main():
             ),
             ticket=handler.ticket,
         )
+
+    write_job_summary(*[handler for handler in assay_handlers])
 
     if args.testing:
         terminate_jobs(

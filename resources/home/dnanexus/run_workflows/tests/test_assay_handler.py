@@ -203,46 +203,62 @@ class TestAssayHandler:
         "test_input, expected",
         [
             (
-                ["sample1"],
+                ["1100000-11000R1100-FJE9340-5678-M-123456"],
                 [
-                    "sample2",
-                    "sample3",
-                    "sample4",
-                    "sample5",
-                    "sample6",
-                    "sample7",
-                    "sample8",
-                    "sample9",
-                    "sample10",
+                    "1000000-10000R1000-FJE9340-1234-F-123456",
+                    "2000000-20000R2000-FJE9340-1234-M-123456",
+                    "3000000-30000R3000-FJE9340-1234-F-123456",
+                    "4000000-40000R4000-FJE9340-1234-F-123456",
+                    "5000000-50000R5000-FJE9340-1234-M-123456",
+                    "6000000-60000R6000-FJE9340-1234-M-123456",
+                    "7000000-70000R7000-FJE9340-1234-M-123456",
+                    "8000000-80000R8000-FJE9340-1234-F-123456",
+                    "9000000-90000R9000-FJE9340-1234-M-123456",
+                    "1200000-12000R1200-FJE9340-5678-F-123456",
+                    "1300000-13000R1300-FJE9340-9101-M-123456",
+                    "1400000-14000R1400-FJE9340-9101-M-123456",
                 ],
             ),
             (
-                ["sample1", "sample2"],
                 [
-                    "sample3",
-                    "sample4",
-                    "sample5",
-                    "sample6",
-                    "sample7",
-                    "sample8",
-                    "sample9",
-                    "sample10",
+                    "1000000-10000R1000-FJE9340-1234-F-123456",
+                    "2000000-20000R2000-FJE9340-1234-M-123456",
+                ],
+                [
+                    "3000000-30000R3000-FJE9340-1234-F-123456",
+                    "4000000-40000R4000-FJE9340-1234-F-123456",
+                    "5000000-50000R5000-FJE9340-1234-M-123456",
+                    "6000000-60000R6000-FJE9340-1234-M-123456",
+                    "7000000-70000R7000-FJE9340-1234-M-123456",
+                    "8000000-80000R8000-FJE9340-1234-F-123456",
+                    "9000000-90000R9000-FJE9340-1234-M-123456",
+                    "1100000-11000R1100-FJE9340-5678-M-123456",
+                    "1200000-12000R1200-FJE9340-5678-F-123456",
+                    "1300000-13000R1300-FJE9340-9101-M-123456",
+                    "1400000-14000R1400-FJE9340-9101-M-123456",
                 ],
             ),
             (
-                [""],
+                [],
                 [
-                    "sample1",
-                    "sample2",
-                    "sample3",
-                    "sample4",
-                    "sample5",
-                    "sample6",
-                    "sample7",
-                    "sample8",
-                    "sample9",
-                    "sample10",
+                    "1000000-10000R1000-FJE9340-1234-F-123456",
+                    "2000000-20000R2000-FJE9340-1234-M-123456",
+                    "3000000-30000R3000-FJE9340-1234-F-123456",
+                    "4000000-40000R4000-FJE9340-1234-F-123456",
+                    "5000000-50000R5000-FJE9340-1234-M-123456",
+                    "6000000-60000R6000-FJE9340-1234-M-123456",
+                    "7000000-70000R7000-FJE9340-1234-M-123456",
+                    "8000000-80000R8000-FJE9340-1234-F-123456",
+                    "9000000-90000R9000-FJE9340-1234-M-123456",
+                    "1100000-11000R1100-FJE9340-5678-M-123456",
+                    "1200000-12000R1200-FJE9340-5678-F-123456",
+                    "1300000-13000R1300-FJE9340-9101-M-123456",
+                    "1400000-14000R1400-FJE9340-9101-M-123456",
                 ],
+            ),
+            (
+                ["-1234-", "-5678-", "1400000-14000R1400"],
+                ["1300000-13000R1300-FJE9340-9101-M-123456"],
             ),
         ],
     )
@@ -250,21 +266,24 @@ class TestAssayHandler:
         self, test_input, expected, empty_assay_handler
     ):
         empty_assay_handler.samples = [
-            "sample1",
-            "sample2",
-            "sample3",
-            "sample4",
-            "sample5",
-            "sample6",
-            "sample7",
-            "sample8",
-            "sample9",
-            "sample10",
+            "1000000-10000R1000-FJE9340-1234-F-123456",
+            "2000000-20000R2000-FJE9340-1234-M-123456",
+            "3000000-30000R3000-FJE9340-1234-F-123456",
+            "4000000-40000R4000-FJE9340-1234-F-123456",
+            "5000000-50000R5000-FJE9340-1234-M-123456",
+            "6000000-60000R6000-FJE9340-1234-M-123456",
+            "7000000-70000R7000-FJE9340-1234-M-123456",
+            "8000000-80000R8000-FJE9340-1234-F-123456",
+            "9000000-90000R9000-FJE9340-1234-M-123456",
+            "1100000-11000R1100-FJE9340-5678-M-123456",
+            "1200000-12000R1200-FJE9340-5678-F-123456",
+            "1300000-13000R1300-FJE9340-9101-M-123456",
+            "1400000-14000R1400-FJE9340-9101-M-123456",
         ]
 
-        empty_assay_handler.limit_samples(samples_to_exclude=test_input)
+        empty_assay_handler.limit_samples(patterns_to_exclude=test_input)
 
-        assert expected == empty_assay_handler.samples and len(
+        assert sorted(expected) == sorted(empty_assay_handler.samples) and len(
             expected
         ) == len(empty_assay_handler.samples), "Unexpected samples kept"
 
@@ -703,7 +722,7 @@ class TestBuildJobInputs:
         mock_fixed_inputs.return_value = self.mocked_fixed_inputs_json
         # mock the handling of TSO500 method so that test passes using Github
         # action
-        mock_handle_TSO500.return_value = self.mocked_handle_TSO500
+        mock_handle_TSO500.return_value = (self.mocked_handle_TSO500, None)
         params = job_inputs_assay_handler.config["executables"][
             "workflow-Gjk42k84yfKPv0x151ZvYBpK"
         ]

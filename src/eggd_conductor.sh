@@ -292,9 +292,11 @@ main () {
             dx download "$config" -o "assay_config${enumeration}.json"
             optional_args+="assay_config${enumeration}.json "
             # add file IDs of config as output field to easily audit what configs used for analyses
-            assay_config_ids+="$(grep -oE 'file-[A-Za-z0-9]+' <<< "$config") "
+            assay_config_ids+="$(grep -oE 'file-[A-Za-z0-9]+' <<< "$config"),"
             enumeration=$((1+enumeration))
         done
+
+        assay_config_ids="${assay_config_ids%?}"
 
         dx-jobutil-add-output assay_config_file_ids "$assay_config_ids" --class=string
     fi
@@ -393,6 +395,20 @@ main () {
     job_ids=$(cat all_job_ids.log)
     job_ids="${job_ids%?}"  # trim off trailing comma
     dx-jobutil-add-output job_ids "$job_ids" --class=string
+
+    for file in /home/dnanexus/out/job_summaries/*; do
+        project_to_upload_to=$(echo "$file" | cut -f1 -d"-")
+
+        if [ "$testing" == 'true' ]; then
+            file_id=$(dx upload "${file}" --path "${PROJECT_ID}:/" --brief)
+        else
+            file_id=$(dx upload "${file}" --path "${project_to_upload_to}:/" --brief)
+        fi
+
+        dx-jobutil-add-output job_summaries "$file_id" --class=array:file
+
+    done
+
 
     mark-success
 }

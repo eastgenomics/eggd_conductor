@@ -100,7 +100,7 @@
       "label": "job reuse",
       "class": "string",
       "optional": true,
-      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{\"analysis_1\": \"job-xxx\"}')"
+      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. {\"analysis_1\": \"job-xxx\"} or if using mixed assay runs '{\"TSO500\": {\"analysis_1\": \"job-xxx\"}}')"
     },
     {
       "name": "exclude_samples",
@@ -169,6 +169,13 @@
       "class": "string",
       "optional": true,
       "help": "file IDs of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
+    },
+    {
+      "name": "job_summaries",
+      "label": "Job summary files",
+      "class": "array:file",
+      "optional": true,
+      "help": "File containing the information of job that have been started"
     }
   ],
   "runSpec": {
