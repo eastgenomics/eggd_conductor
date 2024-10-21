@@ -30,6 +30,7 @@ class AssayHandler:
         self.job_outputs = {}
         self.jobs = []
         self.missing_output_samples = []
+        self.job_summary = defaultdict(lambda: defaultdict(dict))
 
     def limit_samples(self, limit_nb=None, patterns_to_exclude=[]):
         """Limit samples using a number or specific names
@@ -630,10 +631,12 @@ class AssayHandler:
         self.jobs.append(job_id)
 
         if sample:
+            self.job_summary[executable][sample] = job_id
             self.job_outputs.setdefault(sample, {})
             # map analysis id to dx job id for sample
             self.job_outputs[sample].update({analysis: job_id})
         else:
+            self.job_summary[executable] = job_id
             # map workflow id to created dx job id
             self.job_outputs[analysis] = job_id
 
