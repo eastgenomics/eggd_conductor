@@ -1191,11 +1191,11 @@ class TestFixInvalidInputs:
     def test_unknown_input_field(self):
         with pytest.raises(
             AssertionError,
-            match="'not_existing_field' doesn't exist in the input_dict"
+            match="'not_existing_field' doesn't exist in the input_dict",
         ):
             fix_invalid_inputs(
                 input_dict={"not_existing_field": None},
-                input_classes={"existing_field": None}
+                input_classes={"existing_field": None},
             )
 
 
@@ -1360,19 +1360,22 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             job_output_ids=self.job_output_ids,
         )
 
-        expected_output = {
-            "stage-multi_fastqc.fastqs": [
-                {"$dnanexus_link": "file-a1"},
-                {"$dnanexus_link": "file-a2"},
-            ],
-            "stage-mosdepth.bam": {"$dnanexus_link": "file-b1"},
-            "stage-mosdepth.index": {"$dnanexus_link": "file-d1"},
-            "stage-vcf_rescue.gvcf": {"$dnanexus_link": "file-f1"},
-            "stage-generate_variant_workbook.additional_files": [
-                {"$dnanexus_link": "file-h1"},
-                {"$dnanexus_link": "file-i1"},
-            ],
-        }
+        expected_output = (
+            {
+                "stage-multi_fastqc.fastqs": [
+                    {"$dnanexus_link": "file-a1"},
+                    {"$dnanexus_link": "file-a2"},
+                ],
+                "stage-mosdepth.bam": {"$dnanexus_link": "file-b1"},
+                "stage-mosdepth.index": {"$dnanexus_link": "file-d1"},
+                "stage-vcf_rescue.gvcf": {"$dnanexus_link": "file-f1"},
+                "stage-generate_variant_workbook.additional_files": [
+                    {"$dnanexus_link": "file-h1"},
+                    {"$dnanexus_link": "file-i1"},
+                ],
+            },
+            None,
+        )
 
         self.assertEqual(populated_input_dict, expected_output)
 
@@ -1388,45 +1391,24 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             job_output_ids=self.job_output_ids,
         )
 
-        expected_output = {
-            "stage-multi_fastqc.fastqs": [
-                {"$dnanexus_link": "file-a3"},
-                {"$dnanexus_link": "file-a4"},
-            ],
-            "stage-mosdepth.bam": {"$dnanexus_link": "file-c1"},
-            "stage-mosdepth.index": {"$dnanexus_link": "file-e1"},
-            "stage-vcf_rescue.gvcf": {"$dnanexus_link": "file-g1"},
-            "stage-generate_variant_workbook.additional_files": [
-                {"$dnanexus_link": "file-h3"},
-                {"$dnanexus_link": "file-i1"},
-            ],
-        }
-
-        self.assertEqual(populated_input_dict, expected_output)
-
-    def test_missing_files_for_sample_raises_assertion_error(self):
-        """
-        Test when a sample is missing a file that an AssertionError is raised
-        """
-        missing_files = deepcopy(self.all_output_files)
-
-        # remove cvo file for sample 1 from output files
-        missing_files = [
-            x for x in missing_files if not x.get("id") == "file-h1"
-        ]
-
-        expected_error = (
-            "No eggd_tso500 files found for sample sample1 "
-            "for input eggd_tso500.cvo"
+        expected_output = (
+            {
+                "stage-multi_fastqc.fastqs": [
+                    {"$dnanexus_link": "file-a3"},
+                    {"$dnanexus_link": "file-a4"},
+                ],
+                "stage-mosdepth.bam": {"$dnanexus_link": "file-c1"},
+                "stage-mosdepth.index": {"$dnanexus_link": "file-e1"},
+                "stage-vcf_rescue.gvcf": {"$dnanexus_link": "file-g1"},
+                "stage-generate_variant_workbook.additional_files": [
+                    {"$dnanexus_link": "file-h3"},
+                    {"$dnanexus_link": "file-i1"},
+                ],
+            },
+            None,
         )
 
-        with pytest.raises(AssertionError, match=expected_error):
-            populate_tso500_reports_workflow(
-                input_dict=self.reports_workflow_input_dict,
-                sample="sample1",
-                all_output_files=missing_files,
-                job_output_ids=self.job_output_ids,
-            )
+        self.assertEqual(populated_input_dict, expected_output)
 
     def test_missing_metrics_output_raises_assertion_error(self):
         """
