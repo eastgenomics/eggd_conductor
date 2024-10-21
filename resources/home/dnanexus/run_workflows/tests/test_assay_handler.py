@@ -722,7 +722,7 @@ class TestBuildJobInputs:
         mock_fixed_inputs.return_value = self.mocked_fixed_inputs_json
         # mock the handling of TSO500 method so that test passes using Github
         # action
-        mock_handle_TSO500.return_value = self.mocked_handle_TSO500
+        mock_handle_TSO500.return_value = (self.mocked_handle_TSO500, None)
         params = job_inputs_assay_handler.config["executables"][
             "workflow-Gjk42k84yfKPv0x151ZvYBpK"
         ]
