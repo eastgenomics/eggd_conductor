@@ -533,7 +533,7 @@ def main():
             if args.job_reuse:
                 invalid_assay_keys = []
                 assay_names_available = [
-                    config.get("assay") for config in configs
+                    config.get("assay") for config in configs.values()
                 ]
 
                 # check the job reuse dict if the key are linked to dicts i.e.
@@ -544,13 +544,15 @@ def main():
                             invalid_assay_keys.append(key)
 
                 if invalid_assay_keys:
-                    raise AssertionError((
-                        "-ijob_reuse: The following assay names are not "
-                        f"available to be used {invalid_assay_keys}. Check if "
-                        "the use of -iassay_config might impact the assay "
-                        "keys that you can use. Full job_reuse parameter: "
-                        f"{args.job_reuse}"
-                    ))
+                    raise AssertionError(
+                        (
+                            "-ijob_reuse: The following assay names are not "
+                            f"available to be used {invalid_assay_keys}. "
+                            "Check if the use of -iassay_config might impact "
+                            "the assay keys that you can use. Full job_reuse "
+                            f"parameter: {args.job_reuse}"
+                        )
+                    )
 
                 # check if the assay matches the top level in the job reuse arg
                 if handler.assay in args.job_reuse:
