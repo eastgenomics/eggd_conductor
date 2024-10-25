@@ -682,7 +682,7 @@ def main():
             ticket=handler.ticket,
         )
 
-    write_job_summary(*[handler for handler in assay_handlers])
+    write_job_summary(*assay_handlers)
 
     if args.testing:
         terminate_jobs(
