@@ -34,6 +34,8 @@ from utils.utils import (
     load_config,
     load_test_data,
     match_samples_to_assays,
+    preprocess_exclusion_patterns,
+    exclude_samples,
     parse_run_info_xml,
     parse_sample_sheet,
     prettier_print,
@@ -198,6 +200,9 @@ def parse_args() -> argparse.Namespace:
         args.exclude_samples = [
             x.replace(" ", "") for x in args.exclude_samples.split(",") if x
         ]
+        args.exclude_samples = preprocess_exclusion_patterns(
+            args.exclude_samples
+        )
 
     return args
 
@@ -236,6 +241,17 @@ def main():
         shell=True,
         check=False,
     )
+
+    if args.exclude_samples:
+        prettier_print(
+            "Attempting to exclude following samples using: "
+            f"{args.exclude_samples}"
+        )
+        args.samples = exclude_samples(args.exclude_samples)
+
+        assert (
+            args.samples
+        ), f"No samples are left after excluding using {args.exclude_samples}"
 
     assay_to_samples = match_samples_to_assays(
         configs=configs,
@@ -308,15 +324,6 @@ def main():
 
         if limiting_nb:
             assay_handler.limit_samples(limit_nb=limiting_nb)
-
-        if args.exclude_samples:
-            prettier_print(
-                "Attempting to exclude following samples from "
-                f"{assay_handler.assay}: {args.exclude_samples}"
-            )
-            assay_handler.limit_samples(
-                patterns_to_exclude=args.exclude_samples
-            )
 
         assay_handler.subset_samples()
 
