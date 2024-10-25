@@ -465,7 +465,13 @@ def create_project_name(run_id, assay, development, testing):
 
 
 def write_job_summary(*handlers):
-    """Write a job summary file for the whole conductor job"""
+    """Write a job summary file for the whole conductor job
+
+    Parameters
+    ----------
+    *handlers: Variable length argument list of handlers objects.
+    """
+
     for handler in handlers:
         nb_jobs_per_assay = 0
         assay = handler.assay
