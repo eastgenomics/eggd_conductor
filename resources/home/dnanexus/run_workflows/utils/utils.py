@@ -378,6 +378,95 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     return assay_to_samples
 
 
+def preprocess_exclusion_patterns(patterns):
+    """Preprocess the exclude samples parameter to be sure that exclusion
+    patterns are correct
+
+    Parameters
+    ----------
+    patterns : iterable
+        Iterable containing the exclusion patterns
+
+    Returns
+    -------
+    set
+        Set containing the corrected patterns if needed
+
+    Raises
+    ------
+    AssertionError
+        When the pattern doesn't match a typical full sample name pattern or
+        an assay code pattern
+    """
+
+    new_patterns = set()
+
+    for pattern in patterns:
+        if re.fullmatch(r"^(?!-).*-(.*-)+.*(?!-)$", pattern):
+            # full sample_name
+            new_patterns.add(pattern)
+
+        elif re.search(r"-.*-", pattern):
+            # correct non TSO500 assay code
+            new_patterns.add(pattern)
+
+        elif re.search(r"-.*", pattern):
+            # assume it's a TSO500 code
+            new_patterns.add(f"{pattern}$")
+
+        else:
+            raise AssertionError(
+                (
+                    f"'{pattern}' doesn't match the expected pattern of a "
+                    "sample name or an assay code"
+                )
+            )
+
+    return new_patterns
+
+
+def exclude_samples(samples, patterns=[]):
+    """Exclude samples given a list of patterns
+
+    Parameters
+    ----------
+    samples : list
+        List of samples to filter
+    patterns : list, optional
+        List of pattern to filter with, by default []
+
+    Returns
+    -------
+    list
+        List of samples after filtering
+
+    Raises
+    ------
+    AssertionError
+        When the pattern matches multiple times in the sample, in order to be
+        sure that the pattern is correct
+    """
+
+    samples_to_remove = set()
+
+    for pattern in patterns:
+        for sample in samples:
+            if re.findall(pattern, sample) > 1:
+                raise AssertionError(
+                    f"The pattern '{pattern}' matches multiple times in '{sample}'"
+                )
+
+            # try and match the full sample name
+            if re.fullmatch(pattern, sample):
+                samples_to_remove.add(sample)
+
+            # should be an assay code, look for that in the sample name
+            elif re.search(pattern, sample):
+                samples_to_remove.add(sample)
+
+    return list(set(samples).difference(samples_to_remove))
+
+
 def load_config(config_file) -> dict:
     """
     Read in given config json to dict
