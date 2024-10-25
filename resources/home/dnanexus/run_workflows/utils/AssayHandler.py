@@ -32,7 +32,7 @@ class AssayHandler:
         self.missing_output_samples = []
         self.job_summary = defaultdict(lambda: defaultdict(dict))
 
-    def limit_samples(self, limit_nb=None, patterns_to_exclude=[]):
+    def limit_samples(self, limit_nb=None):
         """Limit samples using a number or specific names
 
         Args:
@@ -42,57 +42,24 @@ class AssayHandler:
             Defaults to [].
         """
 
+        original_sample_list = self.samples
+
         if limit_nb:
             # use randomness to choose the samples in order to not be limited
             # to a single config in testing
             self.samples = random.sample(self.samples, limit_nb)
 
-        original_sample_list = self.samples
-        excluded_samples = set()
-
-        for pattern in patterns_to_exclude:
-            # identify if the pattern is a specimen ID
-            if re.search(r"^[0-9]+-[0-9]+[A-Z][0-9]+", pattern):
-                # use match rather than search to match the pattern to the
-                # sample in order to be sure that we are hitting the beginning
-                # of the sample name
-                self.samples = [
-                    sample
-                    for sample in self.samples
-                    if not re.match(pattern, sample)
-                ]
-            else:
-                for sample in self.samples:
-                    all_matches = re.findall(pattern, sample)
-
-                    if len(all_matches) > 1:
-                        # found multiple matches in the pattern
-                        raise AssertionError(
-                            (
-                                f"Multiple matches in {sample} using {pattern}"
-                                ". Did you forget a dash?"
-                            )
-                        )
-                    elif len(all_matches) == 1:
-                        # assume that the user entered a correct pattern thing
-                        # and exclude that sample
-                        excluded_samples.add(sample)
-
-        self.samples = list(set(self.samples).difference(excluded_samples))
+        excluded_samples = list(
+            set(original_sample_list).difference(self.samples)
+        )
 
         if sorted(original_sample_list) == sorted(self.samples):
-            prettier_print(
-                (
-                    "No samples were removed using the following pattern(s): "
-                    f"{patterns_to_exclude}"
-                )
-            )
+            prettier_print("No samples were removed")
         else:
             prettier_print(
                 (
-                    f"Using '{patterns_to_exclude}', the following samples "
-                    "were excluded: "
-                    f"{list(set(original_sample_list).difference(self.samples))}"
+                    f"Limiting samples to {limit_nb}, the following samples "
+                    f"were excluded: {excluded_samples}"
                 )
             )
 
