@@ -378,6 +378,34 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     return assay_to_samples
 
 
+def load_config(config_file) -> dict:
+    """
+    Read in given config json to dict
+
+    Parameters
+    ----------
+    config_file : str
+        json config file
+
+    Raises
+    ------
+    RuntimeError: raised when a non-json file passed as config
+
+    Returns
+    -------
+    config : dict
+        dictionary of loaded json file
+    """
+    if not config_file.endswith(".json"):
+        # sense check a json passed
+        raise RuntimeError("Error: invalid config passed - not a json file")
+
+    with open(config_file) as file:
+        config = json.load(file)
+
+    return config
+
+
 def preprocess_exclusion_patterns(patterns):
     """Preprocess the exclude samples parameter to be sure that exclusion
     patterns are correct
