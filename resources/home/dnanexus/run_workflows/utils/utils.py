@@ -378,34 +378,6 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     return assay_to_samples
 
 
-def load_config(config_file) -> dict:
-    """
-    Read in given config json to dict
-
-    Parameters
-    ----------
-    config_file : str
-        json config file
-
-    Raises
-    ------
-    RuntimeError: raised when a non-json file passed as config
-
-    Returns
-    -------
-    config : dict
-        dictionary of loaded json file
-    """
-    if not config_file.endswith(".json"):
-        # sense check a json passed
-        raise RuntimeError("Error: invalid config passed - not a json file")
-
-    with open(config_file) as file:
-        config = json.load(file)
-
-    return config
-
-
 def preprocess_exclusion_patterns(patterns):
     """Preprocess the exclude samples parameter to be sure that exclusion
     patterns are correct
@@ -484,15 +456,39 @@ def exclude_samples(samples, patterns=[]):
                     f"The pattern '{pattern}' matches multiple times in '{sample}'"
                 )
 
-            # try and match the full sample name
-            if re.fullmatch(pattern, sample):
-                samples_to_remove.add(sample)
-
             # should be an assay code, look for that in the sample name
-            elif re.search(pattern, sample):
+            if re.search(pattern, sample):
                 samples_to_remove.add(sample)
 
     return list(set(samples).difference(samples_to_remove))
+
+
+def load_config(config_file) -> dict:
+    """
+    Read in given config json to dict
+
+    Parameters
+    ----------
+    config_file : str
+        json config file
+
+    Raises
+    ------
+    RuntimeError: raised when a non-json file passed as config
+
+    Returns
+    -------
+    config : dict
+        dictionary of loaded json file
+    """
+    if not config_file.endswith(".json"):
+        # sense check a json passed
+        raise RuntimeError("Error: invalid config passed - not a json file")
+
+    with open(config_file) as file:
+        config = json.load(file)
+
+    return config
 
 
 def load_test_data(test_samples) -> list:
