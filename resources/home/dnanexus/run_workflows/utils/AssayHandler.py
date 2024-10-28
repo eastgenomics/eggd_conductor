@@ -142,7 +142,8 @@ class AssayHandler:
             f.write(
                 f"{self.project.id} "
                 f"{self.config.get('assay_code')} "
-                f"{self.config.get('version')}\n"
+                f"{self.config.get('version')} "
+                f"{len(self.jobs)}\n"
             )
 
     def get_upload_tars(self, sentinel_file) -> list:
