@@ -138,7 +138,7 @@ class AssayHandler:
         """Create an analysis project log with info per config file contained
         in the DXBuilder object"""
 
-        with open("analysis_project.log", "w") as f:
+        with open("analysis_project.log", "a") as f:
             f.write(
                 f"{self.project.id} "
                 f"{self.config.get('assay_code')} "
