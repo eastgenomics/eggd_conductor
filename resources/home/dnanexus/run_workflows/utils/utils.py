@@ -451,7 +451,7 @@ def exclude_samples(samples, patterns=[]):
 
     for pattern in patterns:
         for sample in samples:
-            if re.findall(pattern, sample) > 1:
+            if len(re.findall(pattern, sample)) > 1:
                 raise AssertionError(
                     f"The pattern '{pattern}' matches multiple times in '{sample}'"
                 )
@@ -465,34 +465,6 @@ def exclude_samples(samples, patterns=[]):
                 samples_to_remove.add(sample)
 
     return list(set(samples).difference(samples_to_remove))
-
-
-def load_config(config_file) -> dict:
-    """
-    Read in given config json to dict
-
-    Parameters
-    ----------
-    config_file : str
-        json config file
-
-    Raises
-    ------
-    RuntimeError: raised when a non-json file passed as config
-
-    Returns
-    -------
-    config : dict
-        dictionary of loaded json file
-    """
-    if not config_file.endswith(".json"):
-        # sense check a json passed
-        raise RuntimeError("Error: invalid config passed - not a json file")
-
-    with open(config_file) as file:
-        config = json.load(file)
-
-    return config
 
 
 def load_test_data(test_samples) -> list:
