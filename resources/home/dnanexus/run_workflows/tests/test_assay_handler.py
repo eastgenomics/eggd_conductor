@@ -199,75 +199,6 @@ class TestAssayHandler:
             empty_assay_handler.samples
         ), "Unexpected number samples kept"
 
-    @pytest.mark.parametrize(
-        "test_input, expected",
-        [
-            (
-                ["sample1"],
-                [
-                    "sample2",
-                    "sample3",
-                    "sample4",
-                    "sample5",
-                    "sample6",
-                    "sample7",
-                    "sample8",
-                    "sample9",
-                    "sample10",
-                ],
-            ),
-            (
-                ["sample1", "sample2"],
-                [
-                    "sample3",
-                    "sample4",
-                    "sample5",
-                    "sample6",
-                    "sample7",
-                    "sample8",
-                    "sample9",
-                    "sample10",
-                ],
-            ),
-            (
-                [""],
-                [
-                    "sample1",
-                    "sample2",
-                    "sample3",
-                    "sample4",
-                    "sample5",
-                    "sample6",
-                    "sample7",
-                    "sample8",
-                    "sample9",
-                    "sample10",
-                ],
-            ),
-        ],
-    )
-    def test_limiting_using_sample_names(
-        self, test_input, expected, empty_assay_handler
-    ):
-        empty_assay_handler.samples = [
-            "sample1",
-            "sample2",
-            "sample3",
-            "sample4",
-            "sample5",
-            "sample6",
-            "sample7",
-            "sample8",
-            "sample9",
-            "sample10",
-        ]
-
-        empty_assay_handler.limit_samples(samples_to_exclude=test_input)
-
-        assert expected == empty_assay_handler.samples and len(
-            expected
-        ) == len(empty_assay_handler.samples), "Unexpected samples kept"
-
     def test_subset_with_missing_subset_samplesheet(
         self, normal_assay_handler
     ):
@@ -703,7 +634,7 @@ class TestBuildJobInputs:
         mock_fixed_inputs.return_value = self.mocked_fixed_inputs_json
         # mock the handling of TSO500 method so that test passes using Github
         # action
-        mock_handle_TSO500.return_value = self.mocked_handle_TSO500
+        mock_handle_TSO500.return_value = (self.mocked_handle_TSO500, None)
         params = job_inputs_assay_handler.config["executables"][
             "workflow-Gjk42k84yfKPv0x151ZvYBpK"
         ]

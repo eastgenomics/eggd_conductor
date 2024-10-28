@@ -4,6 +4,7 @@ import pytest
 
 from .settings import TEST_DATA_DIR
 from utils.utils import (
+    exclude_samples,
     select_instance_types,
     match_samples_to_assays,
     parse_sample_sheet,
@@ -367,82 +368,88 @@ class TestMatchSamplesToAssays:
             )
 
 
-# class TestExcludeSamplesFromSampleList(unittest.TestCase):
-#     """
-#     Function removes the specified samples from the given list of sample
-#     names, and will raise error on any not present in the sample list
-#     """
-#     def test_valid_samples_excluded(self):
-#         """
-#         Test when valid samples specified to exclude they are correctly
-#         removed from the sample list
-#         """
-#         sample_list = exclude_samples_from_sample_list(
-#             sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
-#             exclude_samples=['sample1', 'sample2']
-#         )
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        (
+            ["1100000-11000R1100-FJE9340-5678-M-123456"],
+            [
+                "1000000-10000R1000-FJE9340-1234-F-123456",
+                "2000000-20000R2000-FJE9340-1234-M-123456",
+                "3000000-30000R3000-FJE9340-1234-F-123456",
+                "4000000-40000R4000-FJE9340-1234-F-123456",
+                "5000000-50000R5000-FJE9340-1234-M-123456",
+                "6000000-60000R6000-FJE9340-1234-M-123456",
+                "7000000-70000R7000-FJE9340-1234-M-123456",
+                "8000000-80000R8000-FJE9340-1234-F-123456",
+                "9000000-90000R9000-FJE9340-1234-M-123456",
+                "1200000-12000R1200-FJE9340-5678-F-123456",
+                "1300000-13000R1300-FJE9340-9101-M-123456",
+                "1400000-14000R1400-FJE9340-9101-M-123456",
+            ],
+        ),
+        (
+            [
+                "1000000-10000R1000-FJE9340-1234-F-123456",
+                "2000000-20000R2000-FJE9340-1234-M-123456",
+            ],
+            [
+                "3000000-30000R3000-FJE9340-1234-F-123456",
+                "4000000-40000R4000-FJE9340-1234-F-123456",
+                "5000000-50000R5000-FJE9340-1234-M-123456",
+                "6000000-60000R6000-FJE9340-1234-M-123456",
+                "7000000-70000R7000-FJE9340-1234-M-123456",
+                "8000000-80000R8000-FJE9340-1234-F-123456",
+                "9000000-90000R9000-FJE9340-1234-M-123456",
+                "1100000-11000R1100-FJE9340-5678-M-123456",
+                "1200000-12000R1200-FJE9340-5678-F-123456",
+                "1300000-13000R1300-FJE9340-9101-M-123456",
+                "1400000-14000R1400-FJE9340-9101-M-123456",
+            ],
+        ),
+        (
+            [],
+            [
+                "1000000-10000R1000-FJE9340-1234-F-123456",
+                "2000000-20000R2000-FJE9340-1234-M-123456",
+                "3000000-30000R3000-FJE9340-1234-F-123456",
+                "4000000-40000R4000-FJE9340-1234-F-123456",
+                "5000000-50000R5000-FJE9340-1234-M-123456",
+                "6000000-60000R6000-FJE9340-1234-M-123456",
+                "7000000-70000R7000-FJE9340-1234-M-123456",
+                "8000000-80000R8000-FJE9340-1234-F-123456",
+                "9000000-90000R9000-FJE9340-1234-M-123456",
+                "1100000-11000R1100-FJE9340-5678-M-123456",
+                "1200000-12000R1200-FJE9340-5678-F-123456",
+                "1300000-13000R1300-FJE9340-9101-M-123456",
+                "1400000-14000R1400-FJE9340-9101-M-123456",
+            ],
+        ),
+        (
+            ["-1234-", "-5678-", "1400000-14000R1400-FJE9340-9101-M-123456"],
+            ["1300000-13000R1300-FJE9340-9101-M-123456"],
+        ),
+    ],
+)
+def test_exclude_samples(test_input, expected):
+    samples = [
+        "1000000-10000R1000-FJE9340-1234-F-123456",
+        "2000000-20000R2000-FJE9340-1234-M-123456",
+        "3000000-30000R3000-FJE9340-1234-F-123456",
+        "4000000-40000R4000-FJE9340-1234-F-123456",
+        "5000000-50000R5000-FJE9340-1234-M-123456",
+        "6000000-60000R6000-FJE9340-1234-M-123456",
+        "7000000-70000R7000-FJE9340-1234-M-123456",
+        "8000000-80000R8000-FJE9340-1234-F-123456",
+        "9000000-90000R9000-FJE9340-1234-M-123456",
+        "1100000-11000R1100-FJE9340-5678-M-123456",
+        "1200000-12000R1200-FJE9340-5678-F-123456",
+        "1300000-13000R1300-FJE9340-9101-M-123456",
+        "1400000-14000R1400-FJE9340-9101-M-123456",
+    ]
 
-#         self.assertEqual(sorted(sample_list), ['sample3', 'sample4'])
+    output = exclude_samples(samples, patterns=test_input)
 
-#     def test_invalid_sample_raises_runtime_error(self):
-#         """
-#         Test if invalid samples provided to exclude that this correctly
-#         raises RuntimeError
-#         """
-#         with pytest.raises(RuntimeError):
-#             exclude_samples_from_sample_list(
-#                 sample_list=['sample1', 'sample2', 'sample3', 'sample4'],
-#                 exclude_samples=['sample6']
-#             )
-
-
-# class TestSubsetSamplesheetSamples(unittest.TestCase):
-#     """
-#     Tests for utils.subset_samplesheet_samples
-
-#     Function takes a list of sample names parsed from the samplesheet and
-#     a regex pattern against which to filter them down and retain samples
-#     """
-#     samples = ['sample-1-123-foo', 'sample-2-567-bar', 'sample-3-789-baz']
-
-#     def test_subset_correct(self):
-#         """
-#         Test that the subset is returned correctly
-#         """
-#         subset_samples = subset_samplesheet_samples(
-#             samples=self.samples,
-#             subset=r'-123-|-567-'
-#         )
-
-#         expected_subset = ['sample-1-123-foo', 'sample-2-567-bar']
-
-#         assert sorted(subset_samples) == expected_subset, (
-#             'expected sample subset incorret'
-#         )
-
-
-#     def test_no_samples_retained_raises_assertion_error(self):
-#         """
-#         Test that when no samples are left after subet that we correctly
-#         raise an AssertionError
-#         """
-#         expected_error = 'No samples left after filtering using pattern blarg'
-
-#         with pytest.raises(AssertionError, match=expected_error):
-#             subset_samplesheet_samples(
-#             samples=self.samples,
-#             subset='blarg'
-#         )
-
-#     def test_invalid_regex_pattern_raises_regex_error(self):
-#         """
-#         Test that when an invalid regex pattern is provided that a
-#         re.error is raised
-#         """
-#         expected_error = 'Invalid subset pattern provided'
-
-#         with pytest.raises(re.error, match=expected_error):
-#             subset_samplesheet_samples(
-#             samples=self.samples,
-#             subset='[invalid'
-#         )
+    assert sorted(expected) == sorted(output) and len(expected) == len(
+        output
+    ), "Unexpected samples kept"

@@ -284,7 +284,6 @@ main () {
 
     if [ "$assay_config" ]; then
         optional_args+="--assay_config "
-        assay_config_ids=""
         enumeration=1
 
         for config in "${assay_config[@]}"; do
@@ -292,11 +291,8 @@ main () {
             dx download "$config" -o "assay_config${enumeration}.json"
             optional_args+="assay_config${enumeration}.json "
             # add file IDs of config as output field to easily audit what configs used for analyses
-            assay_config_ids+="$(grep -oE 'file-[A-Za-z0-9]+' <<< "$config") "
             enumeration=$((1+enumeration))
         done
-
-        dx-jobutil-add-output assay_config_file_ids "$assay_config_ids" --class=string
     fi
     if [[ "$create_project" == 'false' && -z "$dx_project" ]]; then
         # default behaviour to not create analysis project and use same as
@@ -375,12 +371,12 @@ main () {
 
     total_jobs=$(cat total_jobs.log)
 
-    message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for "
+    message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for *${run_id}*"
 
     while read -r project_id assay version; do
         project_name=$(dx describe --json "$project_id" | jq -r '.name')
         analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
-        message+="*${run_id}*%0AConfig used: *${assay}* (v${version})%0A"
+        message+="%0AConfig used: *${assay}* (v${version})%0A"
         message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
     done < analysis_project.log
 
@@ -393,6 +389,20 @@ main () {
     job_ids=$(cat all_job_ids.log)
     job_ids="${job_ids%?}"  # trim off trailing comma
     dx-jobutil-add-output job_ids "$job_ids" --class=string
+
+    for file in /home/dnanexus/out/job_summaries/*; do
+        project_to_upload_to=$(echo "$file" | cut -f1 -d"-")
+
+        if [ "$testing" == 'true' ]; then
+            file_id=$(dx upload "${file}" --path "${PROJECT_ID}:/" --brief)
+        else
+            file_id=$(dx upload "${file}" --path "${project_to_upload_to}:/" --brief)
+        fi
+
+        dx-jobutil-add-output job_summaries "$file_id" --class=array:file
+
+    done
+
 
     mark-success
 }

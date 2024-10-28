@@ -29,35 +29,38 @@ class AssayHandler:
         self.job_info_per_run = {}
         self.job_outputs = {}
         self.jobs = []
+        self.missing_output_samples = []
+        self.job_summary = defaultdict(lambda: defaultdict(dict))
 
-    def limit_samples(self, limit_nb=None, samples_to_exclude=[]):
+    def limit_samples(self, limit_nb=None):
         """Limit samples using a number or specific names
 
         Args:
             limit_nb (int, optional): Limit number for samples.
             Defaults to None.
-            samples_to_exclude (list, optional): List of samples to exclude.
+            patterns_to_exclude (list, optional): List of samples to exclude.
             Defaults to [].
         """
+
+        original_sample_list = self.samples
 
         if limit_nb:
             # use randomness to choose the samples in order to not be limited
             # to a single config in testing
             self.samples = random.sample(self.samples, limit_nb)
 
-        sample_list = self.samples
+        excluded_samples = list(
+            set(original_sample_list).difference(self.samples)
+        )
 
-        self.samples = [
-            sample
-            for sample in self.samples
-            if sample not in samples_to_exclude
-        ]
-
-        if sample_list == self.samples:
-            prettier_print(f"No samples were removed: {samples_to_exclude}")
+        if sorted(original_sample_list) == sorted(self.samples):
+            prettier_print("No samples were removed")
         else:
             prettier_print(
-                f"The following samples were removed: {samples_to_exclude}"
+                (
+                    f"Limiting samples to {limit_nb}, the following samples "
+                    f"were excluded: {excluded_samples}"
+                )
             )
 
     def subset_samples(self):
@@ -135,7 +138,7 @@ class AssayHandler:
         """Create an analysis project log with info per config file contained
         in the DXBuilder object"""
 
-        with open("analysis_project.log", "w") as f:
+        with open("analysis_project.log", "a") as f:
             f.write(
                 f"{self.project.id} "
                 f"{self.config.get('assay_code')} "
@@ -378,9 +381,13 @@ class AssayHandler:
         job_info["job_name"] = job_name
 
         if executable_name.startswith("TSO500_reports_workflow") and sample:
-            input_dict = self.handle_TSO500_inputs(
+            input_dict, missing_output_sample = self.handle_TSO500_inputs(
                 input_dict, sample, self.job_outputs
             )
+
+            if missing_output_sample:
+                # send message
+                self.missing_output_samples.append(missing_output_sample)
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
@@ -591,10 +598,12 @@ class AssayHandler:
         self.jobs.append(job_id)
 
         if sample:
+            self.job_summary[executable][sample] = job_id
             self.job_outputs.setdefault(sample, {})
             # map analysis id to dx job id for sample
             self.job_outputs[sample].update({analysis: job_id})
         else:
+            self.job_summary[executable] = job_id
             # map workflow id to created dx job id
             self.job_outputs[analysis] = job_id
 

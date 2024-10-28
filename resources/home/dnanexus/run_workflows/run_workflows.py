@@ -34,12 +34,15 @@ from utils.utils import (
     load_config,
     load_test_data,
     match_samples_to_assays,
+    preprocess_exclusion_patterns,
+    exclude_samples,
     parse_run_info_xml,
     parse_sample_sheet,
     prettier_print,
     time_stamp,
     select_instance_types,
     create_project_name,
+    write_job_summary,
 )
 from utils.demultiplexing import (
     demultiplex,
@@ -197,6 +200,9 @@ def parse_args() -> argparse.Namespace:
         args.exclude_samples = [
             x.replace(" ", "") for x in args.exclude_samples.split(",") if x
         ]
+        args.exclude_samples = preprocess_exclusion_patterns(
+            args.exclude_samples
+        )
 
     return args
 
@@ -223,18 +229,16 @@ def main():
         assay_handler = AssayHandler(config_content)
         assay_handlers.append(assay_handler)
 
-    assay_codes = [
-        assay_handler.assay_code for assay_handler in assay_handlers
-    ]
+    if args.exclude_samples:
+        prettier_print(
+            "Attempting to exclude following samples using: "
+            f"{args.exclude_samples}"
+        )
+        args.samples = exclude_samples(args.exclude_samples)
 
-    # add the file ID of assay config file used as job output, this
-    # is to make it easier to audit what configs were used for analysis
-    subprocess.run(
-        "dx-jobutil-add-output assay_config_file_ids "
-        f"{'|'.join(assay_codes)} --class=string",
-        shell=True,
-        check=False,
-    )
+        assert (
+            args.samples
+        ), f"No samples are left after excluding using {args.exclude_samples}"
 
     assay_to_samples = match_samples_to_assays(
         configs=configs,
@@ -307,15 +311,6 @@ def main():
 
         if limiting_nb:
             assay_handler.limit_samples(limit_nb=limiting_nb)
-
-        if args.exclude_samples:
-            prettier_print(
-                "Attempting to exclude following samples from "
-                f"{assay_handler.assay}: {args.exclude_samples}"
-            )
-            assay_handler.limit_samples(
-                samples_to_exclude=args.exclude_samples
-            )
 
         assay_handler.subset_samples()
 
@@ -429,7 +424,7 @@ def main():
         ]
     ):
         demultiplex_config = set_config_for_demultiplexing(
-            assay_handler.config for assay_handler in assay_handlers
+            *[assay_handler.config for assay_handler in assay_handlers]
         )
 
         demultiplex_app_id = None
@@ -514,6 +509,20 @@ def main():
 
     total_jobs = 0
 
+    config_file_ids = [
+        f"{handler.config.get('assay')} - v{handler.config.get('version')} -> {handler.project.id}"
+        for handler in assay_handlers
+    ]
+
+    # add the file ID of assay config file used as job output, this
+    # is to make it easier to audit what configs were used for analysis
+    subprocess.run(
+        "dx-jobutil-add-output assay_config_file_ids "
+        f"\"{' | '.join(config_file_ids)}\" --class=string",
+        shell=True,
+        check=True,
+    )
+
     for handler in assay_handlers:
         prettier_print(f"Samples for {handler.assay_code}: {handler.samples}")
         project_id = handler.project.id
@@ -529,32 +538,63 @@ def main():
                 "start jobs"
             )
 
-            # first check if specified to reuse a previous job for this step
-            if args.job_reuse.get(params["analysis"]):
-                previous_job = args.job_reuse.get(params["analysis"])
+            if args.job_reuse:
+                invalid_assay_keys = []
+                assay_names_available = [
+                    config.get("assay") for config in configs.values()
+                ]
 
-                assert re.match(r"(job|analysis)-[\w]+", previous_job), (
-                    "Job specified to reuse does not appear valid: "
-                    f"{previous_job}"
-                )
+                # check the job reuse dict if the key are linked to dicts i.e.
+                # assay level job reuse
+                for key, value in args.job_reuse.items():
+                    if isinstance(value, dict):
+                        if key not in assay_names_available:
+                            invalid_assay_keys.append(key)
 
-                if params["per_sample"]:
-                    # ensure we're only doing this for per run jobs for now
-                    raise NotImplementedError(
-                        "-iJOB_REUSE not yet implemented for per sample jobs"
+                if invalid_assay_keys:
+                    raise AssertionError(
+                        (
+                            "-ijob_reuse: The following assay names are not "
+                            f"available to be used {invalid_assay_keys}. "
+                            "Check if the use of -iassay_config might impact "
+                            "the assay keys that you can use. Full job_reuse "
+                            f"parameter: {args.job_reuse}"
+                        )
                     )
 
-                prettier_print(
-                    f"Reusing provided job {previous_job} for analysis step "
-                    f"{params['analysis']} for {params['name']}"
-                )
+                # check if the assay matches the top level in the job reuse arg
+                if handler.assay in args.job_reuse:
+                    analysis = args.job_reuse.get(handler.assay)
+                else:
+                    analysis = args.job_reuse
 
-                # dict to add all stage output names and job ids for every
-                # sample to used to pass correct job ids to subsequent
-                # workflow / app calls
-                handler.job_outputs[params["analysis"]] = previous_job
+                # first check if specified to reuse a previous job for this
+                # step
+                if analysis.get(params["analysis"]):
+                    previous_job = analysis.get(params["analysis"])
 
-                continue
+                    assert re.match(r"(job|analysis)-[\w]+", previous_job), (
+                        "Job specified to reuse does not appear valid: "
+                        f"{previous_job}"
+                    )
+
+                    if params["per_sample"]:
+                        # ensure we're only doing this for per run jobs for now
+                        raise NotImplementedError(
+                            "-iJOB_REUSE not yet implemented for per sample jobs"
+                        )
+
+                    prettier_print(
+                        f"Reusing provided job {previous_job} for analysis step "
+                        f"{params['analysis']} for {params['name']}"
+                    )
+
+                    # dict to add all stage output names and job ids for every
+                    # sample to used to pass correct job ids to subsequent
+                    # workflow / app calls
+                    handler.job_outputs[params["analysis"]] = previous_job
+
+                    continue
 
             prettier_print("\nParams parsed from config before modifying:")
             prettier_print(params)
@@ -573,19 +613,51 @@ def main():
             if params["per_sample"] is True:
                 prettier_print(f"\nCalling {executable_name} per sample")
 
-                for sample in handler.samples:
-                    handler.build_job_inputs(executable, params, sample)
-                    # create new dict to store sample outputs
-                    handler.job_outputs.setdefault(handler.assay_code, {})
-                    handler.job_outputs[handler.assay_code].setdefault(
-                        sample, {}
+                for i, sample in enumerate(handler.samples, 1):
+                    prettier_print(
+                        f"Build job inputs for {sample}: {i}/{len(handler.samples)}"
                     )
+                    handler.build_job_inputs(executable, params, sample)
                     handler.populate_output_dir_config(executable, sample)
 
-                for sample in handler.job_info_per_sample:
-                    total_jobs += handler.call_job(
-                        executable, params["analysis"], instance_type, sample
+                if handler.missing_output_samples:
+                    # detected missing output files after eggd_tso, create a
+                    # comment in the ticket
+                    jira.add_comment(
+                        comment=(
+                            "The following samples have a missing output "
+                            "file after running eggd_tso. They have been "
+                            "skipped for the reports workflow: "
+                            f"{' | '.join(handler.missing_output_samples)}\n"
+                        ),
+                        url=(
+                            "http://platform.dnanexus.com/panx/projects/"
+                            f"{handler.project.name.replace('project-', '')}/monitor/"
+                        ),
+                        ticket=handler.ticket,
                     )
+                    handler.job_summary[executable][sample] = None
+
+                for i, sample in enumerate(handler.job_info_per_sample, 1):
+                    if sample not in handler.missing_output_samples:
+                        prettier_print(
+                            f"Starting job for {sample}: {i}/{len(handler.samples)}"
+                        )
+                        total_jobs += handler.call_job(
+                            executable,
+                            params["analysis"],
+                            instance_type,
+                            sample,
+                        )
+                    else:
+                        prettier_print(
+                            f"Skipping job start for {sample}: {i}/{len(handler.samples)}"
+                        )
+
+                if handler.missing_output_samples:
+                    # need to clear missing output samples variable otherwise
+                    # every potential subsequent job will add a comment
+                    handler.missing_output_samples = []
 
             elif params["per_sample"] is False:
                 prettier_print(f"\nCalling {executable_name} per run")
@@ -640,6 +712,8 @@ def main():
             ),
             ticket=handler.ticket,
         )
+
+    write_job_summary(*assay_handlers)
 
     if args.testing:
         terminate_jobs(
