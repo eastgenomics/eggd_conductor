@@ -15,8 +15,8 @@ from itertools import zip_longest
 import json
 import math
 import os
-import re
 import subprocess
+import traceback
 
 import dxpy as dx
 
@@ -43,6 +43,7 @@ from utils.utils import (
     select_instance_types,
     create_project_name,
     write_job_summary,
+    get_previous_job_from_job_reuse,
 )
 from utils.demultiplexing import (
     demultiplex,
@@ -329,8 +330,6 @@ def main():
             users = assay_handler.config.get("users")
             invite_participants_in_project(users, assay_handler.project)
 
-        assay_handler.create_analysis_project_logs()
-
         # set parent output directory, each app will have sub dir in here
         assay_handler.set_parent_out_dir(run_time)
 
@@ -507,8 +506,6 @@ def main():
     # by separate monitoring script
     open("all_job_ids.log", "w").close()
 
-    total_jobs = 0
-
     config_file_ids = [
         f"{handler.config.get('assay')} - v{handler.config.get('version')} -> {handler.project.id}"
         for handler in assay_handlers
@@ -523,194 +520,185 @@ def main():
         check=True,
     )
 
+    execution_errors = {}
+
     for handler in assay_handlers:
-        prettier_print(f"Samples for {handler.assay_code}: {handler.samples}")
-        project_id = handler.project.id
-
-        # set context to project for running jobs
-        dx.set_workspace_id(project_id)
-
-        for executable, params in handler.config["executables"].items():
-            # for each workflow/app, check if its per sample or all samples and
-            # run correspondingly
+        try:
             prettier_print(
-                f'\n\nConfiguring {params.get("name")} ({executable}) to '
-                "start jobs"
+                f"Samples for {handler.assay_code}: {handler.samples}"
             )
+            project_id = handler.project.id
 
-            if args.job_reuse:
-                invalid_assay_keys = []
-                assay_names_available = [
-                    config.get("assay") for config in configs.values()
-                ]
+            # set context to project for running jobs
+            dx.set_workspace_id(project_id)
 
-                # check the job reuse dict if the key are linked to dicts i.e.
-                # assay level job reuse
-                for key, value in args.job_reuse.items():
-                    if isinstance(value, dict):
-                        if key not in assay_names_available:
-                            invalid_assay_keys.append(key)
+            for executable, params in handler.config["executables"].items():
+                # for each workflow/app, check if its per sample or all samples
+                # and run correspondingly
+                prettier_print(
+                    f'\n\nConfiguring {params.get("name")} ({executable}) to '
+                    "start jobs"
+                )
 
-                if invalid_assay_keys:
-                    raise AssertionError(
-                        (
-                            "-ijob_reuse: The following assay names are not "
-                            f"available to be used {invalid_assay_keys}. "
-                            "Check if the use of -iassay_config might impact "
-                            "the assay keys that you can use. Full job_reuse "
-                            f"parameter: {args.job_reuse}"
-                        )
+                if args.job_reuse:
+                    previous_job = get_previous_job_from_job_reuse(
+                        args.job_reuse, configs, handler.assay, params
                     )
 
-                # check if the assay matches the top level in the job reuse arg
-                if handler.assay in args.job_reuse:
-                    analysis = args.job_reuse.get(handler.assay)
+                    if previous_job:
+                        # dict to add all stage output names and job ids for
+                        # every sample to used to pass correct job ids to
+                        # subsequent workflow / app calls
+                        handler.job_outputs[params["analysis"]] = previous_job
+                        continue
+
+                prettier_print("\nParams parsed from config before modifying:")
+                prettier_print(params)
+
+                # log file of all jobs run for current executable, used in
+                # case of failing to launch all jobs to be able to terminate
+                # all analyses
+                open("job_id.log", "w").close()
+
+                executable_name = handler.execution_mapping[executable]["name"]
+
+                # get instance types to use for executable from config for
+                # flowcell
+                instance_type = select_instance_types(
+                    run_id=run_id, instance_types=params.get("instance_types")
+                )
+
+                if params["per_sample"] is True:
+                    prettier_print(f"\nCalling {executable_name} per sample")
+
+                    for i, sample in enumerate(handler.samples, 1):
+                        prettier_print(
+                            f"Build job inputs for {sample}: {i}/{len(handler.samples)}"
+                        )
+                        handler.build_job_inputs(executable, params, sample)
+                        handler.populate_output_dir_config(executable, sample)
+
+                    if handler.missing_output_samples:
+                        # detected missing output files after eggd_tso, create
+                        # a comment in the ticket
+                        jira.add_comment(
+                            comment=(
+                                "The following samples have a missing output "
+                                "file after running eggd_tso. They have been "
+                                "skipped for the reports workflow: "
+                                f"{' | '.join(handler.missing_output_samples)}\n"
+                            ),
+                            url=(
+                                "http://platform.dnanexus.com/panx/projects/"
+                                f"{handler.project.name.replace('project-', '')}/monitor/"
+                            ),
+                            ticket=handler.ticket,
+                        )
+                        handler.job_summary[executable][sample] = None
+
+                    for i, sample in enumerate(handler.job_info_per_sample, 1):
+                        if sample not in handler.missing_output_samples:
+                            prettier_print(
+                                f"Starting job for {sample}: {i}/{len(handler.samples)}"
+                            )
+
+                            handler.call_job(
+                                executable,
+                                params["analysis"],
+                                instance_type,
+                                sample,
+                            )
+                        else:
+                            prettier_print(
+                                f"Skipping job start for {sample}: {i}/{len(handler.samples)}"
+                            )
+
+                    if handler.missing_output_samples:
+                        # need to clear missing output samples variable
+                        # otherwise every potential subsequent job will add a
+                        # comment
+                        handler.missing_output_samples = []
+
+                elif params["per_sample"] is False:
+                    prettier_print(f"\nCalling {executable_name} per run")
+
+                    handler.build_job_inputs(executable, params)
+                    handler.populate_output_dir_config(executable)
+
+                    handler.call_job(
+                        executable, params["analysis"], instance_type
+                    )
+
                 else:
-                    analysis = args.job_reuse
-
-                # first check if specified to reuse a previous job for this
-                # step
-                if analysis.get(params["analysis"]):
-                    previous_job = analysis.get(params["analysis"])
-
-                    assert re.match(r"(job|analysis)-[\w]+", previous_job), (
-                        "Job specified to reuse does not appear valid: "
-                        f"{previous_job}"
+                    # per_sample is not True or False, exit
+                    raise ValueError(
+                        f"per_sample declaration for {executable} is not True or "
+                        f"False ({params['per_sample']}). \n\nPlease check the "
+                        "config."
                     )
 
-                    if params["per_sample"]:
-                        # ensure we're only doing this for per run jobs for now
-                        raise NotImplementedError(
-                            "-iJOB_REUSE not yet implemented for per sample jobs"
+                prettier_print(
+                    f'\n\nAll jobs for {params.get("name")} ({executable}) '
+                    f"launched successfully!\n\n"
+                )
+
+                if params.get("hold"):
+                    # specified to hold => wait for all jobs to complete
+
+                    # tag conductor whilst waiting to make it clear its being
+                    # held
+                    conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
+                    hold_tag = [
+                        (
+                            f"Holding job until {executable_name} "
+                            "job(s) complete"
                         )
+                    ]
+                    conductor_job.add_tags(hold_tag)
 
-                    prettier_print(
-                        f"Reusing provided job {previous_job} for analysis step "
-                        f"{params['analysis']} for {params['name']}"
+                    wait_on_done(
+                        analysis=params["analysis"],
+                        analysis_name=executable_name,
+                        all_job_ids=handler.job_outputs,
                     )
 
-                    # dict to add all stage output names and job ids for every
-                    # sample to used to pass correct job ids to subsequent
-                    # workflow / app calls
-                    handler.job_outputs[params["analysis"]] = previous_job
+                    conductor_job.remove_tags(hold_tag)
 
-                    continue
-
-            prettier_print("\nParams parsed from config before modifying:")
-            prettier_print(params)
-
-            # log file of all jobs run for current executable, used in case of
-            # failing to launch all jobs to be able to terminate all analyses
-            open("job_id.log", "w").close()
-
-            executable_name = handler.execution_mapping[executable]["name"]
-
-            # get instance types to use for executable from config for flowcell
-            instance_type = select_instance_types(
-                run_id=run_id, instance_types=params.get("instance_types")
+            # add comment to Jira ticket for run to link to analysis project
+            jira.add_comment(
+                comment=(
+                    "All jobs successfully launched by eggd_conductor. "
+                    "\nAnalysis project(s): "
+                ),
+                url=(
+                    "http://platform.dnanexus.com/panx/projects/"
+                    f"{handler.project.name.replace('project-', '')}/monitor/"
+                ),
+                ticket=handler.ticket,
             )
 
-            if params["per_sample"] is True:
-                prettier_print(f"\nCalling {executable_name} per sample")
+        except Exception:
+            if handler.jobs:
+                terminate_jobs([job for job in handler.jobs])
 
-                for i, sample in enumerate(handler.samples, 1):
-                    prettier_print(
-                        f"Build job inputs for {sample}: {i}/{len(handler.samples)}"
-                    )
-                    handler.build_job_inputs(executable, params, sample)
-                    handler.populate_output_dir_config(executable, sample)
+            execution_errors.setdefault(
+                f"{handler.assay} - {handler.project.id}", []
+            ).append(traceback.format_exc())
 
-                if handler.missing_output_samples:
-                    # detected missing output files after eggd_tso, create a
-                    # comment in the ticket
-                    jira.add_comment(
-                        comment=(
-                            "The following samples have a missing output "
-                            "file after running eggd_tso. They have been "
-                            "skipped for the reports workflow: "
-                            f"{' | '.join(handler.missing_output_samples)}\n"
-                        ),
-                        url=(
-                            "http://platform.dnanexus.com/panx/projects/"
-                            f"{handler.project.name.replace('project-', '')}/monitor/"
-                        ),
-                        ticket=handler.ticket,
-                    )
-                    handler.job_summary[executable][sample] = None
+        finally:
+            handler.create_analysis_project_logs()
 
-                for i, sample in enumerate(handler.job_info_per_sample, 1):
-                    if sample not in handler.missing_output_samples:
-                        prettier_print(
-                            f"Starting job for {sample}: {i}/{len(handler.samples)}"
-                        )
-                        total_jobs += handler.call_job(
-                            executable,
-                            params["analysis"],
-                            instance_type,
-                            sample,
-                        )
-                    else:
-                        prettier_print(
-                            f"Skipping job start for {sample}: {i}/{len(handler.samples)}"
-                        )
+    if execution_errors:
+        error_msg = ""
 
-                if handler.missing_output_samples:
-                    # need to clear missing output samples variable otherwise
-                    # every potential subsequent job will add a comment
-                    handler.missing_output_samples = []
+        for handler, errors in execution_errors.items():
+            error_msg += f"{handler}:\n"
 
-            elif params["per_sample"] is False:
-                prettier_print(f"\nCalling {executable_name} per run")
+            for error in errors:
+                error_msg += f"```{error}```\n"
 
-                handler.build_job_inputs(executable, params)
-                handler.populate_output_dir_config(executable)
-
-                total_jobs += handler.call_job(
-                    executable, params["analysis"], instance_type
-                )
-
-            else:
-                # per_sample is not True or False, exit
-                raise ValueError(
-                    f"per_sample declaration for {executable} is not True or "
-                    f"False ({params['per_sample']}). \n\nPlease check the "
-                    "config."
-                )
-
-            prettier_print(
-                f'\n\nAll jobs for {params.get("name")} ({executable}) '
-                f"launched successfully!\n\n"
-            )
-
-            if params.get("hold"):
-                # specified to hold => wait for all jobs to complete
-
-                # tag conductor whilst waiting to make it clear its being held
-                conductor_job = dx.DXJob(os.environ.get("PARENT_JOB_ID"))
-                hold_tag = [
-                    (f"Holding job until {executable_name} " "job(s) complete")
-                ]
-                conductor_job.add_tags(hold_tag)
-
-                wait_on_done(
-                    analysis=params["analysis"],
-                    analysis_name=executable_name,
-                    all_job_ids=handler.job_outputs,
-                )
-
-                conductor_job.remove_tags(hold_tag)
-
-        # add comment to Jira ticket for run to link to analysis project
-        jira.add_comment(
-            comment=(
-                "All jobs successfully launched by eggd_conductor. "
-                "\nAnalysis project(s): "
-            ),
-            url=(
-                "http://platform.dnanexus.com/panx/projects/"
-                f"{handler.project.name.replace('project-', '')}/monitor/"
-            ),
-            ticket=handler.ticket,
+        Slack().send(
+            f"Detected error in setting or starting jobs for {error_msg}"
         )
 
     write_job_summary(*assay_handlers)
@@ -723,9 +711,6 @@ def main():
                 for job in assay_handler.jobs
             ]
         )
-
-    with open("total_jobs.log", "w") as fh:
-        fh.write(str(total_jobs))
 
     prettier_print("\nCompleted calling jobs")
 
