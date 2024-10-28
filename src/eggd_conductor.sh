@@ -373,16 +373,16 @@ main () {
 
     while read -r project_id assay version jobs; do
         if [[ $jobs =~ "0" ]]; then
-            message+="%0ANo jobs were launched for:%0A"
+            message+="%0A - :siren: No jobs were launched for:%0A"
         else
-            message+="%0A${jobs} jobs were launched for:%0A"
+            message+="%0A - :white_tick: ${jobs} jobs were launched for:%0A"
         fi
 
         project_name=$(dx describe --json "$project_id" | jq -r '.name')
         analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
 
         message+="Analysis project: *${project_name}*%0A${analysis_project_url}%0A"
-        message+="Config used: *${assay}* (v${version})"
+        message+="Config used: *${assay}* (v${version})%0A"
     done < analysis_project.log
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
