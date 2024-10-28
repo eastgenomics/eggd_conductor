@@ -333,7 +333,7 @@ main () {
         elif [ -s job_id.log ]; then
             # non empty log => jobs to terminate
             echo "Terminating jobs"
-            jobs=$(cat job_id.log)
+            jobs=$(cat job_id.log | xargs)
             dx terminate "$jobs"
         fi
 
@@ -369,15 +369,20 @@ main () {
         exit 1
     }
 
-    total_jobs=$(cat total_jobs.log)
+    message=":receipt: eggd_conductor:"
 
-    message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for *${run_id}*"
+    while read -r project_id assay version jobs; do
+        if [[ $jobs =~ "0" ]]; then
+            message+="%0ANo jobs were launched for:%0A"
+        else
+            message+="%0A${jobs} jobs were launched for:%0A"
+        fi
 
-    while read -r project_id assay version; do
         project_name=$(dx describe --json "$project_id" | jq -r '.name')
         analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
-        message+="%0AConfig used: *${assay}* (v${version})%0A"
-        message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
+
+        message+="Analysis project: *${project_name}*%0A${analysis_project_url}%0A"
+        message+="Config used: *${assay}* (v${version})"
     done < analysis_project.log
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
