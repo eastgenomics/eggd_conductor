@@ -229,19 +229,6 @@ def main():
         assay_handler = AssayHandler(config_content)
         assay_handlers.append(assay_handler)
 
-    assay_codes = [
-        assay_handler.assay_code for assay_handler in assay_handlers
-    ]
-
-    # add the file ID of assay config file used as job output, this
-    # is to make it easier to audit what configs were used for analysis
-    subprocess.run(
-        "dx-jobutil-add-output assay_config_file_ids "
-        f"{'|'.join(assay_codes)} --class=string",
-        shell=True,
-        check=False,
-    )
-
     if args.exclude_samples:
         prettier_print(
             "Attempting to exclude following samples using: "
@@ -521,6 +508,20 @@ def main():
     open("all_job_ids.log", "w").close()
 
     total_jobs = 0
+
+    config_file_ids = [
+        f"{handler.config.get('assay')} - v{handler.config.get('version')} -> {handler.project.id}"
+        for handler in assay_handlers
+    ]
+
+    # add the file ID of assay config file used as job output, this
+    # is to make it easier to audit what configs were used for analysis
+    subprocess.run(
+        "dx-jobutil-add-output assay_config_file_ids "
+        f"\"{' | '.join(config_file_ids)}\" --class=string",
+        shell=True,
+        check=True,
+    )
 
     for handler in assay_handlers:
         prettier_print(f"Samples for {handler.assay_code}: {handler.samples}")
