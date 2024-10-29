@@ -283,16 +283,19 @@ main () {
     optional_args=""
 
     if [ "$assay_config" ]; then
-        optional_args+="--assay_config "
+        optional_args+="--assay_config {"
         enumeration=1
 
         for config in "${assay_config[@]}"; do
             # assay config specified, download and use it
             dx download "$config" -o "assay_config${enumeration}.json"
-            optional_args+="assay_config${enumeration}.json "
+            file_id=$(dx describe "$config" --json | jq -r .id)
+            optional_args+="\"${file_id}\":\"assay_config${enumeration}.json\","
             # add file IDs of config as output field to easily audit what configs used for analyses
             enumeration=$((1+enumeration))
         done
+        optional_args="${optional_args%?}"  # trim off trailing comma
+        optional_args+="} "
     fi
     if [[ "$create_project" == 'false' && -z "$dx_project" ]]; then
         # default behaviour to not create analysis project and use same as
