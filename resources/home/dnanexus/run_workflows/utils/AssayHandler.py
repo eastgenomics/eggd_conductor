@@ -141,7 +141,7 @@ class AssayHandler:
         with open("analysis_project.log", "a") as f:
             f.write(
                 f"{self.project.id} "
-                f"{self.config.get('assay_code')} "
+                f"{self.config.get('file_id')} "
                 f"{self.config.get('version')} "
                 f"{len(self.jobs)}\n"
             )
