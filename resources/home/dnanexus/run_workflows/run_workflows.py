@@ -66,7 +66,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--assay_config",
-        nargs="+",
+        type=json.loads,
         help="Assay specific config file that defines all executables to run",
     )
     parser.add_argument(
@@ -216,8 +216,17 @@ def main():
     args = parse_args()
 
     if args.assay_config:
-        configs = [load_config(config) for config in args.assay_config]
-        configs = {config.get("assay_code"): config for config in configs}
+        configs = {
+            file_id: load_config(config)
+            for file_id, config in args.assay_config.items()
+        }
+
+        for file_id, config in configs.items():
+            config["file_id"] = file_id
+
+        configs = {
+            config.get("assay_code"): config for config in configs.values()
+        }
 
     else:
         # get all json assay configs from path in conductor config
