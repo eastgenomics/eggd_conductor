@@ -24,7 +24,12 @@ def empty_assay_handler():
 
 @pytest.fixture()
 def normal_assay_handler():
-    config = {"assay_code": "code1", "assay": "assay1", "version": "v1"}
+    config = {
+        "assay_code": "code1",
+        "assay": "assay1",
+        "version": "v1",
+        "file_id": "fake_file_id",
+    }
     assay_handler = AssayHandler(config)
     # parent dir set at runtime based off assay name and date time
     assay_handler.parent_out_dir = "/output/myAssay_timestamp/"
@@ -287,7 +292,7 @@ class TestAssayHandler:
         assert log_file_content == (
             (
                 f"{normal_assay_handler.project.id} "
-                f"{normal_assay_handler.config.get('assay_code')} "
+                f"{normal_assay_handler.config.get('file_id')} "
                 f"{normal_assay_handler.config.get('version')} "
                 "3\n"
             )
