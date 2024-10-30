@@ -463,6 +463,94 @@ def exclude_samples(samples, patterns=[]):
     return list(set(samples).difference(samples_to_remove))
 
 
+def get_previous_job_from_job_reuse(job_reuse, configs, handler_assay, params):
+    """Given a dict pointing to a job id, perform a series of check to ensure
+    that the job id can be used for bypassing job starts
+
+    Parameters
+    ----------
+    job_reuse : dict
+        Dict containing info for the job id to reuse
+    configs : list
+        List of config data
+    handler_assay : str
+        Assay used in that context of the function
+    params : dict
+        Dict containing assay information in the context of the function
+
+    Returns
+    -------
+    str
+        String with the job id to reuse
+
+    Raises
+    ------
+    AssertionError
+        When the top key of job_reuse is not available for use because of
+        restriction at the assay config level
+    NotImplementedError
+        When the analysis specified in the job_reuse variable is a per sample
+        analysis which is not supported
+    """
+
+    invalid_assay_keys = []
+    assay_names_available = [
+        config.get("assay") for config in configs.values()
+    ]
+
+    # check the job reuse dict if the key are linked to dicts i.e.
+    # assay level job reuse
+    for key, value in job_reuse.items():
+        if isinstance(value, dict):
+            if key not in assay_names_available:
+                invalid_assay_keys.append(key)
+
+    if invalid_assay_keys:
+        raise AssertionError(
+            (
+                "-ijob_reuse: The following assay names are not "
+                f"available to be used {invalid_assay_keys}. "
+                "Check if the use of -iassay_config might impact "
+                "the assay keys that you can use. Full job_reuse "
+                f"parameter: {job_reuse}"
+            )
+        )
+
+    # check if the assay matches the top level in the job reuse arg
+    analysis = (
+        job_reuse.get(handler_assay)
+        if handler_assay in job_reuse
+        else job_reuse
+    )
+
+    # first check if specified to reuse a previous job for this
+    # step
+    if analysis.get(params["analysis"]):
+        previous_job = analysis.get(params["analysis"])
+
+        assert re.match(r"(job|analysis)-[\w]+", previous_job), (
+            "Job specified to reuse does not appear valid: " f"{previous_job}"
+        )
+
+        if params["per_sample"]:
+            # ensure we're only doing this for per run jobs for now
+            raise NotImplementedError(
+                "-iJOB_REUSE not yet implemented for per sample jobs"
+            )
+
+        prettier_print(
+            f"Reusing provided job {previous_job} for analysis step "
+            f"{params['analysis']} for {params['name']}"
+        )
+
+        # dict to add all stage output names and job ids for every
+        # sample to used to pass correct job ids to subsequent
+        # workflow / app calls
+        return previous_job
+
+    return None
+
+
 def load_config(config_file) -> dict:
     """
     Read in given config json to dict

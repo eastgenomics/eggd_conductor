@@ -283,16 +283,19 @@ main () {
     optional_args=""
 
     if [ "$assay_config" ]; then
-        optional_args+="--assay_config "
+        optional_args+="--assay_config {"
         enumeration=1
 
         for config in "${assay_config[@]}"; do
             # assay config specified, download and use it
             dx download "$config" -o "assay_config${enumeration}.json"
-            optional_args+="assay_config${enumeration}.json "
+            file_id=$(dx describe "$config" --json | jq -r .id)
+            optional_args+="\"${file_id}\":\"assay_config${enumeration}.json\","
             # add file IDs of config as output field to easily audit what configs used for analyses
             enumeration=$((1+enumeration))
         done
+        optional_args="${optional_args%?}"  # trim off trailing comma
+        optional_args+="} "
     fi
     if [[ "$create_project" == 'false' && -z "$dx_project" ]]; then
         # default behaviour to not create analysis project and use same as
@@ -333,7 +336,7 @@ main () {
         elif [ -s job_id.log ]; then
             # non empty log => jobs to terminate
             echo "Terminating jobs"
-            jobs=$(cat job_id.log)
+            jobs=$(cat job_id.log | xargs)
             dx terminate "$jobs"
         fi
 
@@ -369,15 +372,20 @@ main () {
         exit 1
     }
 
-    total_jobs=$(cat total_jobs.log)
+    message=":receipt: eggd_conductor:"
 
-    message=":white_check_mark: eggd_conductor: ${total_jobs} jobs successfully launched for *${run_id}*"
+    while read -r project_id assay version jobs; do
+        if [[ $jobs =~ "0" ]]; then
+            message+="%0A:black_medium_small_square: :rotating_light: No jobs were launched for:%0A"
+        else
+            message+="%0A:black_medium_small_square: :white_check_mark: ${jobs} jobs were launched for:%0A"
+        fi
 
-    while read -r project_id assay version; do
         project_name=$(dx describe --json "$project_id" | jq -r '.name')
         analysis_project_url="platform.dnanexus.com/projects/${project_id/project-/}/monitor/"
-        message+="%0AConfig used: *${assay}* (v${version})%0A"
-        message+="Analysis project: *${project_name}*%0A${analysis_project_url}"
+
+        message+="Analysis project: *${project_name}*%0A${analysis_project_url}%0A"
+        message+="Config used: *${assay}* (v${version})%0A"
     done < analysis_project.log
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"

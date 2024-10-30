@@ -24,7 +24,12 @@ def empty_assay_handler():
 
 @pytest.fixture()
 def normal_assay_handler():
-    config = {"assay_code": "code1", "assay": "assay1", "version": "v1"}
+    config = {
+        "assay_code": "code1",
+        "assay": "assay1",
+        "version": "v1",
+        "file_id": "fake_file_id",
+    }
     assay_handler = AssayHandler(config)
     # parent dir set at runtime based off assay name and date time
     assay_handler.parent_out_dir = "/output/myAssay_timestamp/"
@@ -277,19 +282,21 @@ class TestAssayHandler:
     def test_create_analysis_project_logs(self, normal_assay_handler):
         normal_assay_handler.project = dx.bindings.dxproject.DXProject()
         normal_assay_handler.project.id = "Fake ID"
+        normal_assay_handler.jobs = ["job1", "job2", "job3"]
 
         normal_assay_handler.create_analysis_project_logs()
         log_file = pathlib.Path("analysis_project.log")
+        log_file_content = log_file.read_text()
+        log_file.unlink()
 
-        assert log_file.read_text() == (
+        assert log_file_content == (
             (
                 f"{normal_assay_handler.project.id} "
-                f"{normal_assay_handler.config.get('assay_code')} "
-                f"{normal_assay_handler.config.get('version')}\n"
+                f"{normal_assay_handler.config.get('file_id')} "
+                f"{normal_assay_handler.config.get('version')} "
+                "3\n"
             )
         ), "Content of log file different than expected"
-
-        log_file.unlink()
 
     def test_get_upload_tars_no_sentinel_file(self, empty_assay_handler):
         empty_assay_handler.get_upload_tars(None)
