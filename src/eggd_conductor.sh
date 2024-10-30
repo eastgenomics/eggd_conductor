@@ -376,9 +376,9 @@ main () {
 
     while read -r project_id assay version jobs; do
         if [[ $jobs =~ "0" ]]; then
-            message+="%0A:siren: No jobs were launched for:%0A"
+            message+="%0A:black_medium_small_square: :rotating_light: No jobs were launched for:%0A"
         else
-            message+="%0A:white_tick: ${jobs} jobs were launched for:%0A"
+            message+="%0A:black_medium_small_square: :white_check_mark: ${jobs} jobs were launched for:%0A"
         fi
 
         project_name=$(dx describe --json "$project_id" | jq -r '.name')
