@@ -652,11 +652,11 @@ def write_job_summary(specified_dx_project, *handlers):
 
         if specified_dx_project:
             path_to_job_summary = pathlib.Path(
-                f"/home/dnanexus/out/job_summaries/{project.name}-{i}-conductor_job_summary.txt"
+                f"/home/dnanexus/out/job_summaries/{time_stamp()}.{project.name}.{i}-conductor_job_summary.txt"
             )
         else:
             path_to_job_summary = pathlib.Path(
-                f"/home/dnanexus/out/job_summaries/{project.name}-conductor_job_summary.txt"
+                f"/home/dnanexus/out/job_summaries/{time_stamp()}.{project.name}.conductor_job_summary.txt"
             )
 
         path_to_job_summary.parent.mkdir(parents=True, exist_ok=True)
