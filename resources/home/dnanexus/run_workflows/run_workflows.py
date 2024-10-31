@@ -260,7 +260,6 @@ def main():
     if args.dx_project_id:
         project = dx.DXProject(args.dx_project_id)
         run_id = project.name
-
     else:
         project = None
         # output project not specified, create new one from run id
