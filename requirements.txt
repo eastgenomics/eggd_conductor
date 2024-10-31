@@ -1,7 +1,7 @@
 dictdiffer==0.9.0
 dxpy==0.318.1
 flatten_json==0.1.13
-packaging==24.1
+packaging==20.4
 pandas==1.4.1
 pytest==7.0.1
 pytest-cov==4.0.0
@@ -10,5 +10,5 @@ pytest-metadata==3.0.0
 pytest-mock==3.11.1
 pytest-subtests==0.11.0
 python-dateutil==2.8.2
-Requests==2.26.0
-urllib3==1.26.19
+Requests==2.32.3
+urllib3==2.2.3
