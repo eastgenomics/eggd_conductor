@@ -4,7 +4,7 @@ import os
 import pathlib
 import re
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import dxpy as dx
 import pytest
@@ -334,11 +334,13 @@ class TestAssayHandler:
 
     def test_set_parent_out_dir(self, normal_assay_handler):
         run_time = datetime.now().strftime("%y%m%d_%H%M")
-        with mock.patch.dict(os.environ, {"DESTINATION": "PROJECT-ID"}):
-            normal_assay_handler.set_parent_out_dir(run_time)
+        normal_assay_handler.project = Mock()
+        normal_assay_handler.project.name = "PROJECT-ID"
+
+        normal_assay_handler.set_parent_out_dir(run_time)
 
         expected_output = (
-            f"PROJECT-ID/output/{normal_assay_handler.assay}-{run_time}"
+            f"PROJECT-ID:/output/{normal_assay_handler.assay}-{run_time}"
         )
         assert normal_assay_handler.parent_out_dir == expected_output
 
