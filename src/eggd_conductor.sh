@@ -399,18 +399,13 @@ main () {
     dx-jobutil-add-output job_ids "$job_ids" --class=string
 
     for file in /home/dnanexus/out/job_summaries/*; do
-        project_to_upload_to=$(echo "$file" | cut -f1 -d"-")
-
-        if [ "$testing" == 'true' ]; then
-            file_id=$(dx upload "${file}" --path "${PROJECT_ID}:/" --brief)
-        else
-            file_id=$(dx upload "${file}" --path "${project_to_upload_to}:/" --brief)
-        fi
+        new_name=$(echo "$file" | awk -v OFS="." '{split($0, a, "."); print a[1], a[3], a[4]}')
+        new_name=${new_name##*/}
+        project_to_upload_to=$(echo "$file" | cut -f2 -d".")
+        file_id=$(dx upload "${file}" --path "${project_to_upload_to}:/${new_name}" --brief)
 
         dx-jobutil-add-output job_summaries "$file_id" --class=array:file
-
     done
-
 
     mark-success
 }
