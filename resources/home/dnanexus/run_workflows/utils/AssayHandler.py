@@ -184,8 +184,7 @@ class AssayHandler:
         """
 
         parent_out_dir = (
-            f"{os.environ.get('DESTINATION', '')}/output/"
-            f"{self.assay}-{run_time}"
+            f"{self.project.name}:/output/" f"{self.assay}-{run_time}"
         )
         self.parent_out_dir = parent_out_dir.replace("//", "/")
 
