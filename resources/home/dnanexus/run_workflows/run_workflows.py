@@ -85,6 +85,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dx_project_id",
         required=False,
+        default=False,
         help=(
             "DNAnexus project ID to use to run analysis in, "
             "if not specified will create one based off run ID and assay name"
