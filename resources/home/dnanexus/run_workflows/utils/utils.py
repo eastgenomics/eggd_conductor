@@ -637,7 +637,7 @@ def create_project_name(run_id, assay, development, testing):
     return f"{prefix}{run_id}_{assay}{suffix}"
 
 
-def write_job_summary(*handlers):
+def write_job_summary(specified_dx_project, *handlers):
     """Write a job summary file for the whole conductor job
 
     Parameters
@@ -645,21 +645,32 @@ def write_job_summary(*handlers):
     *handlers: Variable length argument list of handlers objects.
     """
 
-    for handler in handlers:
+    for i, handler in enumerate(handlers, 1):
         nb_jobs_per_assay = 0
         assay = handler.assay
         project = handler.project
 
-        path_to_job_summary = pathlib.Path(
-            f"/home/dnanexus/out/job_summaries/{project.name}-job_summary.txt"
-        )
+        if specified_dx_project:
+            path_to_job_summary = pathlib.Path(
+                f"/home/dnanexus/out/job_summaries/{project.name}-{i}-conductor_job_summary.txt"
+            )
+        else:
+            path_to_job_summary = pathlib.Path(
+                f"/home/dnanexus/out/job_summaries/{project.name}-conductor_job_summary.txt"
+            )
 
         path_to_job_summary.parent.mkdir(parents=True, exist_ok=True)
 
         with path_to_job_summary.open("w") as f:
             # write config information
             f.write(f"Project: {project.name}\n")
-            f.write(f"Assay: {assay}\n")
+            f.write(f"Assay: {assay}\n\n")
+
+            if not handler.job_summary:
+                f.write(
+                    "No jobs were started for this project. Please check the logs if this is not an expected outcome"
+                )
+                continue
 
             for executable, info in handler.job_summary.items():
                 nb_jobs_per_executable = 0
@@ -677,7 +688,7 @@ def write_job_summary(*handlers):
                 else:
                     f.write("'")
 
-                if info is dict:
+                if isinstance(info, dict):
                     f.write(":\n")
 
                     for sample, job_id in info.items():
@@ -691,13 +702,13 @@ def write_job_summary(*handlers):
                         nb_jobs_per_assay += 1
                         nb_jobs_per_executable += 1
                 else:
-                    f.write(f" '{info}'\n")
+                    f.write(f": '{info}'\n")
 
                     nb_jobs_per_assay += 1
                     nb_jobs_per_executable += 1
 
                 f.write(
-                    f"\nNumber of jobs started for {exe_name}: {nb_jobs_per_executable}\n"
+                    f"Number of jobs started for {exe_name}: {nb_jobs_per_executable}\n\n"
                 )
 
             f.write(
