@@ -348,13 +348,6 @@ class TestMatchSamplesToAssays:
                 configs=self.configs, all_samples=sample_list, testing=False
             )
 
-    def test_raise_assertion_error_on_mixed_assays(self):
-        """
-        Test that an AssertionError is raised when more than one assay
-        code is identified in the sample list
-        """
-        pass
-
     def test_raise_assertion_error_on_sample_w_no_assay_code_match(self):
         """
         Test that an AssertionError is raised when a sample has no assay
