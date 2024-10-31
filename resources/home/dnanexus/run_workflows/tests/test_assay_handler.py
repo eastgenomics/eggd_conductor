@@ -334,14 +334,12 @@ class TestAssayHandler:
 
     def test_set_parent_out_dir(self, normal_assay_handler):
         run_time = datetime.now().strftime("%y%m%d_%H%M")
-        normal_assay_handler.project = Mock()
-        normal_assay_handler.project.name = "PROJECT-ID"
+        with mock.patch.dict(
+            os.environ, {"DESTINATION": "FOLDER_PASSED_IN_CLI"}
+        ):
+            normal_assay_handler.set_parent_out_dir(run_time)
 
-        normal_assay_handler.set_parent_out_dir(run_time)
-
-        expected_output = (
-            f"PROJECT-ID:/output/{normal_assay_handler.assay}-{run_time}"
-        )
+        expected_output = f"FOLDER_PASSED_IN_CLI/output/{normal_assay_handler.assay}-{run_time}"
         assert normal_assay_handler.parent_out_dir == expected_output
 
     @patch("utils.AssayHandler.Slack.send")
