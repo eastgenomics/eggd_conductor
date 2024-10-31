@@ -261,6 +261,7 @@ def main():
         run_id = project.name
 
     else:
+        project = None
         # output project not specified, create new one from run id
         run_id = args.run_id
 
@@ -298,6 +299,7 @@ def main():
             f"{handler.assay} - {handler.version}"
             for handler in assay_handlers
         ]
+
         if len(filtered_tickets) > len(assay_handlers):
             ticket_errors.append(
                 "Too many tickets found for the number of configs detected "
@@ -401,9 +403,9 @@ def main():
                 "ticket"
             )
 
-        if ticket_errors:
-            for error in ticket_errors:
-                Slack().send(error)
+    if ticket_errors:
+        for error in ticket_errors:
+            Slack().send(error, warn=True)
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
@@ -704,13 +706,13 @@ def main():
             error_msg += f"{handler}:\n"
 
             for error in errors:
-                error_msg += f"```{error}```\n"
+                error_msg += f"```{error}```"
 
         Slack().send(
             f"Detected error in setting or starting jobs for {error_msg}"
         )
 
-    write_job_summary(*assay_handlers)
+    write_job_summary(args.dx_project_id, *assay_handlers)
 
     if args.testing:
         terminate_jobs(
