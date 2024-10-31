@@ -262,7 +262,7 @@ def main():
                 assay_handlers.append(assay_handler)
 
     assert [handler for handler in assay_handlers], Slack().send(
-        "No samples were assigned to any assay", warn=True
+        "No samples were assigned to any assay"
     )
 
     if args.dx_project_id:
