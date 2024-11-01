@@ -85,6 +85,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dx_project_id",
         required=False,
+        default=False,
         help=(
             "DNAnexus project ID to use to run analysis in, "
             "if not specified will create one based off run ID and assay name"
@@ -233,12 +234,6 @@ def main():
         configs = get_json_configs()
         configs = filter_highest_config_version(configs)
 
-    assay_handlers = []
-
-    for config_content in configs.values():
-        assay_handler = AssayHandler(config_content)
-        assay_handlers.append(assay_handler)
-
     if args.exclude_samples:
         prettier_print(
             "Attempting to exclude following samples using: "
@@ -256,11 +251,25 @@ def main():
         testing=args.testing,
     )
 
+    assay_handlers = []
+
+    for config_content in configs.values():
+        assay_handler = AssayHandler(config_content)
+
+        for assay_code, samples in assay_to_samples.items():
+            if assay_code == assay_handler.assay_code:
+                assay_handler.samples.extend(samples)
+                assay_handlers.append(assay_handler)
+
+    assert [handler for handler in assay_handlers], Slack().send(
+        "No samples were assigned to any assay"
+    )
+
     if args.dx_project_id:
         project = dx.DXProject(args.dx_project_id)
         run_id = project.name
-
     else:
+        project = None
         # output project not specified, create new one from run id
         run_id = args.run_id
 
@@ -298,6 +307,7 @@ def main():
             f"{handler.assay} - {handler.version}"
             for handler in assay_handlers
         ]
+
         if len(filtered_tickets) > len(assay_handlers):
             ticket_errors.append(
                 "Too many tickets found for the number of configs detected "
@@ -315,10 +325,6 @@ def main():
     for assay_handler, limiting_nb in zip_longest(
         assay_handlers, limiting_nb_per_assay
     ):
-        for assay_code, samples in assay_to_samples.items():
-            if assay_code == assay_handler.assay_code:
-                assay_handler.samples.extend(samples)
-
         if limiting_nb:
             assay_handler.limit_samples(limit_nb=limiting_nb)
 
@@ -401,9 +407,9 @@ def main():
                 "ticket"
             )
 
-        if ticket_errors:
-            for error in ticket_errors:
-                Slack().send(error)
+    if ticket_errors:
+        for error in ticket_errors:
+            Slack().send(error, warn=True)
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
@@ -704,13 +710,13 @@ def main():
             error_msg += f"{handler}:\n"
 
             for error in errors:
-                error_msg += f"```{error}```\n"
+                error_msg += f"```{error}```"
 
         Slack().send(
             f"Detected error in setting or starting jobs for {error_msg}"
         )
 
-    write_job_summary(*assay_handlers)
+    write_job_summary(args.dx_project_id, *assay_handlers)
 
     if args.testing:
         terminate_jobs(

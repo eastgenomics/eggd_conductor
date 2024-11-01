@@ -179,18 +179,7 @@ class Jira:
             f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
         )
 
-        if not run_tickets:
-            # didn't find a ticket -> either a typo in the name or ticket
-            # has not yet been raised / forgotten about, send an alert and
-            # continue with things since linking to Jira is non-essential
-            self.send_slack_alert(
-                "No Jira ticket found for the current sequencing run "
-                f"*{run_id}*.\n\nContinuing with analysis without linking to "
-                "Jira."
-            )
-            return
-        else:
-            return run_tickets
+        return run_tickets
 
     def send_slack_alert(self, message) -> None:
         """
