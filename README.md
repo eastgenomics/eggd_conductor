@@ -5,6 +5,7 @@ DNAnexus app for automating end to end analysis of samples through apps and work
 ---
 
 ## What are typical use cases for this app?
+
 Automating analysis for given samples from a config file definition. This can either be as an app triggered at the end of [dx-streaming-upload](dx-streaming-upload-url) or run as a stand-alone app with the required inputs.
 
 ---
@@ -13,8 +14,9 @@ Automating analysis for given samples from a config file definition. This can ei
 
 The following describes default app input behaviour
 
-**Required**
-- `-iEGGD_CONDUCTOR_CONFIG` (`file`): config file for app containing required variables
+### **Required**
+
+- `-ieggd_conductor_config` (`file`): config file for app containing required variables
 
 and either:
 
@@ -22,35 +24,35 @@ and either:
 
 OR
 
-- `-iFASTQS` (`array:file`): array of fastq files, to use if not providing a sentinel file
+- `-ifastqs` (`array:file`): array of fastq files, to use if not providing a sentinel file
 
+### **Optional**
 
-**Optional**
+#### **Files**
 
-**Files**
-- `-iSAMPLESHEET`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
-- `-iASSAY_CONFIG`: assay specific config file, if not given will search in `-iASSAY_CONFIG_PATH` from `-iEGGD_CONDUCTOR_CONFIG` for appropriate file
-- `-iRUN_INFO_XML`: *Only required if starting from `-iFASTQS` input and not providing `-iRUN_ID`*. RunInfo.xml file for the run, used to parse RunID from for naming of DNAnexus project if `-iCREATE_PROJECT=true` and for adding to Slack notifications.
+- `-isamplesheet`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
+- `-iassay_config`: assay specific config file, if not given will search in `-iassay_config_path` from `-ieggd_conductor_config` for appropriate file
+- `-irun_info_xml`: *Only required if starting from `-ifastqs` input and not providing `-irun_id`*. RunInfo.xml file for the run, used to parse RunID from for naming of DNAnexus project if `-icreate_project=true` and for adding to Slack notifications.
 
+#### **Strings**
 
+- `-idemultiplex_job_id`:  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
+- `-idemultiplex_out`: path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
+- `-idx_project`: project ID in which to run and store output
+- `-irun_id`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
+- `-isample_names`: comma separated list of sample names, to use if not providing a samplesheet
+- `-ijob_reuse`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This is currently only implemented for per-run analysis steps.
+- `-iexclude_samples`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be specified as they are in the samplesheet*)
 
-**Strings**
-- `-iDEMULTIPLEX_JOB_ID`:  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
-- `-iDEMULTIPLEX_OUT`: path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
-- `-iDX_PROJECT`: project ID in which to run and store output
-- `-iRUN_ID`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
-- `-iSAMPLE_NAMES`: comma separated list of sample names, to use if not providing a samplesheet
-- `-iJOB_REUSE`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This is currently only implemented for per-run analysis steps.
-- `-iEXCLUDE_SAMPLES`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be specified as they are in the samplesheet*)
+#### **Integers**
 
+- `-itesting_sample_limit`: no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
+- `-imismatch_allowance` (default: `1`): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
 
-**Integers**
-- `-iTESTING_SAMPLE_LIMIT`: no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
-- `-iMISMATCH_ALLOWANCE` (default: `1`): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
+#### **Booleans**
 
-**Booleans**
-- `-iCREATE_PROJECT` (default: `false`): controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project (or use if already exists) named as `002_<RUNID>_<ASSAY_CODE>`.
-- `-iTESTING`: terminates all jobs and clears output files after launching - for testing use only
+- `-icreate_project` (default: `false`): controls if to create a downstream analysis project to launch analysis jobs in, default behaviour is to use same project as eggd_conductor is running in. If true, the app will create a new project (or use if already exists) named as `002_<RUNID>_<ASSAY_CODE>`.
+- `-itesting`: terminates all jobs and clears output files after launching - for testing use only
 
 ---
 
@@ -60,10 +62,10 @@ The app may be run in 2 ways:
 
 - from a sentinel file uploaded by [dx-streaming-upload](dx-streaming-upload-url)
 - from a set of fastqs, if starting from fastqs other inputs are required:
-  - a samplesheet (`-iSAMPLESHEET`) or list of sample names (`-iSAMPLE_NAMES`)
-  - a `RunInfo.xml` file (`-iRUN_INFO_XML`) to parse the run ID from **or** the run ID as a string (`-iRUN_ID`)
+  - a samplesheet (`-isamplesheet`) or list of sample names (`-isample_names`)
+  - a `RunInfo.xml` file (`-irun_info_xml`) to parse the run ID from **or** the run ID as a string (`-irun_id`)
 
-In addition, both require passing a config file for the app (`-iEGGD_CONDUCTOR_CONFIG`). This is the config file containing the Slack/Jira/DNAnexus tokens, app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), as well as the path to the assay JSON configs in DNAnexus.
+In addition, both require passing a config file for the app (`-ieggd_conductor_config`). This is the config file containing the Slack/Jira/DNAnexus tokens, app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), as well as the path to the assay JSON configs in DNAnexus.
 
 A general outline of what the app does is as follows:
 
@@ -71,21 +73,21 @@ A general outline of what the app does is as follows:
   - parse the sentinel record to get the file IDs of the upload tar data, RunInfo.xml file and samplesheet
 - If starting from FASTQs:
   - ensure that other required inputs are provided, including:
-    - either `-iSAMPLESHEET` or `-iSAMPLE_NAMES`
-    - either `-iRUN_ID` or `-iRUN_INFO_XML` file
+    - either `-isamplesheet` or `-isample_names`
+    - either `-irun_id` or `-irun_info_xml` file
 - If assay config file specified to use, this is downloaded and read in to use
 - If a config file is not specified, all config files in DNAnexus are found and are filtered down to the highest version available using the `assay_code` field in the config files against the sample names
 - The project to launch analysis jobs in is determined by:
-  - If `-iCREATE_PROJECT=true` set, a new DNAnexus project is created
-  - If `-iDX_PROJECT` is specified, this project is used
+  - If `-icreate_project=true` set, a new DNAnexus project is created
+  - If `-idx_project` is specified, this project is used
   - If neither of the above are set, jobs will be launched in the same project as eggd_conductor is running (default behaviour)
 - Jira helpdesk searched for a matching ticket against the run ID to add a comment linking it to the eggd_conductor job
-- If `-iFASTQS` or `-iDEMULTIPLEX_JOB_ID` specified the FASTQs are parsed for analysis, else if running demultiplexing this will start and eggd_conductor held until it completes
+- If `-ifastqs` or `-idemultiplex_job_id` specified the FASTQs are parsed for analysis, else if running demultiplexing this will start and eggd_conductor held until it completes
 - For each stage defined in the `executables` section of the assay config file, jobs are launched either per run or per sample, dependent on the `per_sample` key for the given executable. Outputs of jobs are parsed to link to downstream jobs by use of the `analysis_X` output field referencing (see "Assay config file" section below for details). If `hold: true` is specified for any of the analysis steps, the eggd_conductor job is held until the given analysis completes (this is to be used when parsing output arrays -> downstream inputs where specific files must be parsed out)
 - A final Jira comment is added once all jobs have been launched
 
+### **Notes**
 
-**Notes**
 - If no Jira ticket is found, an alert will be sent but analysis will still continue
 - Slack notifications are sent when eggd_conductor starts and once it has launched all jobs, as well as for any errors that occur
 
@@ -98,7 +100,6 @@ The app is built to rely on 2 config files:
 - an app config file to store auth tokens and app variables
 - an assay specific config file that specifies all aspects of calling the required workflows and apps for a given assay
 
-
 ### eggd_conductor app config
 
 This currently must contain the following:
@@ -110,9 +111,7 @@ This currently must contain the following:
 - `SLACK_LOG_CHANNEL`: Slack channel to send general start and success notifications to
 - `SLACK_ALERT_CHANNEL`: Slack channel to send any alerts of fails to
 
-n.b. The default behaviour of running the app with minimum inputs specified is to search the given `ASSAY_CONFIG_PATH` above for the highest available version of config files for each assay code, as defined under `version` and `assay_code` fields in the assay config (described below). For each assay code, the highest version will be used for analysing any samples with a matching assay code in the sample name, which may be overridden with the input `-iASSAY_CONFIG`.
-
-
+n.b. The default behaviour of running the app with minimum inputs specified is to search the given `ASSAY_CONFIG_PATH` above for the highest available version of config files for each assay code, as defined under `version` and `assay_code` fields in the assay config (described below). For each assay code, the highest version will be used for analysing any samples with a matching assay code in the sample name, which may be overridden with the input `-iassay_config`.
 
 ### Assay config file
 
@@ -120,10 +119,9 @@ The assay config file for the conductor app is designed to be written as a JSON 
 
 In addition, a GitHub repository containing full production config files may be found [here](https://github.com/eastgenomics/eggd_conductor_configs).
 
-Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_CONFIG_PATH` from  `-iEGGD_CONDUCTOR_CONFIG`), and the default behaviour if a config file is not specified at run time is the search this directory and use the highest version config file for each `assay_code` (detailed below).
+Config files are expected to be stored in a given directory in DNAnexus (`ASSAY_CONFIG_PATH` from  `-ieggd_conductor_config`), and the default behaviour if a config file is not specified at run time is the search this directory and use the highest version config file for each `assay_code` (detailed below).
 
 As the config file is a JSON, several fields may be added to enhance readability that will not be parsed when running, such as the name, details and GitHub URL for each executable.
-
 
 **Required keys in the top level of the config include**:
 
@@ -145,7 +143,9 @@ As the config file is a JSON, several fields may be added to enhance readability
   - `instance_type` : instance type to use, will override the default for the app if specified
 
 Example top level of config:
-```{
+
+```json
+{
     "name": "Config for myeloid assay",
     "assay": "MYE",
     "assay_code": "EGG2",
@@ -166,7 +166,8 @@ Example top level of config:
 ```
 
 n.b. the `instance_type` in the `demultiplex_config` may either be defined as a string or a mapping of flowcell IDs to instance type strings to allow for setting the instance type based off the flowcell ID.
-```
+
+```json
 # single instance
 "demultiplex_config": {
     "instance_type": "mem1_ssd1_v2_x36"
@@ -181,8 +182,8 @@ n.b. the `instance_type` in the `demultiplex_config` may either be defined as a 
     }
 }
 ```
-See the below section **Dynamic instance types** for full explanation.
 
+See the below section **Dynamic instance types** for full explanation.
 
 **Required keys per executable dictionary**:
 
@@ -193,19 +194,19 @@ See the below section **Dynamic instance types** for full explanation.
 - `inputs` (dict): this forms the input dictionary passed to the call to dx api to trigger the running of the executable, more details may be found [here][dx-run-url]. See below for structure and available inputs.
 - `output_dirs` (dict): maps the app / workflow stages to directories in which to store output data. See below for structure and available inputs.
 
-
 **Optional keys per executable dictionary**:
 
 - `details` (str): not parsed by the app but useful for adding verbosity to the config when reading by humans
 - `url` (str): same as above for `details`, just acts as a reference to GitHub provenance of what is being used for analysis
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the dependent executable to collect the output from
-    - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
+  - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
 - `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
 - `extra_args` (dict): mapping of [additional paramaters][dx-run-parameters] to pass to underlying API call for running dx analysis (i.e priority, cost_limit, instance_type) - see below for example formatting
 - `hold` (boolean): controls whether to hold conductor until all jobs for the given executable complete before attempting to launch the next analysis steps. This may be used when downstream analysis may need to split out an array of output files from an upstream job, instead of taking the full array as input.
 - `instance_types` (dict): mapping of flowcell identifiers to instance types to use for jobs, this allows for dynamically setting instances types based upon the flowcell used for sequencing. See the **Dynamic instance types** selection below for details.
 - `inputs_filter` (dict): mapping of stage / app input field and list of pattern(s) to filter input by. This is used when providing the output of one app as input to another, but not all files want to be provided as input (i.e. taking all output bam files of analysis_X jobs, but only wanting to use the one from a control). This should be structured as such:
-```
+
+```json
 "inputs_filter": {
     "stage-G9Z2B8841bQY907z1ygq7K9x.bam": [
         "NA12878.*"
@@ -213,9 +214,9 @@ See the below section **Dynamic instance types** for full explanation.
 }
 ```
 
-
 Example of per executable config:
-```
+
+```json
     "executables": {
         "workflow-G4VpkG8433GZKf90KkXB4XZx": {
             "name": "uranus_main_workflow_GRCh38_v1.5.0_novaseq",
@@ -247,7 +248,8 @@ Example of per executable config:
 ```
 
 Example use of `extra_args` key to set priority to high and override default instance type for an **app**:
-```
+
+```json
 "extra_args": {
     "systemRequirements": {
         "*": {"instanceType": "mem1_ssd1_v2_x8"}
@@ -257,7 +259,8 @@ Example use of `extra_args` key to set priority to high and override default ins
 ```
 
 Use of `extra_args` for overriding default instance types for a **workflow** requires specifying the `stageSystemRequirements` key and stage ID key, then a run specification mapping as done for apps:
-```
+
+```json
 "extra_args": {
     "stageSystemRequirements": {
         "stage-G0qpXy0433Gv75XbPJ3xj8jV": {
@@ -270,13 +273,15 @@ Use of `extra_args` for overriding default instance types for a **workflow** req
 ---
 
 ### Dynamic instance types
+
 Different instance types for different types of flowcells may be defined for each executable, allowing for instances to be dynamically selected based upon the flowcell used for sequencing of the run being processed. This allows for setting optimal instances for all apps where the assay may be run on S1, S2, S4 flowcells etc and have differing compute requirements (i.e needing more storage for larger flowcells).
 This should be defined in the assay config file for each executable, with the required instance types given for each flowcell.
 
 Flowcell identifiers may be given either as patterns such as `xxxxxDRxx` (documented [here](https://knowledge.illumina.com/instrumentation/general/instrumentation-general-reference_material-list/000005589)), or as NovaSeq S1, S2 or S4 IDs. In addition, default instances may be given using a `"*"` as the key, which will be used if none of the given identifiers match the flowcell ID. Matching of these identifiers is done against the last field of the run ID, which for Illumina sequencers is the flowcell ID.
 
 Examples of instance type setting for a single **app** using 'S' identifiers:
-```
+
+```json
 "instance_types": {
     "S1": "mem1_ssd1_v2_x2"
     "S2": "mem1_ssd2_v2_x4"
@@ -285,8 +290,9 @@ Examples of instance type setting for a single **app** using 'S' identifiers:
 ```
 
 Examples of instance type setting for a **workflow** using Illumina flowcell ID patterns:
-```
-"instance_types: {
+
+```json
+"instance_types": {
     "xxxxxDRxx": {
         "stage-xxx": "mem1_ssd1_v2_x2"
         "stage-yyy": "mem2_ssd1_v2_x4"
@@ -332,30 +338,30 @@ For workflow inputs, these should be defined as `stage-xxx.input_field`, and for
 
 - Analysis-based job references (i.e. workflows):
 
-    ```
-    "stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
-                        "$dnanexus_link": {
-                            "analysis": "analysis_1",
-                            "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
-                            "field": "out"
-                        }
-                    },
-     ```
+```json
+"stage-G0QQ8jj433Gxyx2K8xfPyV7B.input_vcf": {
+                    "$dnanexus_link": {
+                        "analysis": "analysis_1",
+                        "stage": "stage-G0Y87ZQ433Gy6y7vBB74p30j",
+                        "field": "out"
+                    }
+                },
+```
 
 - Job-based references (i.e. apps / applets):
 
-    ```
-    "stage-G0QQ8jj433Gxyx2K8xfPyV7B.panel_bed": {
-        "$dnanexus_link": {
-            "job": "analysis_2",
-            "field": "bed_file"
-        }
-    },
-    ```
+```json
+"stage-G0QQ8jj433Gxyx2K8xfPyV7B.panel_bed": {
+    "$dnanexus_link": {
+        "job": "analysis_2",
+        "field": "bed_file"
+    }
+},
+```
 
 For hardcoded file inputs to be provided to apps / workflows, these should be formatted as `$dnanexus_link` dictionaries:
 
-```
+```json
 "multiqc_docker": {
     "$dnanexus_link": "file-GF3PxgQ433Gqv1Q029Gjzjfv"
 },
@@ -377,21 +383,20 @@ This defines the output directory structure for the executables outputs. For wor
 
 - For workflows:
 
-    ```
-    "output_dirs": {
-        "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/OUT-FOLDER/STAGE-NAME",
-        "stage-G0QQ8q8433Gb8YFG4q7847Px": "/OUT-FOLDER/STAGE-NAME"
-    }
-    ```
+```json
+"output_dirs": {
+    "stage-G0QQ8jj433Gxyx2K8xfPyV7B": "/OUT-FOLDER/STAGE-NAME",
+    "stage-G0QQ8q8433Gb8YFG4q7847Px": "/OUT-FOLDER/STAGE-NAME"
+}
+```
 
 - For apps / applets:
 
-    ```
-    "output_dirs": {
-        "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/OUT-FOLDER/APP-NAME"
-    }
-
-    ```
+```json
+"output_dirs": {
+    "applet-Fz93FfQ433Gvf6pKFZYbXZQf": "/OUT-FOLDER/APP-NAME"
+}
+```
 
 ---
 
@@ -400,6 +405,7 @@ This defines the output directory structure for the executables outputs. For wor
 Demultiplexing may optionally be run if uploading non-demultiplexed data via [dx-streaming-upload][dx-streaming-upload-url], this is controlled by setting `demultiplex: true` in the top level of the assay config. As described above, this will either use the demultiplexing app specified in the eggd_conductor app config, or one specified in the assay config with `demultiplex_config`. This will trigger the demultiplexing app to launch in the same project as the current eggd_conudctor job unless `-iDEMULTIPLEX_OUT` is specified in a different project, which will trigger the job to run in the same project.
 
 Once demultiplexing has completed, certain QC files will be copied that may be used by multiQC for including in the QC report. These will be copied into a directory in the root of the analysis project named `/demultiplex_multiqc_files`, this includes the following files:
+
 - **bcl2fastq**
   - Stats.json
 - **bclconvert**
@@ -417,19 +423,21 @@ At run time, a Jira service desk may be queried for sequencing run tickets used 
 
 - `JIRA_EMAIL` : Jira email address of user account to use for connecting to Jira
 - `JIRA_TOKEN` : Jira auth token of above user account
-- `JIRA_QUEUE_URL` : Jira API endpoint to query for tickets, this will be in the format: `https://{domain}.atlassian.net/rest/servicedeskapi/servicedesk/{desk_number}/queue/{queue_number}` (e.g. https://cuhbioinformatics.atlassian.net/rest/servicedeskapi/servicedesk/1/queue/12)
-- `JIRA_ISSUE_URL` : Jira API endpoint for posting comments to, this will be in the format: `https://{domain}.atlassian.net/rest/api/3/issue` (e.g. https://cuhbioinformatics.atlassian.net/rest/api/3/issue)
+- `JIRA_QUEUE_URL` : Jira API endpoint to query for tickets, this will be in the format: `https://{domain}.atlassian.net/rest/servicedeskapi/servicedesk/{desk_number}/queue/{queue_number}` (e.g. <https://cuhbioinformatics.atlassian.net/rest/servicedeskapi/servicedesk/1/queue/12>)
+- `JIRA_ISSUE_URL` : Jira API endpoint for posting comments to, this will be in the format: `https://{domain}.atlassian.net/rest/api/3/issue` (e.g. <https://cuhbioinformatics.atlassian.net/rest/api/3/issue>)
 
 If none are given in the config it is assumed that Jira is not to be queried and the app will continue without.
 If one or more are missing / invalid, or any error occurs connecting and / or querying Jira, a Slack alert will be sent with the error. This alert is non-blocking and analysis will still continue without continuing attempting to connect to Jira.
 
 Example comment added at begining of processing to link to eggd_conductor job:
-```
+
+```text
 This run was processed automatically by eggd_conductor: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/job/GJ3ykQ84Bv42ZP8J5zjz6qBb
 ```
 
 Example comment added at end of successfully launching all jobs with link to analysis project:
-```
+
+```text
 All jobs sucessfully launched by eggd_conductor.
 Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
 ```
@@ -483,10 +491,8 @@ A [separate package][eggd_conductor_monitor] is available for monitoring and not
 
 [dx-streaming-upload-url]: https://github.com/dnanexus-rnd/dx-streaming-upload
 [dx-run-url]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
-[hermes-url]: https://github.com/eastgenomics/hermes
 [bcl2fastq-url]: https://github.com/eastgenomics/eggd_bcl2fastq
 [bclconvert-url]: https://github.com/eastgenomics/eggd_bclconvert
 
-[project-permissions]: https://documentation.dnanexus.com/developer/api/data-containers/project-permissions-and-sharing
 [dx-run-parameters]: http://autodoc.dnanexus.com/bindings/python/current/dxpy_apps.html?highlight=run#dxpy.bindings.dxapplet.DXExecutable.run
 [eggd_conductor_monitor]: https://github.com/eastgenomics/eggd_conductor_monitor
