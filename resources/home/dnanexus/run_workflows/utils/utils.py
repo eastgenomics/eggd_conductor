@@ -225,19 +225,20 @@ def parse_sample_sheet(samplesheet) -> list:
 
     Parameters
     ----------
-    samplesheet : file
-        samplesheet to parse
+    samplesheet : str
+        Path to samplesheet to parse
 
     Returns
     -------
     list
-        list of samplenames
+        list of sample names
 
     Raises
     ------
     AssertionError
         Raised when no samples parsed from samplesheet
     """
+
     sheet = pd.read_csv(samplesheet, header=None, usecols=[0])
     column = sheet[0].tolist()
     sample_list = column[column.index("Sample_ID") + 1 :]
@@ -256,14 +257,15 @@ def parse_run_info_xml(xml_file) -> str:
 
     Parameters
     ----------
-    xml_file : file
-        RunInfo.xml file
+    xml_file : str
+        Path to RunInfo.xml file
 
     Returns
     -------
     str
         Run ID parsed from file
     """
+
     tree = ET.parse(xml_file)
     root = tree.getroot()
     run_attributes = [x.attrib for x in root.findall("Run")]
@@ -305,6 +307,7 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     AssertionError
         Raised when more than one assay config found to use for given samples
     """
+
     # build a dict of assay codes from configs found to samples based off
     # matching assay_code in sample names
     prettier_print("\nMatching samples to assay configs")
@@ -411,7 +414,8 @@ def preprocess_exclusion_patterns(patterns):
             new_patterns.add(pattern)
 
         elif re.search(r"-.*", pattern):
-            # assume it's a TSO500 code
+            # assume it's a TSO500 code and add component in order to avoid
+            # accidental matching
             new_patterns.add(f"{pattern}$")
 
         else:
@@ -451,7 +455,7 @@ def exclude_samples(samples, patterns=[]):
 
     for pattern in patterns:
         for sample in samples:
-            if len(re.findall(pattern, sample)) > 1:
+            if len(re.search(pattern, sample)) > 1:
                 raise AssertionError(
                     f"The pattern '{pattern}' matches multiple times in '{sample}'"
                 )
@@ -512,7 +516,7 @@ def get_previous_job_from_job_reuse(job_reuse, configs, handler_assay, params):
                 f"available to be used {invalid_assay_keys}. "
                 "Check if the use of -iassay_config might impact "
                 "the assay keys that you can use. Full job_reuse "
-                f"parameter: {job_reuse}"
+                f"parameter passed: {job_reuse}"
             )
         )
 
@@ -535,7 +539,7 @@ def get_previous_job_from_job_reuse(job_reuse, configs, handler_assay, params):
         if params["per_sample"]:
             # ensure we're only doing this for per run jobs for now
             raise NotImplementedError(
-                "-iJOB_REUSE not yet implemented for per sample jobs"
+                "-ijob_reuse not yet implemented for per sample jobs"
             )
 
         prettier_print(
@@ -558,7 +562,7 @@ def load_config(config_file) -> dict:
     Parameters
     ----------
     config_file : str
-        json config file
+        Path to json config file
 
     Raises
     ------
@@ -642,7 +646,10 @@ def write_job_summary(specified_dx_project, *handlers):
 
     Parameters
     ----------
-    *handlers: Variable length argument list of handlers objects.
+    specified_dx_project: str
+        DX project passed to the conductor app
+    *handlers:
+        Variable length argument list of handlers objects.
     """
 
     for i, handler in enumerate(handlers, 1):
@@ -663,9 +670,10 @@ def write_job_summary(specified_dx_project, *handlers):
 
         with path_to_job_summary.open("w") as f:
             # write config information
-            f.write(f"Project: {project.name}\n")
-            f.write(f"Assay: {assay}\n\n")
+            f.write(f"{handler}\n\n")
 
+            # i.e. if an error was detected during the setup/starting of jobs
+            # by the big try/except
             if not handler.job_summary:
                 f.write(
                     "No jobs were started for this project. Please check the logs if this is not an expected outcome"
