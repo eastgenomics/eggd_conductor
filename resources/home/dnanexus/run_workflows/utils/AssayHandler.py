@@ -32,6 +32,9 @@ class AssayHandler:
         self.missing_output_samples = []
         self.job_summary = defaultdict(lambda: defaultdict(dict))
 
+    def __str__(self):
+        return f"{self.project.name} - {self.assay}:{self.version}"
+
     def limit_samples(self, limit_nb=None):
         """Limit samples using a number or specific names
 
