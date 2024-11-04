@@ -160,8 +160,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--exclude_samples",
         help=(
-            "Comma separated string of sample names to exclude from "
-            "per sample analysis steps"
+            "Comma separated string of full sample names or hyphen "
+            "surrounded elements. The code will first attempt to identify the "
+            "strings as sample names but if it fails it will try to find "
+            "hyphens around the elements. These are mainly used to exclude "
+            "entire assay from the analysis i.e. in a mixed assay run, "
+            "exclude one assay from the analysis"
         ),
     )
 
