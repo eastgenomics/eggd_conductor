@@ -455,7 +455,7 @@ def exclude_samples(samples, patterns=[]):
 
     for pattern in patterns:
         for sample in samples:
-            if len(re.search(pattern, sample)) > 1:
+            if len(re.findall(pattern, sample)) > 1:
                 raise AssertionError(
                     f"The pattern '{pattern}' matches multiple times in '{sample}'"
                 )
