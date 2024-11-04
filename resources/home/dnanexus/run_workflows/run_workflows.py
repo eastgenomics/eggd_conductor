@@ -535,7 +535,7 @@ def main():
     open("all_job_ids.log", "w").close()
 
     config_file_ids = [
-        f"{handler.config.get('assay')} - v{handler.config.get('version')} -> {handler.project.id}"
+        f"{handler.config.get('file_id')}: {handler.config.get('assay')} - v{handler.config.get('version')} -> {handler.project.id}"
         for handler in assay_handlers
     ]
 
