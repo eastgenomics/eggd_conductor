@@ -33,6 +33,7 @@ class Slack:
             if to send the alert as a warning or an error (default False =>
             send Slack alert as an error)
         """
+
         conductor_job_url = os.environ.get("conductor_job_url")
         channel = self.slack_alert_channel
 
@@ -109,6 +110,7 @@ class Jira:
         -------
         session : http session object
         """
+
         http = requests.Session()
         retries = Retry(total=5, backoff_factor=10, allowed_methods=["POST"])
         http.mount("https://", HTTPAdapter(max_retries=retries))
@@ -122,6 +124,7 @@ class Jira:
         -------
         list : list of all tickets with details for given queue
         """
+
         utils.prettier_print(
             f"\nGetting all Jira tickets from endpoint: {self.queue_url}"
         )
@@ -159,7 +162,7 @@ class Jira:
     def filter_tickets_using_run_id(self, run_id, tickets) -> str:
         """
         Given a list of tickets, filter out the one for the current
-        sequencing run and return its ID
+        sequencing run and return its ID(s)
 
         Parameters
         ----------
@@ -173,8 +176,10 @@ class Jira:
         str
             ticket ID
         """
-        utils.prettier_print("Filtering Jira tickets for current run")
+
         run_tickets = [x for x in tickets if run_id in x["fields"]["summary"]]
+
+        utils.prettier_print("Filtering Jira tickets for current run")
         utils.prettier_print(
             f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
         )
@@ -190,6 +195,7 @@ class Jira:
         message : str
             message to send to Slack
         """
+
         if not os.path.exists("jira_alert.log"):
             # create file to not send multiple Slack messages
             os.mknod("jira_alert.log")
@@ -201,17 +207,16 @@ class Jira:
             )
 
     def add_comment(self, comment, url, ticket=None) -> None:
-        """
-        Find Jira ticket for given run ID and add internal comment
+        """Given a ticket, add provided comment to that ticket
 
         Parameters
         ----------
-        run_id : str
-            ID of sequencing run
         comment : str
             comment to add to Jira ticket
         url : str
             any url to add to message after comment
+        ticket : str, by default None
+            Ticket id
         """
 
         if ticket is None:

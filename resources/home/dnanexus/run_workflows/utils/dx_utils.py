@@ -7,6 +7,7 @@ import concurrent
 import json
 import os
 import re
+import traceback
 from typing import Tuple
 
 import dxpy as dx
@@ -35,6 +36,7 @@ def get_json_configs() -> dict:
     AssertionError
         Raised when no config files found at the given path
     """
+
     config_path = os.environ.get("ASSAY_CONFIG_PATH", "")
 
     # check for valid project:path structure
@@ -73,6 +75,7 @@ def get_json_configs() -> dict:
     prettier_print(f"\nAssay config files found:\n\t{files_ids}")
 
     all_configs = []
+
     for file in files:
         if file["describe"]["archivalState"] == "live":
             config_data = json.loads(
@@ -124,6 +127,7 @@ def filter_highest_config_version(all_configs) -> dict:
     AssertionError
         Raised when config file has missing assay_code or version field
     """
+
     # filter all config files to just get full config data for the
     # highest version of each full assay code
     prettier_print(
@@ -236,6 +240,7 @@ def find_dx_project(project_name) -> str:
     AssertionError
         Raised when more than one project found for given name
     """
+
     dx_projects = list(dx.bindings.search.find_projects(name=project_name))
 
     prettier_print("Found the following DNAnexus projects:")
@@ -268,8 +273,15 @@ def invite_participants_in_project(users, project):
 
     # users specified in config to grant access to project
     for user, access_level in users.items():
-        project.invite(user, access_level, send_email=False)
-        prettier_print(f"\nGranted {access_level} priviledge to {user}")
+        try:
+            project.invite(user, access_level, send_email=False)
+            prettier_print(f"\nGranted {access_level} privilege to {user}")
+        except Exception:
+            raise Exception(
+                Slack().send(
+                    f"Failed to grant {user} access to {project.name}\n{traceback.format_exc()}"
+                )
+            )
 
 
 def get_job_output_details(job_id) -> Tuple[list, list]:

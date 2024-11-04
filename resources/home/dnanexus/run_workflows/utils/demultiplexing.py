@@ -11,7 +11,13 @@ def set_config_for_demultiplexing(*configs):
     """Select the config parameters that will be used in the
     demultiplexing job using the biggest instance type as the tie breaker.
     This also allows selection of additional args that could be
-    antagonistic."""
+    antagonistic.
+
+    Parameters
+    ----------
+    *configs:
+        Variable number of config files to compare between themselves
+    """
 
     demultiplex_configs = []
     core_nbs = []
@@ -36,10 +42,16 @@ def set_config_for_demultiplexing(*configs):
 def move_demultiplex_qc_files(
     project_id, demultiplex_project, demultiplex_folder
 ):
-    """Move demultiplexing QC files to the given project
+    """Move demultiplex qc files to the appropriate projects
 
-    Args:
-        project_id (str): DNAnexus project id to move the QC files to
+    Parameters
+    ----------
+    project_id : str
+        Project id to move the files to
+    demultiplex_project : str
+        Project id where the files to move are located
+    demultiplex_folder : str
+        Folder where the files to move should be located
     """
 
     # check for and copy / move the required files for multiQC from
@@ -98,6 +110,7 @@ def get_demultiplex_job_details(job_id) -> list:
     fastq_ids : list
         list of tuples with fastq file IDs and file name
     """
+
     prettier_print(f"\nGetting fastqs from given demultiplexing job: {job_id}")
     demultiplex_job = dx.bindings.dxjob.DXJob(dxid=job_id).describe()
     demultiplex_project = demultiplex_job["project"]
@@ -135,17 +148,26 @@ def demultiplex(
     sentinel_file,
     run_id,
 ) -> str:
-    """
-    Run demultiplexing app, holds until app completes.
+    """Run demultiplexing app, holds until app completes.
 
     Either an app name, app ID or applet ID may be specified as input
 
     Parameters
     ----------
     app_id : str
-        ID of demultiplexing app / applet to run
-    app_name : str
-        app- name of demultiplex app to run
+        App/applet id to use for running demultiplexing
+    app_name : _type_
+        Name of the app id
+    testing : bool
+        Testing mode boolean
+    demultiplex_config : dict
+        Dict containing demultiplexing parameters
+    demultiplex_output : str
+        Path to the demultiplexing directory
+    sentinel_file : DXRecord
+        DXRecord object for the sentinel file
+    run_id : str
+        Run id
 
     Returns
     -------

@@ -19,7 +19,20 @@ from utils.WebClasses import Slack
 
 
 class AssayHandler:
+    """Object that will contain all the information pertaining to one and only
+    one assay i.e. samples, assay config information
+    """
+
     def __init__(self, config):
+        """Initialise the various variables needed for the smooth running of
+        the script
+
+        Parameters
+        ----------
+        config : dict
+            Dict containing information for an assay
+        """
+
         self.config = config
         self.assay_code = config.get("assay_code")
         self.assay = config.get("assay")
@@ -32,14 +45,24 @@ class AssayHandler:
         self.missing_output_samples = []
         self.job_summary = defaultdict(lambda: defaultdict(dict))
 
-    def limit_samples(self, limit_nb=None):
-        """Limit samples using a number or specific names
+    def __str__(self):
+        """Magic method for printing
 
-        Args:
-            limit_nb (int, optional): Limit number for samples.
-            Defaults to None.
-            patterns_to_exclude (list, optional): List of samples to exclude.
-            Defaults to [].
+        Returns
+        -------
+        str
+            String with essential info about the handler
+        """
+
+        return f"{self.project.name} - {self.assay}:{self.version}"
+
+    def limit_samples(self, limit_nb=None):
+        """Randomly keep a given number of samples from the sample list
+
+        Parameters
+        ----------
+        limit_nb : int, optional
+            Number of samples to keep, by default None
         """
 
         original_sample_list = self.samples
@@ -64,7 +87,7 @@ class AssayHandler:
             )
 
     def subset_samples(self):
-        """Subset samples using the config information
+        """Subset samples using the config subset samplesheet information
 
         Raises:
             re.error: Invalid regex pattern provided
@@ -94,13 +117,15 @@ class AssayHandler:
             )
 
     def get_or_create_dx_project(self, project_name, run_id) -> str:
-        """
-        Create new project in DNAnexus if one with given name doesn't
+        """Create new project in DNAnexus if one with given name doesn't
         already exist.
 
-        Returns
-        -------
-        str : ID of DNAnexus project
+        Parameters
+        ----------
+        project_name : str
+            Project name to get/create in DNAnexus
+        run_id: str
+            Run id i.e. project name without the 00 prefix or any other suffix
         """
 
         assay = self.config.get("assay")
@@ -135,8 +160,8 @@ class AssayHandler:
         self.project = dx.bindings.dxproject.DXProject(dxid=project_id)
 
     def create_analysis_project_logs(self):
-        """Create an analysis project log with info per config file contained
-        in the DXBuilder object"""
+        """Create an analysis project log with assay info from the AssayHandler
+        object"""
 
         with open("analysis_project.log", "a") as f:
             f.write(
@@ -147,14 +172,13 @@ class AssayHandler:
             )
 
     def get_upload_tars(self, sentinel_file) -> list:
-        """
-        Get list of upload tar file IDs from given sentinel file,
+        """Get list of upload tar file IDs from given sentinel file,
         and return formatted as a list of $dnanexus_link dicts
 
-        Returns
-        -------
-        list
-            list of file ids formated as {"$dnanexus_link": file-xxx}
+        Parameters
+        ----------
+        sentinel_file : str
+            Record id for the sentinel file
         """
 
         if not sentinel_file:
@@ -176,13 +200,16 @@ class AssayHandler:
             self.upload_tars = [{"$dnanexus_link": x} for x in upload_tars]
 
     def set_parent_out_dir(self, run_time):
-        """Set the parent output directory for each config/assay/project
+        """Set the parent output directory in DNAnexus
 
-        Args:
-            run_time (str): String to represent execution time in YYMMDD_HHMM
-            format
+        Parameters
+        ----------
+        run_time : str
+            Timestamp in YYMMDD_HHMM format
         """
 
+        # add the --destination path to the normal /output/assay_time path if
+        # provided
         parent_out_dir = (
             f"{os.environ.get('DESTINATION', '')}/output/"
             f"{self.assay}-{run_time}"
@@ -502,8 +529,7 @@ class AssayHandler:
         )
 
     def populate_output_dir_config(self, executable, sample=None):
-        """
-        Loops over stages in dict for output directory naming and adds
+        """Loops over stages in dict for output directory naming and adds
         worlflow app name.
 
         i.e. will be named /output/{out_folder}/{stage_name}/, where stage
@@ -512,19 +538,11 @@ class AssayHandler:
         Parameters
         ----------
         executable : str
-            human readable name of executable (workflow-, app-, applet-)
-        exe_names : dict
-            mapping of executable IDs to human readable names
-        output_dict : dict
-            dictionary of output paths for each executable
-        out_folder : str
-            name of parent dir path
-
-        Returns
-        -------
-        output_dict : dict
-            populated dict of output directory paths
+            Name of the executable
+        sample : str, optional
+            Sample name, by default None
         """
+
         prettier_print(f"\nPopulating output dict for {executable}")
 
         output_dict = self.config["executables"][executable]["output_dirs"]
@@ -560,23 +578,23 @@ class AssayHandler:
             self.job_info_per_run[executable]["output_dirs"] = output_dict
 
     def call_job(self, executable, analysis, instance_type, sample=None):
-        """Call job per sample using the sample and its job information
+        """Call job given an executable and its job information
 
         Parameters
         ----------
-        sample : str
-            Sample name
         executable : str
-            Executable name
+            Name of the executable
         analysis : str
-            Analysis name to associate the job id to
+            Name of the analysis
         instance_type : str
-            Name of the instance to use for the executable
+            Instance type name
+        sample : str, optional
+            Sample name, by default None
 
         Returns
         -------
         int
-            Int to indication that the job started
+            Return 1 to indicate that the job started
         """
 
         # get the job information given the sample name and the executable

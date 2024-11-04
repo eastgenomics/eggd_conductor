@@ -160,6 +160,7 @@ def add_fastqs(input_dict, fastq_details, sample=None) -> dict:
     AssertionError
         Raised when unequal number of R1 and R2 fastqs found
     """
+
     sample_fastqs = []
 
     if sample:
@@ -245,6 +246,8 @@ def add_upload_tars(input_dict, upload_tars) -> dict:
     ----------
     input_dict : dict
         dict of input parameters for calling workflow / app
+    upload_tars : list
+        List of upload tars
 
     Returns
     -------
@@ -292,11 +295,12 @@ def add_other_inputs(
     ----------
     input_dict : dict
         dict of input parameters for calling workflow / app
-    args : argparse.Namespace
-        namespace object of passed cmd line arguments
-    executable_out_dirs : dict
-        dict of analysis stage to its output dir path, used to pass output of
-        an analysis to input of another (i.e. analysis_1 : /path/to/output)
+    parent_out_dir : str
+        Parent output directory in DNAnexus
+    project_id : str
+        DNAnexus project id
+    project_name : str
+        DNAnexus project name
     sample : str, default None
         optional, sample name used to filter list of fastqs
     sample_prefix : str, default None
@@ -408,6 +412,7 @@ def get_dependent_jobs(params, job_outputs_dict, sample=None) -> list:
     dependent_jobs : list
         list of dependent jobs found
     """
+
     # get jobs in root of job outputs dict => just per run jobs
     per_run_jobs = {
         k: v for k, v in job_outputs_dict.items() if k.startswith("analysis_")
@@ -466,6 +471,8 @@ def link_inputs_to_outputs(
     ----------
     job_outputs_dict : dict
         dictionary of previous job outputs to search
+    input_dict : dict
+        dict of input parameters for calling workflow / app
     analysis : str
         given analysis_X to check input dict of
     per_sample : bool
@@ -688,6 +695,7 @@ def filter_job_outputs_dict(stage, outputs_dict, filter_dict) -> dict:
     dict
         filtered jobs dict
     """
+
     if not filter_dict:
         # no filter pattens to apply
         return outputs_dict
@@ -732,8 +740,6 @@ def fix_invalid_inputs(input_dict, input_classes) -> dict:
 
     Parameters
     ----------
-    executable : str
-        dx ID of executable
     input_dict : dict
         dict of input parameters for calling workflow / app
     input_classes : dict
@@ -842,6 +848,7 @@ def check_all_inputs(input_dict) -> None:
     AssertionError
         Raised if any 'INPUT-' or 'analysis_' are found in the input dict
     """
+
     unparsed_inputs = search(
         "INPUT-", input_dict, check_key=False, return_key=False
     )

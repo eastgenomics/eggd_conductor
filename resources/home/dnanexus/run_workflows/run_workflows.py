@@ -160,8 +160,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--exclude_samples",
         help=(
-            "Comma separated string of sample names to exclude from "
-            "per sample analysis steps"
+            "Comma separated string of full sample names or hyphen "
+            "surrounded elements. The code will first attempt to identify the "
+            "strings as sample names but if it fails it will try to find "
+            "hyphens around the elements. These are mainly used to exclude "
+            "entire assay from the analysis i.e. in a mixed assay run, "
+            "exclude one assay from the analysis"
         ),
     )
 
@@ -253,9 +257,12 @@ def main():
 
     assay_handlers = []
 
+    # given the list of configs
     for config_content in configs.values():
         assay_handler = AssayHandler(config_content)
 
+        # try to match the samples to the config contained in the assay
+        # handlers, and keep only the handlers that have samples
         for assay_code, samples in assay_to_samples.items():
             if assay_code == assay_handler.assay_code:
                 assay_handler.samples.extend(samples)
@@ -288,6 +295,7 @@ def main():
             [math.floor(limiting_nb) for i in range(len(assay_handlers) - 1)]
         )
 
+    # setup the Jira client
     jira = Jira(
         os.environ.get("JIRA_QUEUE_URL"),
         os.environ.get("JIRA_ISSUE_URL"),
@@ -295,6 +303,7 @@ def main():
         os.environ.get("JIRA_EMAIL"),
     )
 
+    # get all the tickets in the specified helpdesk
     all_tickets = jira.get_all_tickets()
     ticket_errors = []
 
@@ -376,7 +385,7 @@ def main():
             if len(assay_options) == 1:
                 if assay_options[0] in assay_handler.assay:
                     prettier_print(
-                        f"Assigned {ticket['key']} to {assay_handler.assay}"
+                        f"Assigned {ticket['key']} to {assay_handler}"
                     )
                     assay_handler.ticket = ticket["id"]
 
@@ -392,12 +401,16 @@ def main():
                     )
 
             elif len(assay_options) == 0:
-                ticket_errors.append(f"Ticket {ticket['key']} has no assays")
+                ticket_errors.append(
+                    f"Ticket {ticket['key']} could be assigned to "
+                    f"{assay_handler} but has no assays"
+                )
 
             else:
                 ticket_errors.append(
-                    f"Ticket {ticket['key']} has multiple assays: "
-                    f"{assay_options}"
+                    f"Ticket {ticket['key']} could be assigned to "
+                    f"{assay_handler} but has multiple assays: "
+                    f"{';'.join(assay_options)}"
                 )
 
         # check if a ticket has been assigned to the assay handler
@@ -538,10 +551,10 @@ def main():
     execution_errors = {}
 
     for handler in assay_handlers:
+        # in order to keep the job starting for the next handler, big
+        # try/except to capture errors
         try:
-            prettier_print(
-                f"Samples for {handler.assay_code}: {handler.samples}"
-            )
+            prettier_print(f"Samples for {handler}: {handler.samples}")
             project_id = handler.project.id
 
             # set context to project for running jobs
@@ -555,6 +568,7 @@ def main():
                     "start jobs"
                 )
 
+                # integrate the job id into the analysis mapping
                 if args.job_reuse:
                     previous_job = get_previous_job_from_job_reuse(
                         args.job_reuse, configs, handler.assay, params
@@ -696,11 +710,13 @@ def main():
             if handler.jobs:
                 terminate_jobs([job for job in handler.jobs])
 
-            execution_errors.setdefault(
-                f"{handler.assay} - {handler.project.id}", []
-            ).append(traceback.format_exc())
+            execution_errors.setdefault(f"{handler}", []).append(
+                traceback.format_exc()
+            )
 
         finally:
+            # create the analysis project log for every handler even the ones
+            # that failed
             handler.create_analysis_project_logs()
 
     if execution_errors:
@@ -716,6 +732,9 @@ def main():
             f"Detected error in setting or starting jobs for {error_msg}"
         )
 
+    # write the job summary file to be created and uploaded to the handler's
+    # project. If dx_project_id was used, will add an index to the create file
+    # to distinguish them as they will be uploaded to the same project
     write_job_summary(args.dx_project_id, *assay_handlers)
 
     if args.testing:
