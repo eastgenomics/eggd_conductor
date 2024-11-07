@@ -319,7 +319,8 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
     prettier_print(
         f"\nAll assay codes of config files: {all_config_assay_codes}"
     )
-    prettier_print(f"\nAll samples parsed from samplesheet: {all_samples}")
+    prettier_print("Samples to be used:")
+    prettier_print(all_samples)
 
     # for each sample check each assay code if it matches, then select the
     # matching config with highest version
@@ -376,7 +377,8 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             "No samples matched to available config files for testing"
         )
 
-    prettier_print(f"\nTotal samples per assay identified: {assay_to_samples}")
+    prettier_print("Total samples per assay identified:")
+    prettier_print(dict(assay_to_samples))
 
     return assay_to_samples
 

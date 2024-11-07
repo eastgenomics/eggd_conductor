@@ -176,9 +176,8 @@ def parse_args() -> argparse.Namespace:
         args.samples = [
             x.replace(" ", "") for x in args.samples.split(",") if x
         ]
-        prettier_print(
-            f"\nsamples specified to run jobs for: \n\t{args.samples}\n"
-        )
+        prettier_print("Samples specified to run jobs for:")
+        prettier_print(args.samples)
     if args.fastqs:
         args.fastqs = [x.replace(" ", "") for x in args.fastqs.split(",") if x]
 
@@ -233,17 +232,18 @@ def main():
             config.get("assay_code"): config for config in configs.values()
         }
 
+        nb_provided_configs = len(configs)
+
     else:
         # get all json assay configs from path in conductor config
         configs = get_json_configs()
         configs = filter_highest_config_version(configs)
+        nb_provided_configs = 0
 
     if args.exclude_samples:
-        prettier_print(
-            "Attempting to exclude following samples using: "
-            f"{args.exclude_samples}"
-        )
-        args.samples = exclude_samples(args.exclude_samples)
+        prettier_print("Attempting to exclude following samples using:")
+        prettier_print(f"{args.exclude_samples}")
+        args.samples = exclude_samples(args.samples, args.exclude_samples)
 
         assert (
             args.samples
@@ -267,6 +267,12 @@ def main():
             if assay_code == assay_handler.assay_code:
                 assay_handler.samples.extend(samples)
                 assay_handlers.append(assay_handler)
+
+    if nb_provided_configs != 0 and nb_provided_configs != len(assay_handlers):
+        prettier_print(
+            f"{nb_provided_configs} config(s) were provided through the CLI "
+            f"but {len(assay_handlers)} assay(s) were retained for analysis"
+        )
 
     assert [handler for handler in assay_handlers], Slack().send(
         "No samples were assigned to any assay"
@@ -312,6 +318,7 @@ def main():
     if filtered_tickets == []:
         prettier_print(f"No ticket found for {run_id}")
     else:
+        ticket_keys = [ticket["key"] for ticket in filtered_tickets]
         assay_info = [
             f"{handler.assay} - {handler.version}"
             for handler in assay_handlers
@@ -320,13 +327,13 @@ def main():
         if len(filtered_tickets) > len(assay_handlers):
             ticket_errors.append(
                 "Too many tickets found for the number of configs detected "
-                f"to be used for {run_id}: {filtered_tickets} - {assay_info}"
+                f"to be used for {run_id}: {ticket_keys} - {assay_info}"
             )
 
         elif len(filtered_tickets) < len(assay_handlers):
             ticket_errors.append(
                 "Not enough tickets found for the number of configs detected "
-                f"to be used for {run_id}: {filtered_tickets} - {assay_info}"
+                f"to be used for {run_id}: {ticket_keys} - {assay_info}"
             )
 
     run_time = time_stamp()
