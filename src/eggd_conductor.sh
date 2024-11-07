@@ -207,12 +207,11 @@ _parse_fastqs () {
 
 _testing_clean_up () {
     : '''
-    If testing set to true a log file named testing_job_id.log will
-    be generated with all job ids in that have been launched, these
-    will all be terminated and any jobs that managed to complete
+    If testing set to true, all job ids present in all_job_ids.log
+    will be terminated and any jobs that managed to complete
     before all were launched will have outputs deleted
     '''
-    job_ids=$(cat testing_job_id.log)
+    job_ids=$(sed -e "s/,/ /g" all_job_ids.log | xargs)
 
     dx terminate $job_ids
 
@@ -329,15 +328,16 @@ main () {
         # failed to launch all jobs -> handle clean up and sending error notification
 
         # if in testing mode terminate everything and clear output, else
-        # terminate whatever is in 'job_id.log' if present as these will be
+        # terminate whatever is in 'all_job_ids.log' if present as these will be
         # an incomplete set of jobs for a given app / workflow
-        if [ -s testing_job_id.log ]; then
+        if [ "$testing" == 'true' ] && [ -s all_job_ids.log ]; then
             _testing_clean_up
-        elif [ -s job_id.log ]; then
+        elif [ -s all_job_ids.log ]; then
+            # should only be ran if there is an error after starting all the jobs
             # non empty log => jobs to terminate
             echo "Terminating jobs"
-            jobs=$(cat job_id.log | xargs)
-            dx terminate "$jobs"
+            jobs=$(sed -e "s/,/ /g" all_job_ids.log | xargs)
+            dx terminate $jobs
         fi
 
         if [ -f slack_fail_sent.log ]; then
