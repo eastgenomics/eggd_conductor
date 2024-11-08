@@ -212,17 +212,22 @@ _testing_clean_up () {
     before all were launched will have outputs deleted
     '''
     job_ids=$(sed -e "s/,/ /g" all_job_ids.log | xargs)
+    job_ids_to_terminate=$(echo $job_ids | sed -E "s/project-[0-9A-Za-z]+://g" | xargs)
 
-    dx terminate $job_ids
+    dx terminate $job_ids_to_terminate
 
     for job in $job_ids; do
+        project_id=$(echo "$job" | cut -f1 -d":")
+
         # find any output files and delete
         output=$(dx describe --json "$job" | jq -r '.output')
-        if [ -z "$output" ]; then
+        if [ -n "$output" ] && [ "$output" != "null" ]; then
             # some output present, gather all and delete
-            all_outputs=$(dx describe --json "$job" | jq -r '.output | flatten | .[] | .["$dnanexus_link"] | select( . !=null )')
-            if [ -z "$all_outputs" ]; then
-                xargs -P8 -n1 <<< "$all_outputs" dx rm
+            all_outputs=$(dx describe --json "$job" | jq -r '.output | flatten | .[] | .["$dnanexus_link"] | select( . !=null )' | xargs)
+
+            if [ -n "$all_outputs" ]; then
+                array_all_outputs=($all_outputs)
+                echo "${array_all_outputs[@]/#/${project_id}:}" | xargs -t dx rm
             fi
         fi
     done
