@@ -429,7 +429,7 @@ def main():
 
     if ticket_errors:
         for error in ticket_errors:
-            Slack().send(error, warn=True)
+            Slack().send(error, warn=True, exit_fail=False)
 
     if args.demultiplex_job_id:
         # previous demultiplexing job specified to use fastqs from
@@ -590,11 +590,6 @@ def main():
 
                 prettier_print("\nParams parsed from config before modifying:")
                 prettier_print(params)
-
-                # log file of all jobs run for current executable, used in
-                # case of failing to launch all jobs to be able to terminate
-                # all analyses
-                open("job_id.log", "w").close()
 
                 executable_name = handler.execution_mapping[executable]["name"]
 
