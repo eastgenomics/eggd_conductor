@@ -516,6 +516,6 @@ def dx_run(
 
     with open("all_job_ids.log", "a") as fh:
         # log of all launched job IDs
-        fh.write(f"{job_id},")
+        fh.write(f"{project_id}:{job_id},")
 
     return job_id
