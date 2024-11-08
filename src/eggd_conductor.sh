@@ -341,7 +341,7 @@ main () {
             # should only be ran if there is an error after starting all the jobs
             # non empty log => jobs to terminate
             echo "Terminating jobs"
-            jobs=$(sed -e "s/,/ /g" all_job_ids.log | xargs)
+            jobs=$(sed -e "s/,/ /g" all_job_ids.log | sed -E "s/project-[0-9A-Za-z]+://g" | xargs)
             dx terminate $jobs
         fi
 
