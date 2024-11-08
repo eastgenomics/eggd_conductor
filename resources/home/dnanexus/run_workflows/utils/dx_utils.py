@@ -514,12 +514,8 @@ def dx_run(
         f"Started analysis in project {project_id}, " f"job: {job_id}"
     )
 
-    with open("job_id.log", "a") as fh:
-        # log of current executable jobs
-        fh.write(f"{job_id} ")
-
     with open("all_job_ids.log", "a") as fh:
         # log of all launched job IDs
-        fh.write(f"{job_id},")
+        fh.write(f"{project_id}:{job_id},")
 
     return job_id
