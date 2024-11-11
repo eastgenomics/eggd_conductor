@@ -139,7 +139,7 @@ _parse_sentinel_file () {
         # samplesheet found during upload and associated to sentinel file
         echo "Using samplesheet associated with sentinel record"
         dx download -f "$sentinel_samplesheet" -o SampleSheet.csv
-        SAMPLESHEET="$sentinel_samplesheet"
+        samplesheet="$sentinel_samplesheet"
     else
         # sample sheet missing from sentinel file, most likely due to not being
         # named correctly, download the first tar, unpack and try to find it
@@ -167,8 +167,8 @@ _parse_sentinel_file () {
         else
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
-            SAMPLESHEET=$(dx upload "$samplesheet" --path "$sentinel_path" --brief)
-            dx tag "$SAMPLESHEET" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
+            samplesheet=$(dx upload "$samplesheet" --path "$sentinel_path" --brief)
+            dx tag "$samplesheet" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
 
             # move samplesheet to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
