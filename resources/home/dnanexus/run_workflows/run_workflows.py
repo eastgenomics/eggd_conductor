@@ -15,6 +15,7 @@ from itertools import zip_longest
 import json
 import math
 import os
+import pathlib
 import subprocess
 import traceback
 
@@ -202,6 +203,7 @@ def parse_args() -> argparse.Namespace:
         args.job_reuse = {}
 
     if args.exclude_samples:
+        args.exclude_samples = args.exclude_samples.strip("'")
         args.exclude_samples = [
             x.replace(" ", "") for x in args.exclude_samples.split(",") if x
         ]
@@ -242,7 +244,7 @@ def main():
 
     if args.exclude_samples:
         prettier_print("Attempting to exclude following samples using:")
-        prettier_print(f"{args.exclude_samples}")
+        prettier_print(args.exclude_samples)
         args.samples = exclude_samples(args.samples, args.exclude_samples)
 
         assert (
@@ -285,6 +287,9 @@ def main():
         project = None
         # output project not specified, create new one from run id
         run_id = args.run_id
+
+    # set RUN ID environment variable for use in error messages
+    os.environ["RUN_ID"] = run_id
 
     limiting_nb_per_assay = []
 
@@ -722,17 +727,23 @@ def main():
             handler.create_analysis_project_logs()
 
     if execution_errors:
-        error_msg = ""
+        # an error has not been raised
+        if not pathlib.Path("slack_fail_sent.log").exists():
+            error_msg = ""
 
-        for handler, errors in execution_errors.items():
-            error_msg += f"{handler}:\n"
+            for handler, errors in execution_errors.items():
+                error_msg += f"{handler}:\n"
 
-            for error in errors:
-                error_msg += f"```{error}```"
+                for error in errors:
+                    error_msg += f"```{error}```"
 
-        Slack().send(
-            f"Detected error in setting or starting jobs for {error_msg}"
-        )
+            raise Exception(
+                Slack().send(
+                    f"Detected error in setting or starting jobs for {error_msg}"
+                )
+            )
+        else:
+            exit(1)
 
     # write the job summary file to be created and uploaded to the handler's
     # project. If dx_project_id was used, will add an index to the create file
