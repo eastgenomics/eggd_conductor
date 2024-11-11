@@ -143,14 +143,6 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--mismatch_allowance",
-        type=int,
-        help=(
-            "# of samples allowed to not match to any assay code and use "
-            "the assay code of other samples (default: 1, set in dxapp.json)"
-        ),
-    )
-    parser.add_argument(
         "--job_reuse",
         help=(
             "JSON formatted string mapping analysis step -> job ID to reuse "

@@ -326,7 +326,6 @@ main () {
     if [ "$development" == 'true' ]; then optional_args+="--development "; fi
     if [ "$testing" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$testing_sample_limit" ]; then optional_args+="--testing_sample_limit ${testing_sample_limit} "; fi
-    if [ "$mismatch_allowance" ]; then optional_args+="--mismatch_allowance ${mismatch_allowance} "; fi
     if [ "$job_reuse" ]; then optional_args+="--job_reuse ${job_reuse/ /} "; fi
     if [ "$exclude_samples" ]; then optional_args+="--exclude_samples '${exclude_samples}' "; fi
 
