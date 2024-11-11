@@ -34,7 +34,9 @@ def set_config_for_demultiplexing(*configs):
 
     if core_nbs:
         bigger_core_nb = max(core_nbs)
-        return demultiplex_configs[core_nbs.index(bigger_core_nb)]
+        return demultiplex_configs[core_nbs.index(bigger_core_nb)].get(
+            "demultiplex_config", None
+        )
 
     return
 
