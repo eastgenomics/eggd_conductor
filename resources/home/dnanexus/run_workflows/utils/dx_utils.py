@@ -72,7 +72,8 @@ def get_json_configs() -> dict:
             for x in files
         ]
     )
-    prettier_print(f"\nAssay config files found:\n\t{files_ids}")
+    prettier_print("\nAssay config files found:")
+    prettier_print(files_ids)
 
     all_configs = []
 
@@ -212,10 +213,8 @@ def filter_highest_config_version(all_configs) -> dict:
         ]
     )
 
-    prettier_print(
-        "\nHighest versions of assay configs found to use:"
-        f"\n\t{usable_configs}\n"
-    )
+    prettier_print("\nHighest versions of assay configs found to use:")
+    prettier_print(usable_configs)
 
     return configs_to_use
 
