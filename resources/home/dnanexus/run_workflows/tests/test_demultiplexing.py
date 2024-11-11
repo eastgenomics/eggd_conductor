@@ -25,9 +25,7 @@ def test_set_config_for_demultiplexing_w_core_nb():
         {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}}
     )
 
-    assert output == {
-        "demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}
-    }
+    assert output == {"instance_type": "mem1_ssd1_v2_x16"}
 
 
 def test_set_config_for_demultiplexing_select_highest_core_nb_config():
@@ -37,9 +35,7 @@ def test_set_config_for_demultiplexing_select_highest_core_nb_config():
         {"demultiplex_config": {"instance_type": "mem1_ssd2_v2_x36"}},
     )
 
-    assert output == {
-        "demultiplex_config": {"instance_type": "mem1_ssd1_v2_x72"}
-    }
+    assert output == {"instance_type": "mem1_ssd1_v2_x72"}
 
 
 @patch("utils.demultiplexing.dx.search.find_data_objects")
