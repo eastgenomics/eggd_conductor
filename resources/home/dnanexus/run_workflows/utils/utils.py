@@ -428,7 +428,7 @@ def preprocess_exclusion_patterns(patterns):
                 )
             )
 
-    return new_patterns
+    return list(new_patterns)
 
 
 def exclude_samples(samples, patterns=[]):
