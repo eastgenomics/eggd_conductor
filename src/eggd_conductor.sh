@@ -227,6 +227,7 @@ _testing_clean_up () {
 
             if [ -n "$all_outputs" ]; then
                 array_all_outputs=($all_outputs)
+                # for each element of the array, add the project_id as a prefix
                 echo "${array_all_outputs[@]/#/${project_id}:}" | xargs -t dx rm
             fi
         fi
@@ -249,6 +250,12 @@ main () {
     if [ -z "${upload_sentinel_record+x}" ] && [ -z "${fastqs+x}" ]; then
         # requires either sentinel file or fastqs
         _exit "No sentinel file or list of fastqs provided."
+    fi
+
+    if [ -z "${upload_sentinel_record+x}" ]; then
+        if [ "${fastqs+x}" ] && [ -z "${run_id}" ]; then
+            _exit "No run id provided with the fastqs"
+        fi
     fi
 
     if [ "$samplesheet" ]; then
