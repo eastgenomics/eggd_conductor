@@ -65,13 +65,14 @@ def get_json_configs() -> dict:
         f"No config files found in given path: {project}:{path}"
     )
 
-    files_ids = "\n\t".join(
+    files_ids = sorted(
         [
             f"{x['describe']['name']} ({x['id']} - "
             f"{x['describe']['archivalState']})"
             for x in files
         ]
     )
+
     prettier_print("\nAssay config files found:")
     prettier_print(files_ids)
 
@@ -206,11 +207,11 @@ def filter_highest_config_version(all_configs) -> dict:
         ]
 
     # add to log record of highest version of each config found
-    usable_configs = "\n\t".join(
-        [
-            f"{k} ({v['version']}): {v['file_id']}"
+    usable_configs = sorted(
+        {
+            f"{k} ({v['version']})": f"{v['file_id']}"
             for k, v in configs_to_use.items()
-        ]
+        }
     )
 
     prettier_print("\nHighest versions of assay configs found to use:")
