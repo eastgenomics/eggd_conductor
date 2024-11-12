@@ -412,7 +412,7 @@ main () {
     for file in /home/dnanexus/out/job_summaries/*; do
         new_name=$(echo "$file" | awk -v OFS="." '{len=split($0, a, "."); print a[1], a[len-1], a[len]}')
         new_name=${new_name##*/}
-        project_to_upload_to=$(echo "$file" | cut -f2- -d"." | cut -f-3 -d".")
+        project_to_upload_to=$(echo "$file" | awk 'BEGIN{FS=OFS="."} {$NF=$(NF-1)=""; NF-=2} 1' | cut -f2- -d".")
         file_id=$(dx upload "${file}" --path "${project_to_upload_to}:/${new_name}" --brief)
 
         dx-jobutil-add-output job_summaries "$file_id" --class=array:file
