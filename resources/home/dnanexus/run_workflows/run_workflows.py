@@ -107,6 +107,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--testing",
         action="store_true",
+        default=False,
         help=(
             "Controls if to terminate and clean up jobs after launching "
             "for testing purposes"
@@ -354,7 +355,9 @@ def main():
             project_name = create_project_name(
                 run_id, assay_handler.assay, args.development, args.testing
             )
-            assay_handler.get_or_create_dx_project(project_name, run_id)
+            assay_handler.get_or_create_dx_project(
+                project_name, run_id, args.testing
+            )
             users = assay_handler.config.get("users")
             invite_participants_in_project(users, assay_handler.project)
 
