@@ -47,7 +47,6 @@ OR
 #### **Integers**
 
 - `-itesting_sample_limit`: no. of samples to launch per sample jobs for, useful when testing to not wait on launching all per sample jobs
-- `-imismatch_allowance` (default: `1`): no. of samples allowed to be missing assay code and continue analysis using the assay code of the other samples on the run (i.e. allows for a control sample on the run not named specifically for the assay)
 
 #### **Booleans**
 

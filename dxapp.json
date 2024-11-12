@@ -110,13 +110,6 @@
       "help": "comma separated string of sample names to exclude from per sample analysis steps"
     },
     {
-      "name": "mismatch_allowance",
-      "label": "mismatch allowance",
-      "class": "int",
-      "default": 1,
-      "help": "no. of samples allowed to not match to any assay code and use the assay code of other samples"
-    },
-    {
       "name": "development",
       "label": "development",
       "class": "boolean",

@@ -139,7 +139,7 @@ _parse_sentinel_file () {
         # samplesheet found during upload and associated to sentinel file
         echo "Using samplesheet associated with sentinel record"
         dx download -f "$sentinel_samplesheet" -o SampleSheet.csv
-        SAMPLESHEET="$sentinel_samplesheet"
+        samplesheet="$sentinel_samplesheet"
     else
         # sample sheet missing from sentinel file, most likely due to not being
         # named correctly, download the first tar, unpack and try to find it
@@ -167,8 +167,8 @@ _parse_sentinel_file () {
         else
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
-            SAMPLESHEET=$(dx upload "$samplesheet" --path "$sentinel_path" --brief)
-            dx tag "$SAMPLESHEET" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
+            samplesheet=$(dx upload "$samplesheet" --path "$sentinel_path" --brief)
+            dx tag "$samplesheet" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
 
             # move samplesheet to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
@@ -326,9 +326,8 @@ main () {
     if [ "$development" == 'true' ]; then optional_args+="--development "; fi
     if [ "$testing" == 'true' ]; then optional_args+="--testing "; fi
     if [ "$testing_sample_limit" ]; then optional_args+="--testing_sample_limit ${testing_sample_limit} "; fi
-    if [ "$mismatch_allowance" ]; then optional_args+="--mismatch_allowance ${mismatch_allowance} "; fi
     if [ "$job_reuse" ]; then optional_args+="--job_reuse ${job_reuse/ /} "; fi
-    if [ "$exclude_samples" ]; then optional_args+="--exclude_samples ${exclude_samples} "; fi
+    if [ "$exclude_samples" ]; then optional_args+="--exclude_samples '${exclude_samples}' "; fi
 
     echo "$optional_args"
 
@@ -413,7 +412,7 @@ main () {
     for file in /home/dnanexus/out/job_summaries/*; do
         new_name=$(echo "$file" | awk -v OFS="." '{len=split($0, a, "."); print a[1], a[len-1], a[len]}')
         new_name=${new_name##*/}
-        project_to_upload_to=$(echo "$file" | cut -f2- -d"." | cut -f-3 -d".")
+        project_to_upload_to=$(echo "$file" | awk 'BEGIN{FS=OFS="."} {$NF=$(NF-1)=""; NF-=2} 1' | cut -f2- -d".")
         file_id=$(dx upload "${file}" --path "${project_to_upload_to}:/${new_name}" --brief)
 
         dx-jobutil-add-output job_summaries "$file_id" --class=array:file
