@@ -253,7 +253,11 @@ class TestAssayHandler:
     ):
         mock_project_id.return_value = "project-id1"
 
-        test_inputs = {"project_name": "002_run1_assay1", "run_id": "run1"}
+        test_inputs = {
+            "project_name": "002_run1_assay1",
+            "run_id": "run1",
+            "testing": True,
+        }
 
         normal_assay_handler.get_or_create_dx_project(**test_inputs)
 
@@ -270,7 +274,11 @@ class TestAssayHandler:
         mock_project_id.return_value = None
         mock_project_obj.return_value.new.return_value = "project_id1"
 
-        test_inputs = {"project_name": "002_run1_assay1", "run_id": "run1"}
+        test_inputs = {
+            "project_name": "002_run1_assay1",
+            "run_id": "run1",
+            "testing": True,
+        }
 
         normal_assay_handler.get_or_create_dx_project(**test_inputs)
 

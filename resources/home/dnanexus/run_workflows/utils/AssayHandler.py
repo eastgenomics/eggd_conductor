@@ -116,7 +116,7 @@ class AssayHandler:
                 f"v{self.config['version']}"
             )
 
-    def get_or_create_dx_project(self, project_name, run_id) -> str:
+    def get_or_create_dx_project(self, project_name, run_id, testing) -> str:
         """Create new project in DNAnexus if one with given name doesn't
         already exist.
 
@@ -124,8 +124,10 @@ class AssayHandler:
         ----------
         project_name : str
             Project name to get/create in DNAnexus
-        run_id: str
+        run_id : str
             Run id i.e. project name without the 00 prefix or any other suffix
+        testing : bool
+            Boolean indicating testing mode
         """
 
         assay = self.config.get("assay")
@@ -134,18 +136,23 @@ class AssayHandler:
         project_id = find_dx_project(project_name)
 
         if not project_id:
-            # create new project and capture returned project id and store
-            project_id = dx.bindings.dxproject.DXProject().new(
-                name=project_name,
-                summary=(
+            kwargs = {
+                "name": project_name,
+                "summary": (
                     f"Analysis of run {run_id} with "
                     f"{assay} {version} config"
                 ),
-                description=(
+                "description": (
                     "This project was automatically created by "
                     f"eggd_conductor from {os.environ.get('PARENT_JOB_ID')}"
                 ),
-            )
+            }
+
+            if not testing:
+                kwargs["protected"] = True
+
+            # create new project and capture returned project id and store
+            project_id = dx.bindings.dxproject.DXProject().new(**kwargs)
             prettier_print(
                 f"\nCreated new project for output: {project_name} "
                 f"({project_id})"
