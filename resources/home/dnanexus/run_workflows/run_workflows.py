@@ -621,7 +621,7 @@ def main():
                             ),
                             url=(
                                 "http://platform.dnanexus.com/panx/projects/"
-                                f"{handler.project.name.replace('project-', '')}/monitor/"
+                                f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
                             ticket=handler.ticket,
                         )
@@ -703,7 +703,7 @@ def main():
                 ),
                 url=(
                     "http://platform.dnanexus.com/panx/projects/"
-                    f"{handler.project.name.replace('project-', '')}/monitor/"
+                    f"{handler.project.id.replace('project-', '')}/monitor/"
                 ),
                 ticket=handler.ticket,
             )
