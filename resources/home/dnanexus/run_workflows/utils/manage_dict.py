@@ -913,7 +913,7 @@ def populate_tso500_reports_workflow(
 
     modified_input_dict = deepcopy(input_dict)
 
-    print("Adding input files for TSO500 reports workflow")
+    prettier_print("Adding input files for TSO500 reports workflow")
 
     missing_output_sample = None
 

@@ -37,7 +37,6 @@ from utils.utils import (
     match_samples_to_assays,
     preprocess_exclusion_patterns,
     exclude_samples,
-    parse_run_info_xml,
     parse_sample_sheet,
     prettier_print,
     time_stamp,
@@ -79,9 +78,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--samples",
         help="Command seperated string of sample names to run analysis on",
-    )
-    parser.add_argument(
-        "--run_info_xml", help="RunInfo.xml file, used to parse run ID from"
     )
     parser.add_argument(
         "--dx_project_id",
@@ -174,9 +170,6 @@ def parse_args() -> argparse.Namespace:
         prettier_print(args.samples)
     if args.fastqs:
         args.fastqs = [x.replace(" ", "") for x in args.fastqs.split(",") if x]
-
-    if args.run_info_xml:
-        args.run_id = parse_run_info_xml(args.run_info_xml)
 
     if not args.samples:
         args.samples = parse_sample_sheet(args.samplesheet)
@@ -610,22 +603,28 @@ def main():
                         handler.populate_output_dir_config(executable, sample)
 
                     if handler.missing_output_samples:
+                        msg = (
+                            "The following samples have a missing output "
+                            "file after running eggd_tso. They have been "
+                            "skipped for the reports workflow: "
+                            f"{' | '.join(handler.missing_output_samples)}"
+                        )
+                        prettier_print(msg)
                         # detected missing output files after eggd_tso, create
                         # a comment in the ticket
                         jira.add_comment(
-                            comment=(
-                                "The following samples have a missing output "
-                                "file after running eggd_tso. They have been "
-                                "skipped for the reports workflow: "
-                                f"{' | '.join(handler.missing_output_samples)}\n"
-                            ),
+                            comment=f"{msg}\n",
                             url=(
                                 "http://platform.dnanexus.com/panx/projects/"
                                 f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
                             ticket=handler.ticket,
                         )
-                        handler.job_summary[executable][sample] = None
+
+                        for missing_sample in handler.missing_output_samples:
+                            handler.job_summary[executable][
+                                missing_sample
+                            ] = None
 
                     for i, sample in enumerate(handler.job_info_per_sample, 1):
                         if sample not in handler.missing_output_samples:

@@ -9,7 +9,6 @@ import os
 import pathlib
 import re
 import sys
-from xml.etree import ElementTree as ET
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.realpath(__file__), "../"))
@@ -91,7 +90,7 @@ def select_instance_types(run_id, instance_types) -> dict:
     Parameters
     ----------
     run_id : str
-        run ID parsed from RunInfo.xml
+        run ID
     instance_types : dict
         mapping of flowcell type to instance type(s) to use from config file
 
@@ -249,35 +248,6 @@ def parse_sample_sheet(samplesheet) -> list:
     )
 
     return sample_list
-
-
-def parse_run_info_xml(xml_file) -> str:
-    """
-    Parses RunID from RunInfo.xml file
-
-    Parameters
-    ----------
-    xml_file : str
-        Path to RunInfo.xml file
-
-    Returns
-    -------
-    str
-        Run ID parsed from file
-    """
-
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
-    run_attributes = [x.attrib for x in root.findall("Run")]
-    run_id = ""
-
-    if run_attributes:
-        # should always be present
-        run_id = run_attributes[0].get("Id")
-
-    prettier_print(f"\nParsed run ID {run_id} from RunInfo.xml")
-
-    return run_id
 
 
 def match_samples_to_assays(configs, all_samples, testing) -> dict:
