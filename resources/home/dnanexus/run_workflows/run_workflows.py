@@ -610,22 +610,28 @@ def main():
                         handler.populate_output_dir_config(executable, sample)
 
                     if handler.missing_output_samples:
+                        msg = (
+                            "The following samples have a missing output "
+                            "file after running eggd_tso. They have been "
+                            "skipped for the reports workflow: "
+                            f"{' | '.join(handler.missing_output_samples)}"
+                        )
+                        prettier_print(msg)
                         # detected missing output files after eggd_tso, create
                         # a comment in the ticket
                         jira.add_comment(
-                            comment=(
-                                "The following samples have a missing output "
-                                "file after running eggd_tso. They have been "
-                                "skipped for the reports workflow: "
-                                f"{' | '.join(handler.missing_output_samples)}\n"
-                            ),
+                            comment=f"{msg}\n",
                             url=(
                                 "http://platform.dnanexus.com/panx/projects/"
                                 f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
                             ticket=handler.ticket,
                         )
-                        handler.job_summary[executable][sample] = None
+
+                        for missing_sample in handler.missing_output_samples:
+                            handler.job_summary[executable][
+                                missing_sample
+                            ] = None
 
                     for i, sample in enumerate(handler.job_info_per_sample, 1):
                         if sample not in handler.missing_output_samples:
