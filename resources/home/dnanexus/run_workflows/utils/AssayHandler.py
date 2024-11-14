@@ -423,6 +423,7 @@ class AssayHandler:
             if missing_output_sample:
                 # send message
                 self.missing_output_samples.append(missing_output_sample)
+                return
 
         # check if stage requires fastqs passing
         if params["process_fastqs"] is True:
