@@ -32,14 +32,13 @@ OR
 
 - `-isamplesheet`: samplesheet used to parse sample names from, if not given this will be attempted to be located from the sentinel file properties first, then sentinel file run directory then the first upload tar file.
 - `-iassay_config` (`array:file`) : assay specific config file, if not given will search in `-iassay_config_path` from `-ieggd_conductor_config` for appropriate file. Multiple config files can be passed that way to accomodate mixed assay runs.
-- `-irun_info_xml`: *Only required if starting from `-ifastqs` input and not providing `-irun_id`*. RunInfo.xml file for the run, used to parse RunID from for naming of DNAnexus project if `-icreate_project=true` and for adding to Slack notifications.
 
 #### **Strings**
 
 - `-idemultiplex_job_id`:  use output fastqs of a previous demultiplexing job instead of performing demultiplexing
 - `-idemultiplex_out`: path to store demultiplexing output, if not given will default parent of sentinel file. Should be in the format `project:path`
 - `-idx_project`: project ID in which to run and store output
-- `-irun_id`: ID of sequencing run used to name project, parsed from RunInfo.xml if not specified
+- `-irun_id`: ID of sequencing run used to name project
 - `-isample_names`: comma separated list of sample names, to use if not providing a samplesheet
 - `-ijob_reuse`: JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. `'{"analysis_1": "job-xxx"}'`). This can also be used for reusing a job in a mixed assay run if the user wants to reuse a job for only one assay using the following format: `{"TSO500": {"analysis_1": "job-xxx"}}`. This is currently only implemented for per-run analysis steps.
 - `-iexclude_samples`: comma separated string of sample names to exclude from per sample analysis steps (*n.b. these must be specified as they are in the samplesheet*). Additionally, assay codes can be passed as elements of the string like so `-1234-` or `-1234`. The second case is for handling the specific formatting in TSO500 sample names. This pattern recognition can be useful for excluding an entire assay from a mixed assay run.
@@ -62,18 +61,18 @@ The app may be run in 2 ways:
 - from a sentinel file uploaded by [dx-streaming-upload](dx-streaming-upload-url)
 - from a set of fastqs, if starting from fastqs other inputs are required:
   - a samplesheet (`-isamplesheet`) or list of sample names (`-isample_names`)
-  - a `RunInfo.xml` file (`-irun_info_xml`) to parse the run ID from **or** the run ID as a string (`-irun_id`)
+  - the run ID as a string (`-irun_id`)
 
 In addition, both require passing a config file for the app (`-ieggd_conductor_config`). This is the config file containing the Slack/Jira/DNAnexus tokens, app ID / name for the demultiplexing app ([bcl2fastq][bcl2fastq-url] | [bclconvert][bclconvert-url]), as well as the path to the assay JSON configs in DNAnexus.
 
 A general outline of what the app does is as follows:
 
 - If starting from sentinel record:
-  - parse the sentinel record to get the file IDs of the upload tar data, RunInfo.xml file and samplesheet
+  - parse the sentinel record to get the file IDs of the upload tar data, and samplesheet
 - If starting from FASTQs:
   - ensure that other required inputs are provided, including:
     - either `-isamplesheet` or `-isample_names`
-    - either `-irun_id` or `-irun_info_xml` file
+    - `-irun_id`
 - If assay config file(s) specified to use, this is downloaded and read in to use
 - If a config file is not specified, all config files in DNAnexus are found and are filtered down to the highest version available using the `assay_code` field in the config files against the sample names
 - The project to launch analysis jobs in is determined by:

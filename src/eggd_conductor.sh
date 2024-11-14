@@ -264,11 +264,6 @@ main () {
         export SAMPLESHEET_ID=$samplesheet
     fi
 
-    if [ "$run_info_xml" ]; then
-        # user specified RunInfo.xml specified to use
-        dx download -f "$run_info_xml" -o RunInfo.xml
-    fi
-
     if [[ "$upload_sentinel_record" ]]; then
         printf "\nParsing sentinel file\n"
         _parse_sentinel_file
@@ -316,7 +311,6 @@ main () {
     fi
     if [ "$upload_sentinel_record" ]; then optional_args+="--sentinel_file ${sentinel_id} "; fi
     if [ -f "SampleSheet.csv" ]; then optional_args+="--samplesheet SampleSheet.csv "; fi
-    if [ -f "RunInfo.xml" ]; then optional_args+="--run_info_xml RunInfo.xml "; fi
     if [ "$fastqs" ]; then optional_args+="--fastqs $FASTQ_IDS "; fi
     if [ "$sample_names" ]; then optional_args+="--samples ${sample_names} "; fi
     if [ "$dx_project" ]; then optional_args+="--dx_project_id $dx_project "; fi

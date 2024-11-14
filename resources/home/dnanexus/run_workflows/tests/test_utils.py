@@ -8,7 +8,6 @@ from utils.utils import (
     select_instance_types,
     match_samples_to_assays,
     parse_sample_sheet,
-    parse_run_info_xml,
 )
 
 
@@ -209,21 +208,6 @@ def test_parse_sample_sheet():
     assert (
         parsed_sample_list == correct_sample_list
     ), "list of samples wrongly parsed from samplesheet"
-
-
-def test_parse_run_info_xml():
-    """
-    Test that run ID is correctly parsed from RunInfo.xml file
-    """
-    parsed_run_id = parse_run_info_xml(
-        os.path.join(TEST_DATA_DIR, "RunInfo.xml")
-    )
-
-    correct_run_id = "220920_A01303_0099_AHGNJNDRX2"
-
-    assert (
-        parsed_run_id == correct_run_id
-    ), "run ID not correctly parsed from RunInfo.xml"
 
 
 class TestMatchSamplesToAssays:

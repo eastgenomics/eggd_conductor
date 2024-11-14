@@ -37,7 +37,6 @@ from utils.utils import (
     match_samples_to_assays,
     preprocess_exclusion_patterns,
     exclude_samples,
-    parse_run_info_xml,
     parse_sample_sheet,
     prettier_print,
     time_stamp,
@@ -79,9 +78,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--samples",
         help="Command seperated string of sample names to run analysis on",
-    )
-    parser.add_argument(
-        "--run_info_xml", help="RunInfo.xml file, used to parse run ID from"
     )
     parser.add_argument(
         "--dx_project_id",
@@ -174,9 +170,6 @@ def parse_args() -> argparse.Namespace:
         prettier_print(args.samples)
     if args.fastqs:
         args.fastqs = [x.replace(" ", "") for x in args.fastqs.split(",") if x]
-
-    if args.run_info_xml:
-        args.run_id = parse_run_info_xml(args.run_info_xml)
 
     if not args.samples:
         args.samples = parse_sample_sheet(args.samplesheet)
