@@ -381,7 +381,7 @@ def add_other_inputs(
             raise KeyError(
                 (
                     "Error trying to parse output directory to input dict."
-                    f"\nNo output directory found for given input: {dir}\n"
+                    f"\nNo output directory found for given input: {out_dir}\n"
                     "Please check config to ensure job input is in the "
                     "format: INPUT-analysis_[0-9]-out_dir"
                 )
