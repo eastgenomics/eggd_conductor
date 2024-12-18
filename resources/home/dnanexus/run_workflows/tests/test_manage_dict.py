@@ -5,7 +5,6 @@ import unittest
 
 import pytest
 
-import utils
 from utils.manage_dict import (
     search,
     replace,
@@ -600,10 +599,10 @@ class TestAddOtherInputs:
     """
 
     @pytest.fixture
-    def other_inputs(self, monkeypatch):
+    def other_inputs(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(
             "utils.manage_dict.get_job_out_folder",
-            lambda x: "/out_dir/dir1",
+            lambda _: "/out_dir/dir1",
         )
 
         # test input dict with all keys handled by add_other_inputs()
