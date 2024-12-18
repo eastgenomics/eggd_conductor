@@ -708,6 +708,22 @@ class TestAddOtherInputs:
             other_inputs["output_path"] == correct_path
         ), "INPUT-analysis_1-out_dir not correctly replaced"
 
+    def test_attempting_to_get_analysis_1_in_job_outputs_doesnt_work(self):
+        """
+        Test for finding INPUT-analysis_1_out_dir and replacing with the
+        output path stored in the analysis output directories dictionary.
+        Job outputs is an empty dict by default and raises a KeyError
+        """
+        test_input = {"out_dir": "INPUT-analysis_1-out_dir"}
+
+        with pytest.raises(KeyError):
+            add_other_inputs(
+                input_dict=test_input,
+                parent_out_dir="",
+                project_id="",
+                project_name="",
+            )
+
 
 class TestGetDependentJobs:
     """
