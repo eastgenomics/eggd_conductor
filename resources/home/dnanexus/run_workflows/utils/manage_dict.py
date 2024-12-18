@@ -280,7 +280,7 @@ def add_other_inputs(
     project_name,
     sample=None,
     sample_prefix=None,
-    job_outputs_dict=None,
+    job_outputs_dict={},
 ) -> dict:
     """
     Generalised function for adding other INPUT-s, currently handles
@@ -379,12 +379,10 @@ def add_other_inputs(
 
         if not analysis_job_id:
             raise KeyError(
-                (
-                    "Error trying to parse output directory to input dict."
-                    f"\nNo output directory found for given input: {out_dir}\n"
-                    "Please check config to ensure job input is in the "
-                    "format: INPUT-analysis_[0-9]-out_dir"
-                )
+                "Error trying to parse output directory to input dict."
+                f"\nNo output directory found for given input: {out_dir}\n"
+                "Please check config to ensure job input is in the "
+                "format: INPUT-analysis_[0-9]-out_dir"
             )
 
         analysis_out_dir = get_job_out_folder(analysis_job_id)
