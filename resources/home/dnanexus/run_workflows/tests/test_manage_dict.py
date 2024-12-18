@@ -598,88 +598,94 @@ class TestAddOtherInputs:
     keys and replace as required
     """
 
-    # test input dict with all keys handled by add_other_inputs()
-    test_input_dict = {
-        "my_project_name": "INPUT-dx_project_name",
-        "my_project_id": "INPUT-dx_project_id",
-        "all_analysis_output": "INPUT-parent_out_dir",
-        "custom_coverage": True,
-        "eggd_multiqc_config_file": {
-            "$dnanexus_link": "file-G0K191j433Gv6JG63b43z8Gy"
-        },
-        "sample_name_prefix": "INPUT-SAMPLE-PREFIX",
-        "sample_name": "INPUT-SAMPLE-NAME",
-        "output_path": "INPUT-analysis_1-out_dir",
-        "run_sample_sheet": {"$dnanexus_link": "INPUT-SAMPLESHEET"},
-    }
+    @pytest.fixture
+    def other_inputs(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(
+            "utils.manage_dict.get_job_out_folder",
+            lambda _: "/out_dir/dir1",
+        )
 
-    dx_project_id = "project-12345"
-    dx_project_name = "some_analysis_project"
-    parent_out_dir = "/output/some_assay-220930-1200"
+        # test input dict with all keys handled by add_other_inputs()
+        test_input_dict = {
+            "my_project_name": "INPUT-dx_project_name",
+            "my_project_id": "INPUT-dx_project_id",
+            "all_analysis_output": "INPUT-parent_out_dir",
+            "custom_coverage": True,
+            "eggd_multiqc_config_file": {
+                "$dnanexus_link": "file-G0K191j433Gv6JG63b43z8Gy"
+            },
+            "sample_name_prefix": "INPUT-SAMPLE-PREFIX",
+            "sample_name": "INPUT-SAMPLE-NAME",
+            "output_path": "INPUT-analysis_1-out_dir",
+            "run_sample_sheet": {"$dnanexus_link": "INPUT-SAMPLESHEET"},
+        }
 
-    analysis_output_directories = {
-        "analysis_1": "/output/some_assay-220930-1200/my_first_app"
-    }
+        dx_project_id = "project-12345"
+        dx_project_name = "some_analysis_project"
+        parent_out_dir = "/output/some_assay-220930-1200"
 
-    # set samplesheet file ID as env variable as set in eggd_conductor.sh
-    os.environ["SAMPLESHEET_ID"] = (
-        "{'$dnanexus_link': 'file-GGxPVxQ4X7kbkFBx7b913b0G'}"
-    )
+        # set samplesheet file ID as env variable as set in eggd_conductor.sh
+        os.environ["SAMPLESHEET_ID"] = (
+            "{'$dnanexus_link': 'file-GGxPVxQ4X7kbkFBx7b913b0G'}"
+        )
 
-    # call add_other_inputs() to replace all INPUT-s
-    output = add_other_inputs(
-        input_dict=test_input_dict,
-        parent_out_dir=parent_out_dir,
-        project_id=dx_project_id,
-        project_name=dx_project_name,
-        sample="my_sample_with_a_long_name",
-        sample_prefix="my_sample",
-    )
+        job_outputs = {"analysis_1": "job-id"}
 
-    def test_adding_sample_name(self):
+        # call add_other_inputs() to replace all INPUT-s
+        return add_other_inputs(
+            input_dict=test_input_dict,
+            parent_out_dir=parent_out_dir,
+            project_id=dx_project_id,
+            project_name=dx_project_name,
+            sample="my_sample_with_a_long_name",
+            sample_prefix="my_sample",
+            job_outputs_dict=job_outputs,
+        )
+
+    def test_adding_sample_name(self, other_inputs):
         """
         Test for finding INPUT-SAMPLE-NAME and replacing with sample name
         """
         assert (
-            self.output["sample_name"] == "my_sample_with_a_long_name"
+            other_inputs["sample_name"] == "my_sample_with_a_long_name"
         ), "INPUT-SAMPLE-NAME not correctly replaced"
 
-    def test_adding_sample_prefix(self):
+    def test_adding_sample_prefix(self, other_inputs):
         """
         Test for finding INPUT-SAMPLE-PREFIX and replacing with sample prefix
         """
         assert (
-            self.output["sample_name_prefix"] == "my_sample"
+            other_inputs["sample_name_prefix"] == "my_sample"
         ), "INPUT-SAMPLE-PREFIX not correctly replaced"
 
-    def test_adding_project_id(self):
+    def test_adding_project_id(self, other_inputs):
         """
         Test for finding INPUT-dx_project_id and replacing with project_id
         from args Namespace object
         """
         assert (
-            self.output["my_project_id"] == "project-12345"
+            other_inputs["my_project_id"] == "project-12345"
         ), "INPUT-dx_project_id not correctly replaced"
 
-    def test_adding_project_name(self):
+    def test_adding_project_name(self, other_inputs):
         """
         Test for finding INPUT-dx_project_name and replacing with project_name
         from args Namespace object
         """
         assert (
-            self.output["my_project_name"] == "some_analysis_project"
+            other_inputs["my_project_name"] == "some_analysis_project"
         ), "INPUT-dx_project_name not correctly replaced"
 
-    def test_adding_parent_out_dir(self):
+    def test_adding_parent_out_dir(self, other_inputs):
         """
         Test for finding INPUT-parent_out_dir and replacing with parent output
         directory from args Namespace object
         """
         assert (
-            self.output["all_analysis_output"] == "some_assay-220930-1200"
+            other_inputs["all_analysis_output"] == "some_assay-220930-1200"
         ), "INPUT-parent_out_dir not correctly replaced"
 
-    def test_adding_samplesheet(self):
+    def test_adding_samplesheet(self, other_inputs):
         """
         Test for finding and replacing INPUT-SAMPLESHEET from SAMPLESHEET
         environment variable which will be the dnanexus file ID
@@ -689,8 +695,34 @@ class TestAddOtherInputs:
         }
 
         assert (
-            self.output["run_sample_sheet"] == correct_samplesheet
+            other_inputs["run_sample_sheet"] == correct_samplesheet
         ), "Samplesheet not correctly parsed to input dict"
+
+    def test_adding_analysis_1_out_dir(self, other_inputs):
+        """
+        Test for finding INPUT-analysis_1_out_dir and replacing with the
+        output path stored in the analysis output directories dictionary
+        """
+        correct_path = "/out_dir/dir1"
+        assert (
+            other_inputs["output_path"] == correct_path
+        ), "INPUT-analysis_1-out_dir not correctly replaced"
+
+    def test_attempting_to_get_analysis_1_in_job_outputs_doesnt_work(self):
+        """
+        Test for finding INPUT-analysis_1_out_dir and replacing with the
+        output path stored in the analysis output directories dictionary.
+        Job outputs is an empty dict by default and raises a KeyError
+        """
+        test_input = {"out_dir": "INPUT-analysis_1-out_dir"}
+
+        with pytest.raises(KeyError):
+            add_other_inputs(
+                input_dict=test_input,
+                parent_out_dir="",
+                project_id="",
+                project_name="",
+            )
 
 
 class TestGetDependentJobs:

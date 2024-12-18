@@ -452,6 +452,7 @@ class AssayHandler:
             project_name=self.project.name,
             sample=sample,
             sample_prefix=sample_prefix,
+            job_outputs_dict=self.job_outputs,
         )
 
         job_info["extra_args"] = params.get("extra_args", {})

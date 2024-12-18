@@ -284,6 +284,23 @@ def invite_participants_in_project(users, project):
             )
 
 
+def get_job_out_folder(job_id: str) -> str:
+    """Get the output directory of a job id
+
+    Parameters
+    ----------
+    job_id : str
+        String representing a DNAnexus job id
+
+    Returns
+    -------
+    str
+        String representing the output folder of the job id in DNAnexus
+    """
+
+    return dx.DXJob(dxid=job_id).describe().get("folder")
+
+
 def get_job_output_details(job_id) -> Tuple[list, list]:
     """
     Get describe details for all output files from a job
