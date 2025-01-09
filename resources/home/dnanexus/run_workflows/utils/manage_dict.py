@@ -15,6 +15,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.realpath(__file__), "../../"))
 )
 
+from utils.dx_utils import get_job_out_folder
 from utils.utils import prettier_print
 from utils.WebClasses import Slack
 
@@ -279,6 +280,7 @@ def add_other_inputs(
     project_name,
     sample=None,
     sample_prefix=None,
+    job_outputs_dict={},
 ) -> dict:
     """
     Generalised function for adding other INPUT-s, currently handles
@@ -363,6 +365,35 @@ def add_other_inputs(
                 search_key=False,
                 replace_key=False,
             )
+
+    # find and replace any out dirs
+    regex = re.compile(r"^INPUT-analysis_[0-9]{1,2}-out_dir$")
+    out_dirs = [re.search(regex, x) for x in other_inputs]
+    out_dirs = [x.group(0) for x in out_dirs if x]
+
+    for out_dir in out_dirs:
+        # find the output directory for the given analysis
+        analysis_job_id = job_outputs_dict.get(
+            out_dir.replace("INPUT-", "").replace("-out_dir", "")
+        )
+
+        if not analysis_job_id:
+            raise KeyError(
+                "Error trying to parse output directory to input dict."
+                f"\nNo output directory found for given input: {out_dir}\n"
+                "Please check config to ensure job input is in the "
+                "format: INPUT-analysis_[0-9]-out_dir"
+            )
+
+        analysis_out_dir = get_job_out_folder(analysis_job_id)
+
+        modified_input_dict = replace(
+            input_dict=modified_input_dict,
+            to_replace=out_dir,
+            replacement=analysis_out_dir,
+            search_key=False,
+            replace_key=False,
+        )
 
     diff_res = list(diff(modified_input_dict, input_dict))
 
