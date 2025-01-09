@@ -1,350 +1,25 @@
 """
-Random utility functions including those for sending Slack messages
-and searching Jira for sequencing run tickets.
+Random utility functions
 """
+
+from collections import defaultdict
 from datetime import datetime
 import json
 import os
+import pathlib
 import re
-import requests
-from requests.adapters import HTTPAdapter
-from requests.auth import HTTPBasicAuth
 import sys
-import traceback
-from urllib3.util import Retry
 
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.realpath(__file__), '../')
-))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.realpath(__file__), "../"))
+)
 
+import dxpy as dx
+from packaging.version import parse as parseVersion
+import pandas as pd
 
-class Slack():
-    """
-    Slack related functions
-    """
-    def __init__(self) -> None:
-        self.slack_token = os.getenv("SLACK_TOKEN")
-        self.slack_alert_channel = os.getenv("SLACK_ALERT_CHANNEL")
-
-
-    def send(self, message, exit_fail=True, warn=False) -> None:
-        """
-        Send alert to Slack to know something has failed
-
-        Parameters
-        ----------
-        message : str
-            message to send to Slack
-        exit_fail : bool
-            if the alert is being sent when exiting and to create the
-            slack_fail_sent.log file. If false, this will be for an alert only.
-        warn : bool
-            if to send the alert as a warning or an error (default False =>
-            send Slack alert as an error)
-        """
-        conductor_job_url = os.environ.get('conductor_job_url')
-        channel = self.slack_alert_channel
-
-        if warn:
-            # sending warning with different wording to alert
-            message = (
-                f":rotating_light: *Warning - eggd_conductor*\n\n{message}\n\n"
-                f"eggd_conductor job: {conductor_job_url}"
-            )
-        else:
-            message = (
-                f":warning: *Error - eggd_conductor*\n\nError in processing "
-                f"run *{os.environ.get('RUN_ID')}*\n\n{message}\n\n"
-                f"eggd_conductor job: {conductor_job_url}"
-            )
-
-        prettier_print(f"\nSending message to Slack channel {channel}\n\n{message}")
-
-        http = requests.Session()
-        retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
-        http.mount("https://", HTTPAdapter(max_retries=retries))
-
-        try:
-            response = http.post(
-                'https://slack.com/api/chat.postMessage', {
-                    'token': self.slack_token,
-                    'channel': f"#{channel}",
-                    'text': message
-                }).json()
-
-            if not response['ok']:
-                # error in sending slack notification
-                prettier_print(f"Error in sending slack notification: {response.get('error')}")
-        except Exception as err:
-            prettier_print(f"Error in sending post request for slack notification: {err}")
-
-        if exit_fail:
-            # write file to know in bash script a fail alert already sent
-            open('slack_fail_sent.log', 'w').close()
-
-
-class Jira():
-    """
-    Jira related functions for getting sequencing run ticket for a given
-    run to tag analysis links to
-    """
-    def __init__(self) -> None:
-        self.queue_url = os.environ.get('JIRA_QUEUE_URL')
-        self.issue_url = os.environ.get('JIRA_ISSUE_URL')
-        self.token = os.environ.get('JIRA_TOKEN')
-        self.email = os.environ.get('JIRA_EMAIL')
-        self.headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        }
-        self.auth = HTTPBasicAuth(self.email, self.token)
-        self.http = self.create_session()
-
-
-    def create_session(self):
-        """
-        Create session adapter object to use for queries
-
-        Returns
-        -------
-        session : http session object
-        """
-        http = requests.Session()
-        retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
-        http.mount("https://", HTTPAdapter(max_retries=retries))
-        return http
-
-
-    def get_all_tickets(self, run_id) -> list:
-        """
-        Get all tickets from given queue URL endpoint
-
-        Parameters
-        ----------
-        run_id : str
-            ID of current run
-
-        Returns
-        -------
-        list : list of all tickets with details for given queue
-        """
-        prettier_print(f"\nGetting all Jira tickets from endpoint: {self.queue_url}")
-        start = 0
-        response_data = []
-
-        while True:
-            response = self.http.get(
-                url=f"{self.queue_url}/issue?start={start}",
-                headers=self.headers,
-                auth=self.auth
-            )
-
-            print(response)
-
-            if not response.ok:
-                self.send_slack_alert(
-                    f"Error querying Jira for tickets for current run `{run_id}`"
-                    f"\nAPI endpoint: {self.queue_url}/issue?start={start}\n"
-                    f"Status code: *{response.status_code}*\n"
-                    f"Error:```{response.content.decode()}```\n"
-                    "Continuing analysis without linking to Jira ticket."
-                )
-            else:
-                response = response.json()
-
-            if response['size'] == 0:
-                break
-
-            response_data.extend(response['values'])
-            start += 50
-
-        prettier_print(f"Found {len(response_data)} tickets")
-
-        return response_data
-
-
-    def get_run_ticket_id(self, run_id, tickets) -> str:
-        """
-        Given a list of tickets, filter out the one for the current
-        sequencing run and return its ID
-
-        Parameters
-        ----------
-        run_id : str
-            run ID of current sequencing run
-        tickets : list
-            list of tickets form Jira queue
-
-        Returns
-        -------
-        str
-            ticket ID
-        """
-        prettier_print("Filtering Jira tickets for current run")
-        run_ticket = list(set([
-            x['id'] for x in tickets if run_id in x['fields']['summary']
-        ]))
-        prettier_print(f"Run ticket(s) found: {run_ticket}")
-
-        if not run_ticket:
-            # didn't find a ticket -> either a typo in the name or ticket
-            # has not yet been raised / forgotten about, send an alert and
-            # continue with things since linking to Jira is non-essential
-            self.send_slack_alert(
-                f"No Jira ticket found for the current sequencing run "
-                f"*{run_id}*.\n\nContinuing with analysis without linking to Jira."
-            )
-
-            return None
-
-        if len(run_ticket) > 1:
-            # found multiple tickets, this should not happen so send us an
-            # alert and don't touch the tickets
-            self.send_slack_alert(
-                f"Found more than one Jira ticket for given run (`{run_id}`)"
-                f"\n{run_ticket}"
-            )
-            return None
-
-        return run_ticket[0]
-
-
-    def send_slack_alert(self, message) -> None:
-        """
-        Send warning alert to Slack that there was an issue with querying Jira
-
-        Parameters
-        ----------
-        message : str
-            message to send to Slack
-        """
-        if not os.path.exists('jira_alert.log'):
-            # create file to not send multiple Slack messages
-            os.mknod('jira_alert.log')
-            Slack().send(
-                message=message,
-                exit_fail=False,
-                warn=True
-            )
-        else:
-            prettier_print(
-                "Slack notification for fail with Jira already sent, "
-                f"won't send current error: {message}"
-            )
-
-
-    def add_comment(self, run_id, comment, url) -> None:
-        """
-        Find Jira ticket for given run ID and add internal comment
-
-        Parameters
-        ----------
-        run_id : str
-            ID of sequencing run
-        comment : str
-            comment to add to Jira ticket
-        url : str
-            any url to add to message after comment
-        """
-        if not any([self.queue_url, self.issue_url, self.token, self.email]):
-            # none of Jira related variables defined in config, assume we
-            # aren't wanting to use Jira and continue
-            prettier_print(
-                "No required Jira variables set in config, continuinung "
-                "without using Jira"
-            )
-            return
-
-        if not all([self.queue_url, self.issue_url, self.token, self.email]):
-            # one or more required Jira variables not set in config
-            if self.token:
-                # hide the token to not send it in the Slack message
-                self.token = f"{self.token[:4]}{'*' * (len(self.token) - 4)}"
-
-            variables = (
-                f"`JIRA_QUEUE_URL: {self.queue_url}`\n"
-                f"`JIRA_ISSUE_URL: {self.issue_url}`\n"
-                f"`JIRA_TOKEN: {self.token}`\n"
-                f"`JIRA_EMAIL: {self.email}`\n"
-
-            )
-
-            self.send_slack_alert(
-                "Unable to query Jira - one or more variables "
-                f"not defined in the config\n{variables}"
-                "Continuing analysis without linking to Jira ticket."
-            )
-            return
-
-        try:
-            # put whole thing in a try execept to not cause analysis to stop
-            # if there's an issue with Jira, just send an alert to slack
-            prettier_print("Finding Jira ticket to add comment to")
-            tickets = self.get_all_tickets(run_id=run_id)
-            ticket_id = self.get_run_ticket_id(run_id=run_id, tickets=tickets)
-            prettier_print(f"Found Jira ticket ID {ticket_id} for run {run_id}")
-        except Exception:
-            self.send_slack_alert(
-                f"Error finding Jira ticket for given run (`{run_id}`).\n"
-                f"Continuing analysis without linking to Jira ticket.\n"
-                f"Error: ```{traceback.format_exc()}```"
-            )
-            return
-
-        if not ticket_id:
-            # no ticket found or more than one ticket found, Slack alert
-            # will have been sent in get_run_ticket_id()
-            return
-
-        comment_url = f"{self.issue_url}/{ticket_id}/comment"
-
-        payload = json.dumps({
-            "body": {
-            "type": "doc",
-            "version": 1,
-            "content": [{
-                "type": "paragraph",
-                "content": [
-                    {
-                        "text": f"{comment}",
-                        "type": "text"
-                    },
-                    {
-                        "text": f"{url}",
-                        "type": "text",
-                        "marks": [{
-                            "type": "link",
-                            "attrs": {
-                                "href": f"{url}"
-                            }
-                        }]
-                    }
-                ]
-            }]
-        },
-            "properties": [{
-                "key": "sd.public.comment",
-                "value": {
-                    "internal": True
-                }
-            }]
-        })
-
-        response = self.http.post(
-            url=comment_url,
-            data=payload,
-            headers=self.headers,
-            auth=self.auth
-        )
-
-        if not response.status_code == 201:
-            # some kind of error occurred adding Jira comment =>
-            # send a non-exiting Slack alert
-            self.send_slack_alert(
-                f"failed to add comment to Jira ticket ({ticket_id})\n\n"
-                f"Status code: {response.status_code}\n\n"
-                f"Error response: `{response.text}`"
-            )
+import utils.WebClasses as WebClasses
+from WebClasses import Slack
 
 
 def prettier_print(log_data) -> None:
@@ -364,17 +39,17 @@ def prettier_print(log_data) -> None:
     log_data : anything json dumpable
         data to print
     """
-    start = end = ''
+    start = end = ""
 
     if isinstance(log_data, str):
         # nicely handle line breaks for spacing in logs
-        if log_data.startswith('\n'):
-            start = '\n'
-            log_data = log_data.lstrip('\n')
+        if log_data.startswith("\n"):
+            start = "\n"
+            log_data = log_data.lstrip("\n")
 
-        if log_data.endswith('\n'):
-            end = '\n'
-            log_data = log_data.rstrip('\n')
+        if log_data.endswith("\n"):
+            end = "\n"
+            log_data = log_data.rstrip("\n")
 
     print(
         f"{start}[{datetime.now().strftime('%H:%M:%S')}] - "
@@ -415,7 +90,7 @@ def select_instance_types(run_id, instance_types) -> dict:
     Parameters
     ----------
     run_id : str
-        run ID parsed from RunInfo.xml
+        run ID
     instance_types : dict
         mapping of flowcell type to instance type(s) to use from config file
 
@@ -426,10 +101,10 @@ def select_instance_types(run_id, instance_types) -> dict:
         single instance type is defined, or dict if it is a mapping (i.e for
         multiple stages of a workflow)
     """
-    prettier_print('Selecting instance types from assay config file')
+    prettier_print("Selecting instance types from assay config file")
     if not instance_types:
         # empty dict provided => no user defined instances in config
-        prettier_print('No instance types set to use from config')
+        prettier_print("No instance types set to use from config")
         return None
 
     if isinstance(instance_types, str):
@@ -445,9 +120,12 @@ def select_instance_types(run_id, instance_types) -> dict:
     # "S4": "xxxxxDSxx"
 
     matches = []
-    flowcell_id = re.split('[_-]', run_id)[-1]  # flowcell ID is last part of run ID
+    # flowcell ID is last part of run ID
+    flowcell_id = re.split("[_-]", run_id)[-1]
 
-    prettier_print(f"Instance types set for the following keys:\n\t{instance_types}")
+    prettier_print(
+        f"Instance types set for the following keys:\n\t{instance_types}"
+    )
 
     for type in instance_types.keys():
         if type not in ["SP", "S1", "S2", "S4", "*"]:
@@ -456,24 +134,27 @@ def select_instance_types(run_id, instance_types) -> dict:
             # than x's, we turn it into a regex pattern matching >= n x's if
             # there are alphanumeric characters at start or end
             prettier_print(f"Illumina flowcell pattern found: {type}")
-            start_x = re.search(r'^x*', type).group()
-            end_x = re.search(r'x*$', type).group()
+            start_x = re.search(r"^x*", type).group()
+            end_x = re.search(r"x*$", type).group()
 
             # make x's n or more character regex pattern (e.g. [\d\w]{5,})
             if start_x:
-                start_x = f"[\d\w]{{{len(start_x)},}}"
+                start_x = rf"[\d\w]{{{len(start_x)},}}"
 
             if end_x:
-                end_x = f"[\d\w]{{{len(end_x)},}}"
+                end_x = rf"[\d\w]{{{len(end_x)},}}"
 
-            match = re.search(f"{start_x}{type.strip('x')}{end_x}", flowcell_id)
+            match = re.search(
+                f"{start_x}{type.strip('x')}{end_x}", flowcell_id
+            )
+
             if match:
                 matches.append(type)
 
     if matches:
         # we found a match against the flowcell ID and one of the sets of
         # instance types to use => return this to use
-        assert len(matches) == 1, Slack().send(
+        assert len(matches) == 1, WebClasses.Slack().send(
             "More than one set of instance types set for the same flowcell:"
             f"\n\t{matches}"
         )
@@ -485,96 +166,531 @@ def select_instance_types(run_id, instance_types) -> dict:
     # no match against Illumina patterns found in instances types dict and
     # the current flowcell ID, check for SP / S1 / S2 / S4
     prettier_print(
-        'No matches found for Illumina flowcell patterns, '
-        'checking for SP, S1, S2 and S4'
+        "No matches found for Illumina flowcell patterns, "
+        "checking for SP, S1, S2 and S4"
     )
-    if 'DR' in flowcell_id:
+    if "DR" in flowcell_id:
         # this is an SP or S1 flowcell, both use the same identifier
         # therefore try select S1 first from the instance types since
         # we can't differetiate the two
-        if instance_types.get('S1'):
+        if instance_types.get("S1"):
             prettier_print("Match found for S1 instances")
-            return instance_types['S1']
-        elif instance_types.get('SP'):
+            return instance_types["S1"]
+        elif instance_types.get("SP"):
             prettier_print("Match found for SP instances")
-            return instance_types['SP']
+            return instance_types["SP"]
         else:
             # no instance types defined for SP/S1 flowcell
-            prettier_print('SP/S1 flowcell used but no instance types specified')
+            prettier_print(
+                "SP/S1 flowcell used but no instance types specified"
+            )
 
-    if 'DM' in flowcell_id:
+    if "DM" in flowcell_id:
         # this is an S2 flowcell, check for S2
-        if instance_types.get('S2'):
+        if instance_types.get("S2"):
             prettier_print("Match found for S2 instances")
-            return instance_types['S2']
+            return instance_types["S2"]
         else:
             # no instance type defined for S2 flowcell
-            prettier_print('S2 flowcell used but no isntance types specified')
+            prettier_print("S2 flowcell used but no isntance types specified")
 
-    if 'DS' in flowcell_id:
+    if "DS" in flowcell_id:
         # this is an S4 flowcell, check for S4
-        if instance_types.get('S4'):
+        if instance_types.get("S4"):
             prettier_print("Match found for S4 instances")
-            return instance_types['S4']
+            return instance_types["S4"]
         else:
             # no instance type defined for S2 flowcell
-            prettier_print('S4 flowcell used but no isntance types specified')
+            prettier_print("S4 flowcell used but no isntance types specified")
 
     # if we get here then we haven't identified a match for the flowcell
     # used for sequencing against what we have defined in the config,
     # check for '*' being present (i.e. the catch all instances), else
     # return None to use app / workflow defaults
-    if instance_types.get('*'):
+    if instance_types.get("*"):
         prettier_print("Match found for default (*) instances")
-        return instance_types['*']
+        return instance_types["*"]
     else:
         prettier_print(
-            'No defined instances types found for flowcell used, will use '
-            'app / workflow defaults'
+            "No defined instances types found for flowcell used, will use "
+            "app / workflow defaults"
         )
         return None
 
 
-def subset_samplesheet_samples(samples, subset) -> list:
+def parse_sample_sheet(samplesheet) -> list:
     """
-    Subsets the sample list parsed from the samplesheet against the
-    provided regex pattern.
-
-    This is used to limit what is run for per sample jobs that would
-    use all samples from the samplesheet.
+    Parses list of sample names from given samplesheet
 
     Parameters
     ----------
-    samples : list
-        list of samples
-    subset : string
-        regex pattern against which to filter
+    samplesheet : str
+        Path to samplesheet to parse
 
     Returns
     -------
     list
-        subset of sample list
+        list of sample names
+
+    Raises
+    ------
+    AssertionError
+        Raised when no samples parsed from samplesheet
     """
-    printable_samples = '\n\t'.join(samples)
-    print(
-        f"Subsetting {len(samples)} samples from sample sheet, sample list "
-        f"before:\n\t{printable_samples}"
+
+    sheet = pd.read_csv(samplesheet, header=None, usecols=[0])
+    column = sheet[0].tolist()
+    sample_list = column[column.index("Sample_ID") + 1 :]
+
+    # sense check some samples found and samplesheet isn't malformed
+    assert sample_list, Slack().send(
+        f"Sample list could not be parsed from samplesheet: {samplesheet}"
     )
 
-    # check that a valid pattern has been provided
-    try:
-        re.compile(subset)
-    except re.error:
-        raise re.error('Invalid subset pattern provided')
+    return sample_list
 
-    samples = [x for x in samples if re.search(subset, x)]
 
-    assert samples, f"No samples left after filtering using pattern {subset}"
+def match_samples_to_assays(configs, all_samples, testing) -> dict:
+    """
+    Match sample list against configs to identify correct config to use
+    for each sample
 
-    printable_samples = '\n\t'.join(samples)
-    print(
-        f"Retained {len(samples)} after subsetting with {subset}:"
-        f"\n\t{printable_samples}"
+    Parameters
+    ----------
+    configs : dict
+        dict of config dicts for each assay
+    all_samples : list
+        list of samples parsed from samplesheet or specified with --samples
+    testing : bool
+        if running in test mode, if not will perform checks on samples
+
+    Returns
+    -------
+    dict
+        dict of assay_code : list of matching samples, i.e.
+            {LAB123 : ['sample1-LAB123', 'sample2-LAB123' ...]}
+
+    Raises
+    ------
+    AssertionError
+        Raised when not all samples have an assay config matched
+    AssertionError
+        Raised when more than one assay config found to use for given samples
+    """
+
+    # build a dict of assay codes from configs found to samples based off
+    # matching assay_code in sample names
+    prettier_print("\nMatching samples to assay configs")
+    all_config_assay_codes = sorted(
+        [x.get("assay_code") for x in configs.values()]
+    )
+    assay_to_samples = defaultdict(list)
+
+    prettier_print(
+        f"\nAll assay codes of config files: {all_config_assay_codes}"
+    )
+    prettier_print("Samples to be used:")
+    prettier_print(all_samples)
+
+    # for each sample check each assay code if it matches, then select the
+    # matching config with highest version
+    for sample in all_samples:
+        sample_to_assay_configs = {}
+
+        for code in all_config_assay_codes:
+            # find all config files that match this sample
+            if re.search(code, sample, re.IGNORECASE):
+                sample_to_assay_configs[code] = configs[code]["version"]
+
+        if sample_to_assay_configs:
+            # found at least one config to match to sample, select
+            # one with the highest version
+            highest_ver_config = max(
+                sample_to_assay_configs.values(), key=parseVersion
+            )
+
+            # select the config key with for the corresponding value found
+            # to be the highest
+            latest_config_key = list(sample_to_assay_configs)[
+                list(sample_to_assay_configs.values()).index(
+                    highest_ver_config
+                )
+            ]
+
+            assay_to_samples[latest_config_key].append(sample)
+        else:
+            # no match found, just log this as an AssertionError will be raised
+            # below for all samples that don't have a match
+            prettier_print(f"No matching config file found for {sample} !\n")
+
+    if not testing:
+        # check all samples have an assay code in one of the configs
+        samples_w_codes = [
+            x for y in list(assay_to_samples.values()) for x in y
+        ]
+        samples_without_codes = "\n\t\t".join(
+            [f"`{x}`" for x in sorted(set(all_samples) - set(samples_w_codes))]
+        )
+
+        assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
+            f"Could not identify assay code for all samples!\n\n"
+            f"Configs for assay codes found: "
+            f"`{', '.join(all_config_assay_codes)}`\n\nSamples not matching "
+            f"any available config:\n\t\t{samples_without_codes}"
+        )
+    else:
+        # running in testing mode, check we found at least one sample to config
+        # to actually run. We expect that not all samples may match since if
+        # TESTING_SAMPLE_LIMIT is specified then only a subset of samples
+        # will be in this dict
+        assert assay_to_samples, Slack().send(
+            "No samples matched to available config files for testing"
+        )
+
+    prettier_print("Total samples per assay identified:")
+    prettier_print(dict(assay_to_samples))
+
+    return assay_to_samples
+
+
+def preprocess_exclusion_patterns(patterns):
+    """Preprocess the exclude samples parameter to be sure that exclusion
+    patterns are correct
+
+    Parameters
+    ----------
+    patterns : iterable
+        Iterable containing the exclusion patterns
+
+    Returns
+    -------
+    set
+        Set containing the corrected patterns if needed
+
+    Raises
+    ------
+    AssertionError
+        When the pattern doesn't match a typical full sample name pattern or
+        an assay code pattern
+    """
+
+    new_patterns = set()
+
+    for pattern in patterns:
+        if re.fullmatch(r"^(?!-).*-(.*-)+.*(?!-)$", pattern):
+            # full sample_name
+            new_patterns.add(pattern)
+
+        elif re.search(r"-.*-", pattern):
+            # correct non TSO500 assay code
+            new_patterns.add(pattern)
+
+        elif re.search(r"-.*", pattern):
+            # assume it's a TSO500 code and add component in order to avoid
+            # accidental matching
+            new_patterns.add(f"{pattern}$")
+
+        else:
+            raise AssertionError(
+                (
+                    f"'{pattern}' doesn't match the expected pattern of a "
+                    "sample name or an assay code"
+                )
+            )
+
+    return list(new_patterns)
+
+
+def exclude_samples(samples, patterns=[]):
+    """Exclude samples given a list of patterns
+
+    Parameters
+    ----------
+    samples : list
+        List of samples to filter
+    patterns : list, optional
+        List of pattern to filter with, by default []
+
+    Returns
+    -------
+    list
+        List of samples after filtering
+
+    Raises
+    ------
+    AssertionError
+        When the pattern matches multiple times in the sample, in order to be
+        sure that the pattern is correct
+    """
+
+    samples_to_remove = set()
+
+    for pattern in patterns:
+        for sample in samples:
+            if len(re.findall(pattern, sample)) > 1:
+                raise AssertionError(
+                    f"The pattern '{pattern}' matches multiple times in '{sample}'"
+                )
+
+            # should be an assay code, look for that in the sample name
+            if re.search(pattern, sample):
+                samples_to_remove.add(sample)
+
+    return list(set(samples).difference(samples_to_remove))
+
+
+def get_previous_job_from_job_reuse(job_reuse, configs, handler_assay, params):
+    """Given a dict pointing to a job id, perform a series of check to ensure
+    that the job id can be used for bypassing job starts
+
+    Parameters
+    ----------
+    job_reuse : dict
+        Dict containing info for the job id to reuse
+    configs : list
+        List of config data
+    handler_assay : str
+        Assay used in that context of the function
+    params : dict
+        Dict containing assay information in the context of the function
+
+    Returns
+    -------
+    str
+        String with the job id to reuse
+
+    Raises
+    ------
+    AssertionError
+        When the top key of job_reuse is not available for use because of
+        restriction at the assay config level
+    NotImplementedError
+        When the analysis specified in the job_reuse variable is a per sample
+        analysis which is not supported
+    """
+
+    invalid_assay_keys = []
+    assay_names_available = [
+        config.get("assay") for config in configs.values()
+    ]
+
+    # check the job reuse dict if the key are linked to dicts i.e.
+    # assay level job reuse
+    for key, value in job_reuse.items():
+        if isinstance(value, dict):
+            if key not in assay_names_available:
+                invalid_assay_keys.append(key)
+
+    if invalid_assay_keys:
+        raise AssertionError(
+            (
+                "-ijob_reuse: The following assay names are not "
+                f"available to be used {invalid_assay_keys}. "
+                "Check if the use of -iassay_config might impact "
+                "the assay keys that you can use. Full job_reuse "
+                f"parameter passed: {job_reuse}"
+            )
+        )
+
+    # check if the assay matches the top level in the job reuse arg
+    analysis = (
+        job_reuse.get(handler_assay)
+        if handler_assay in job_reuse
+        else job_reuse
     )
 
-    return samples
+    # first check if specified to reuse a previous job for this
+    # step
+    if analysis.get(params["analysis"]):
+        previous_job = analysis.get(params["analysis"])
+
+        assert re.match(r"(job|analysis)-[\w]+", previous_job), (
+            "Job specified to reuse does not appear valid: " f"{previous_job}"
+        )
+
+        if params["per_sample"]:
+            # ensure we're only doing this for per run jobs for now
+            raise NotImplementedError(
+                "-ijob_reuse not yet implemented for per sample jobs"
+            )
+
+        prettier_print(
+            f"Reusing provided job {previous_job} for analysis step "
+            f"{params['analysis']} for {params['name']}"
+        )
+
+        # dict to add all stage output names and job ids for every
+        # sample to used to pass correct job ids to subsequent
+        # workflow / app calls
+        return previous_job
+
+    return None
+
+
+def load_config(config_file) -> dict:
+    """
+    Read in given config json to dict
+
+    Parameters
+    ----------
+    config_file : str
+        Path to json config file
+
+    Raises
+    ------
+    RuntimeError: raised when a non-json file passed as config
+
+    Returns
+    -------
+    config : dict
+        dictionary of loaded json file
+    """
+    if not config_file.endswith(".json"):
+        # sense check a json passed
+        raise RuntimeError("Error: invalid config passed - not a json file")
+
+    with open(config_file) as file:
+        config = json.load(file)
+
+    return config
+
+
+def load_test_data(test_samples) -> list:
+    """
+    Read in file ids of fastqs and sample names from test_samples file to test
+    calling workflows
+
+    Parameters
+    ----------
+    test_samples : str
+        filename of test samples to read in
+
+    Returns
+    -------
+    fastq_details : list of tuples
+        list with tuple per fastq containing (DNAnexus file id, filename)
+
+    """
+    with open(test_samples) as f:
+        fastq_details = f.read().splitlines()
+
+    fastq_details = [(x.split()[0], x.split()[1]) for x in fastq_details]
+
+    return fastq_details
+
+
+def create_project_name(run_id, assay, development, testing):
+    """Create a project name given a few parameters
+
+    Parameters
+    ----------
+    run_id : str
+        Name of the run
+    assay : str
+        Assay type i.e. CEN, TWE..
+    development : bool
+        Bool to determine whether the project name should be a 003
+    testing : bool
+        Bool to determine whether to add a suffix to the project name to tag it
+        for testing purposes
+
+    Returns
+    -------
+    str
+        Name of the project to find or to create
+    """
+
+    if development:
+        prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
+    else:
+        prefix = "002_"
+
+    suffix = ""
+
+    if testing:
+        suffix = "-EGGD_CONDUCTOR_TESTING"
+
+    return f"{prefix}{run_id}_{assay}{suffix}"
+
+
+def write_job_summary(specified_dx_project, *handlers):
+    """Write a job summary file for the whole conductor job
+
+    Parameters
+    ----------
+    specified_dx_project: str
+        DX project passed to the conductor app
+    *handlers:
+        Variable length argument list of handlers objects.
+    """
+
+    for i, handler in enumerate(handlers, 1):
+        nb_jobs_per_assay = 0
+        assay = handler.assay
+        project = handler.project
+
+        if specified_dx_project:
+            path_to_job_summary = pathlib.Path(
+                f"/home/dnanexus/out/job_summaries/{time_stamp()}.{project.name}.{i}-conductor_job_summary.txt"
+            )
+        else:
+            path_to_job_summary = pathlib.Path(
+                f"/home/dnanexus/out/job_summaries/{time_stamp()}.{project.name}.conductor_job_summary.txt"
+            )
+
+        path_to_job_summary.parent.mkdir(parents=True, exist_ok=True)
+
+        with path_to_job_summary.open("w") as f:
+            # write config information
+            f.write(f"{handler}\n\n")
+
+            # i.e. if an error was detected during the setup/starting of jobs
+            # by the big try/except
+            if not handler.job_summary:
+                f.write(
+                    "No jobs were started for this project. Please check the logs if this is not an expected outcome"
+                )
+                continue
+
+            for executable, info in handler.job_summary.items():
+                nb_jobs_per_executable = 0
+                executable_dict = dx.bindings.dxdataobject_functions.describe(
+                    executable
+                )
+
+                exe_name = executable_dict.get("name")
+                exe_version = executable_dict.get("version")
+
+                f.write(f"Jobs started for '{exe_name}")
+
+                if exe_version:
+                    f.write(f" - {exe_version}'")
+                else:
+                    f.write("'")
+
+                if isinstance(info, dict):
+                    f.write(":\n")
+
+                    for sample, job_id in info.items():
+                        if job_id is None:
+                            f.write(
+                                f" - {sample}: No job started due to missing previous output\n"
+                            )
+                        else:
+                            f.write(f" - {sample}: {job_id}\n")
+
+                        nb_jobs_per_assay += 1
+                        nb_jobs_per_executable += 1
+                else:
+                    f.write(f": '{info}'\n")
+
+                    nb_jobs_per_assay += 1
+                    nb_jobs_per_executable += 1
+
+                f.write(
+                    f"Number of jobs started for {exe_name}: {nb_jobs_per_executable}\n\n"
+                )
+
+            f.write(
+                f"Number of jobs started for {assay}: {nb_jobs_per_assay}\n"
+            )

@@ -1,12 +1,12 @@
 {
   "name": "eggd_conductor",
   "title": "eggd_conductor",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "summary": "eggd_conductor",
   "dxapi": "1.0.0",
   "inputSpec": [
     {
-      "name": "EGGD_CONDUCTOR_CONFIG",
+      "name": "eggd_conductor_config",
       "label": "conductor app config",
       "class": "file",
       "optional": false,
@@ -14,14 +14,14 @@
       "group": "files"
     },
     {
-      "name": "ASSAY_CONFIG",
+      "name": "assay_config",
       "label": "assay level config",
-      "class": "file",
+      "class": "array:file",
       "optional": true,
       "patterns": [
         "*.json"
       ],
-      "help": "Use given low level config for running analyses instead of inferring from name",
+      "help": "Use given low level config for running analyses instead of inferring from name. Multiple configs can be passed for mixed assays",
       "group": "files"
     },
     {
@@ -33,7 +33,7 @@
       "group": "files"
     },
     {
-      "name": "SAMPLESHEET",
+      "name": "samplesheet",
       "label": "SampleSheet",
       "help": "Samplesheet for given run, if not given will attempt to find from sentinel file / upload tars. Must be given if using fastqs input.",
       "class": "file",
@@ -44,18 +44,7 @@
       "group": "files"
     },
     {
-      "name": "RUN_INFO_XML",
-      "label": "RunInfo.xml",
-      "help": "RunInfo.xml file for the run, used to parse RunID from if providing an array of fastQs and not specifying with -RUN_ID. Not required if providing sentinel file.",
-      "class": "file",
-      "optional": true,
-      "patterns": [
-        "*.csv"
-      ],
-      "group": "files"
-    },
-    {
-      "name": "FASTQS",
+      "name": "fastqs",
       "label": "fastqs",
       "class": "array:file",
       "optional": true,
@@ -67,21 +56,21 @@
       "group": "files"
     },
     {
-      "name": "SAMPLE_NAMES",
+      "name": "sample_names",
       "label": "sample names",
       "class": "string",
       "optional": true,
       "help": "Comma separated list of sample names for given fastqs, only required if running without samplesheet"
     },
     {
-      "name": "DX_PROJECT",
+      "name": "dx_project",
       "label": "DNAnexus project id",
       "class": "string",
       "optional": true,
       "help": "Project in which to run and store analysis outputs. \n If not given a new one will be created from the run ID and assay code."
     },
     {
-      "name": "CREATE_PROJECT",
+      "name": "create_project",
       "label": "Create project",
       "class": "boolean",
       "optional": true,
@@ -89,35 +78,28 @@
       "help": "If to automatically create a downstream analysis project, default behaviour is to use the same project as eggd_conductor is currently running in"
     },
     {
-      "name": "RUN_ID",
+      "name": "run_id",
       "label": "ID of sequencing run",
       "class": "string",
       "optional": true,
       "help": "Parsed from samplesheet if not given"
     },
     {
-      "name": "JOB_REUSE",
+      "name": "job_reuse",
       "label": "job reuse",
       "class": "string",
       "optional": true,
-      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. '{\"analysis_1\": \"job-xxx\"}')"
+      "help": "JSON formatted string mapping analysis step -> job ID to reuse outputs from instead of running analysis (i.e. {\"analysis_1\": \"job-xxx\"} or if using mixed assay runs '{\"TSO500\": {\"analysis_1\": \"job-xxx\"}}')"
     },
     {
-      "name": "EXCLUDE_SAMPLES",
+      "name": "exclude_samples",
       "label": "exclude samples",
       "class": "string",
       "optional": true,
       "help": "comma separated string of sample names to exclude from per sample analysis steps"
     },
     {
-      "name": "MISMATCH_ALLOWANCE",
-      "label": "mismatch allowance",
-      "class": "int",
-      "default": 1,
-      "help": "no. of samples allowed to not match to any assay code and use the assay code of other samples"
-    },
-    {
-      "name": "DEVELOPMENT",
+      "name": "development",
       "label": "development",
       "class": "boolean",
       "optional": true,
@@ -125,7 +107,7 @@
       "help": "Name output project with 003 prefix and date instead of 002_{RUN_ID}_{ASSAY} format"
     },
     {
-      "name": "TESTING",
+      "name": "testing",
       "label": "testing",
       "class": "boolean",
       "optional": true,
@@ -133,7 +115,7 @@
       "group": "testing"
     },
     {
-      "name": "TESTING_SAMPLE_LIMIT",
+      "name": "testing_sample_limit",
       "label": "testing sample limit",
       "class": "string",
       "optional": true,
@@ -141,14 +123,14 @@
       "group": "testing"
     },
     {
-      "name": "DEMULTIPLEX_JOB_ID",
+      "name": "demultiplex_job_id",
       "label": "demultiplexing job id",
       "class": "string",
       "optional": true,
       "help": "Optionally use fastqs from previous demultiplexing job, will skip demultiplexing stage"
     },
     {
-      "name": "DEMULTIPLEX_OUT",
+      "name": "demultiplex_out",
       "label": "demultiplex output path",
       "class": "string",
       "optional": true,
@@ -164,11 +146,18 @@
       "help": "comma separated string of launched job IDs"
     },
     {
-      "name": "assay_config_file_id",
-      "label": "assay config file ID",
+      "name": "assay_config_file_ids",
+      "label": "assay config file IDs",
       "class": "string",
       "optional": true,
-      "help": "file ID of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
+      "help": "file IDs of assay config file used for analysis (note this file is not output by the app, it is just the one used for analysis)"
+    },
+    {
+      "name": "job_summaries",
+      "label": "Job summary files",
+      "class": "array:file",
+      "optional": true,
+      "help": "File containing the information of job that have been started"
     }
   ],
   "runSpec": {
