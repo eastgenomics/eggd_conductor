@@ -463,6 +463,11 @@ class AssayHandler:
                 input_dict=input_dict, upload_tars=self.upload_tars
             )
 
+        # get any filters from config to apply to job inputs
+        input_filter_dict = self.config["executables"][executable].get(
+            "inputs_filter"
+        )
+
         # check any inputs dependent on previous job outputs to add
         input_dict = manage_dict.link_inputs_to_outputs(
             job_outputs_dict=self.job_outputs,
@@ -470,6 +475,7 @@ class AssayHandler:
             analysis=params["analysis"],
             per_sample=per_sample,
             sample=sample,
+            input_filter_dict=input_filter_dict,
         )
 
         # check input types correctly set in input dict
