@@ -195,6 +195,16 @@ def demultiplex(
         if not demultiplex_output:
             # running in testing and going to demultiplex -> dump output to
             # our testing analysis project to not go to sentinel file dir
+            if not re.match(r"project-[A-Za-z0-9]", run_id):
+                projects = [project for project in dx.find_projects(run_id)]
+
+                if len(projects) > 1 or len(projects) == 0:
+                    raise Exception(
+                        f"'{run_id}' found no or multiple projects in DNAnexus"
+                    )
+                else:
+                    run_id = projects[0].get("id")
+
             demultiplex_output = f"{run_id}:/demultiplex_{time_stamp()}"
 
     (demultiplex_project, demultiplex_folder) = demultiplex_output.split(":")
@@ -320,4 +330,4 @@ def demultiplex(
 
     prettier_print("Demuliplexing completed!")
 
-    return job
+    return job, demultiplex_output
