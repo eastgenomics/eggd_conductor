@@ -466,7 +466,7 @@ def main():
             # app config
             demultiplex_app_id = os.environ.get("DEMULTIPLEX_APP_ID")
 
-        demultiplex_job = demultiplex(
+        demultiplex_job, demultiplex_output = demultiplex(
             app_id=demultiplex_app_id,
             app_name=demultiplex_app_name,
             testing=args.testing,
@@ -478,7 +478,7 @@ def main():
 
         for assay_handler in assay_handlers:
             move_demultiplex_qc_files(
-                assay_handler.project.id, *args.demultiplex_output.split(":")
+                assay_handler.project.id, *demultiplex_output.split(":")
             )
 
         fastq_details = get_demultiplex_job_details(demultiplex_job.id)
