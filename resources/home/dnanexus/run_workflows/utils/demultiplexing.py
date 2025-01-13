@@ -199,7 +199,9 @@ def demultiplex(
                 projects = [project for project in dx.find_projects(run_id)]
 
                 if len(projects) > 1 or len(projects) == 0:
-                    raise Exception(f"Too many projects found using {run_id}")
+                    raise Exception(
+                        f"'{run_id}' found no or multiple projects in DNAnexus"
+                    )
                 else:
                     run_id = projects[0].get("id")
 
