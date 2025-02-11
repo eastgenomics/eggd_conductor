@@ -346,7 +346,7 @@ class TestMatchSamplesToAssays:
                 provided_config=False,
             )
 
-    def test_assign_samples_to_provided_config_if_matching_fails(self):
+    def test_assign_samples_to_provided_config(self):
         matches = match_samples_to_assays(
             configs={
                 "EGG2|456": {"assay_code": "EGG2|456", "version": "1.1.0"}
@@ -372,7 +372,7 @@ class TestMatchSamplesToAssays:
     def test_raise_exception_when_2_configs_are_provided_and_matching_fails(
         self,
     ):
-        with pytest.raises(Exception):
+        with pytest.raises(AssertionError):
             match_samples_to_assays(
                 configs={
                     "EGG2|456": {"assay_code": "EGG2|456", "version": "1.1.0"},
