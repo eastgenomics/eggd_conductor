@@ -1297,6 +1297,7 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
             "stage-mosdepth.bam": "eggd_tso500.bam",
             "stage-mosdepth.index": "eggd_tso500.idx",
             "stage-vcf_rescue.gvcf": "eggd_tso500.vcf",
+            "stage-plot_variant_baf.vcf": "eggd_tso500.vcf",
             "stage-generate_variant_workbook.additional_files": "eggd_tso500.cvo",
         }
 
@@ -1401,6 +1402,7 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
                 "stage-mosdepth.bam": {"$dnanexus_link": "file-b1"},
                 "stage-mosdepth.index": {"$dnanexus_link": "file-d1"},
                 "stage-vcf_rescue.gvcf": {"$dnanexus_link": "file-f1"},
+                "stage-plot_variant_baf.vcf": {"$dnanexus_link": "file-f1"},
                 "stage-generate_variant_workbook.additional_files": [
                     {"$dnanexus_link": "file-h1"},
                     {"$dnanexus_link": "file-i1"},
@@ -1432,6 +1434,7 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
                 "stage-mosdepth.bam": {"$dnanexus_link": "file-c1"},
                 "stage-mosdepth.index": {"$dnanexus_link": "file-e1"},
                 "stage-vcf_rescue.gvcf": {"$dnanexus_link": "file-g1"},
+                "stage-plot_variant_baf.vcf": {"$dnanexus_link": "file-g1"},
                 "stage-generate_variant_workbook.additional_files": [
                     {"$dnanexus_link": "file-h3"},
                     {"$dnanexus_link": "file-i1"},

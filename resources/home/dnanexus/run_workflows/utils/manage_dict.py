@@ -977,45 +977,48 @@ def populate_tso500_reports_workflow(
             # removed => skip trying to add it
             continue
 
-        config_stage_input = config_stage_input[0]
-
-        # get the corresponding eggd_tso500 output files for
-        # the given stage input, where there are 2 potential files
-        # (i.e. dna_bams and rna_bams) we expect at least one to
-        # be present, and for cvo they should always be present
-        dx_links = [
-            job_output_ids.get(x)
-            for x in output_fields
-            if job_output_ids.get(x)
-        ]
-
-        assert dx_links, Slack().send(
-            "No output files found from eggd_tso500 job from the "
-            f"output fields: {output_fields}"
-        )
-
-        file_ids = [
-            id.get("$dnanexus_link") for sublist in dx_links for id in sublist
-        ]
-        file_details = [x for x in all_output_files if x["id"] in file_ids]
-        sample_file = [
-            x for x in file_details if x["describe"]["name"].startswith(sample)
-        ]
-
-        if not sample_file:
-            # store sample name for creating a comment
-            missing_output_sample = sample
-            return modified_input_dict, missing_output_sample
-
-        if output_fields == ["fastqs"]:
-            # handle fastqs separately since they should be an array
-            modified_input_dict[config_stage_input] = [
-                {"$dnanexus_link": x["id"]} for x in sample_file
+        for tso500_input in config_stage_input:
+            # get the corresponding eggd_tso500 output files for
+            # the given stage input, where there are 2 potential files
+            # (i.e. dna_bams and rna_bams) we expect at least one to
+            # be present, and for cvo they should always be present
+            dx_links = [
+                job_output_ids.get(x)
+                for x in output_fields
+                if job_output_ids.get(x)
             ]
-        else:
-            modified_input_dict[config_stage_input] = {
-                "$dnanexus_link": sample_file[0]["id"]
-            }
+
+            assert dx_links, Slack().send(
+                "No output files found from eggd_tso500 job from the "
+                f"output fields: {output_fields}"
+            )
+
+            file_ids = [
+                id.get("$dnanexus_link")
+                for sublist in dx_links
+                for id in sublist
+            ]
+            file_details = [x for x in all_output_files if x["id"] in file_ids]
+            sample_file = [
+                x
+                for x in file_details
+                if x["describe"]["name"].startswith(sample)
+            ]
+
+            if not sample_file:
+                # store sample name for creating a comment
+                missing_output_sample = sample
+                return modified_input_dict, missing_output_sample
+
+            if output_fields == ["fastqs"]:
+                # handle fastqs separately since they should be an array
+                modified_input_dict[tso500_input] = [
+                    {"$dnanexus_link": x["id"]} for x in sample_file
+                ]
+            else:
+                modified_input_dict[tso500_input] = {
+                    "$dnanexus_link": sample_file[0]["id"]
+                }
 
     # get the dnanexus_link we already added for the cvo, and turn
     # this into an array input with the metricsOutput
