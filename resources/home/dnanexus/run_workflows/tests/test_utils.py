@@ -238,7 +238,7 @@ class TestMatchSamplesToAssays:
         assay_samples = match_samples_to_assays(
             configs=self.configs,
             all_samples=self.single_assay_sample_list,
-            testing=False,
+            provided_config=False,
         )
 
         correct_output = {
@@ -282,7 +282,7 @@ class TestMatchSamplesToAssays:
         matches = match_samples_to_assays(
             configs=configs,
             all_samples=self.single_assay_sample_list,
-            testing=False,
+            provided_config=False,
         )
 
         assert list(matches.keys()) == [
@@ -305,7 +305,7 @@ class TestMatchSamplesToAssays:
         matches = match_samples_to_assays(
             configs=configs,
             all_samples=self.single_assay_sample_list,
-            testing=False,
+            provided_config=False,
         )
 
         assert list(matches.keys()) == [
@@ -329,7 +329,9 @@ class TestMatchSamplesToAssays:
             # this should raise an AssertionError as normal for mismatch
             # between total samples and those matching assay config
             match_samples_to_assays(
-                configs=self.configs, all_samples=sample_list, testing=False
+                configs=self.configs,
+                all_samples=sample_list,
+                provided_config=False,
             )
 
     def test_raise_assertion_error_on_sample_w_no_assay_code_match(self):
@@ -341,7 +343,46 @@ class TestMatchSamplesToAssays:
             match_samples_to_assays(
                 configs=self.configs,
                 all_samples=self.sample_list_w_no_code,
-                testing=False,
+                provided_config=False,
+            )
+
+    def test_assign_samples_to_provided_config(self):
+        matches = match_samples_to_assays(
+            configs={
+                "EGG2|456": {"assay_code": "EGG2|456", "version": "1.1.0"}
+            },
+            all_samples=[
+                "sample1-0",
+                "sample2-0",
+            ],
+            provided_config=True,
+        )
+
+        correct_output = {
+            "EGG2|456": [
+                "sample1-0",
+                "sample2-0",
+            ]
+        }
+
+        assert (
+            matches == correct_output
+        ), "Samples were not assigned the provided config assay code after failing the matching"
+
+    def test_raise_exception_when_2_configs_are_provided_and_matching_fails(
+        self,
+    ):
+        with pytest.raises(AssertionError):
+            match_samples_to_assays(
+                configs={
+                    "EGG2|456": {"assay_code": "EGG2|456", "version": "1.1.0"},
+                    "EGG2|123": {"assay_code": "EGG2|123", "version": "1.2.0"},
+                },
+                all_samples=[
+                    "sample1-0",
+                    "sample2-0",
+                ],
+                provided_config=True,
             )
 
 

@@ -221,12 +221,14 @@ def main():
         }
 
         nb_provided_configs = len(configs)
+        provided_config = True
 
     else:
         # get all json assay configs from path in conductor config
         configs = get_json_configs()
         configs = filter_highest_config_version(configs)
         nb_provided_configs = 0
+        provided_config = False
 
     if args.exclude_samples:
         prettier_print("Attempting to exclude following samples using:")
@@ -240,7 +242,7 @@ def main():
     assay_to_samples = match_samples_to_assays(
         configs=configs,
         all_samples=args.samples,
-        testing=args.testing,
+        provided_config=provided_config,
     )
 
     assay_handlers = []
