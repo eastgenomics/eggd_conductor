@@ -250,7 +250,7 @@ def parse_sample_sheet(samplesheet) -> list:
     return sample_list
 
 
-def match_samples_to_assays(configs, all_samples, testing) -> dict:
+def match_samples_to_assays(configs, all_samples, provided_config) -> dict:
     """
     Match sample list against configs to identify correct config to use
     for each sample
@@ -261,8 +261,9 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
         dict of config dicts for each assay
     all_samples : list
         list of samples parsed from samplesheet or specified with --samples
-    testing : bool
-        if running in test mode, if not will perform checks on samples
+    provided_config : bool
+        if a  config has been provided via the CLI, match the samples to its
+        assay code
 
     Returns
     -------
@@ -318,33 +319,35 @@ def match_samples_to_assays(configs, all_samples, testing) -> dict:
             ]
 
             assay_to_samples[latest_config_key].append(sample)
-        else:
-            # no match found, just log this as an AssertionError will be raised
-            # below for all samples that don't have a match
-            prettier_print(f"No matching config file found for {sample} !\n")
 
-    if not testing:
-        # check all samples have an assay code in one of the configs
-        samples_w_codes = [
-            x for y in list(assay_to_samples.values()) for x in y
-        ]
-        samples_without_codes = "\n\t\t".join(
-            [f"`{x}`" for x in sorted(set(all_samples) - set(samples_w_codes))]
-        )
+    # check all samples have an assay code in one of the configs
+    samples_w_codes = [x for y in list(assay_to_samples.values()) for x in y]
+    samples_without_codes = "\n\t\t".join(
+        [f"`{x}`" for x in sorted(set(all_samples) - set(samples_w_codes))]
+    )
 
+    # config(s) were provided from the command line
+    if provided_config:
+        # no sample were able to be matched to the config code
+        if not assay_to_samples:
+            if len(configs) == 1:
+                # if only one config was provided, match samples to the
+                # provided config code
+                for sample in all_samples:
+                    assay_to_samples[all_config_assay_codes[0]] = sample
+
+            else:
+                raise Exception(
+                    "Not all samples were able to be matched to provided "
+                    f"configs: {all_config_assay_codes} vs "
+                    f"{samples_without_codes}"
+                )
+    else:
         assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
-            f"Could not identify assay code for all samples!\n\n"
-            f"Configs for assay codes found: "
+            "Could not identify assay code for all samples!\n\n"
+            "Configs for assay codes found: "
             f"`{', '.join(all_config_assay_codes)}`\n\nSamples not matching "
             f"any available config:\n\t\t{samples_without_codes}"
-        )
-    else:
-        # running in testing mode, check we found at least one sample to config
-        # to actually run. We expect that not all samples may match since if
-        # TESTING_SAMPLE_LIMIT is specified then only a subset of samples
-        # will be in this dict
-        assert assay_to_samples, Slack().send(
-            "No samples matched to available config files for testing"
         )
 
     prettier_print("Total samples per assay identified:")
