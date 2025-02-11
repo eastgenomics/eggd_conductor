@@ -334,7 +334,7 @@ def match_samples_to_assays(configs, all_samples, provided_config) -> dict:
                 # if only one config was provided, match samples to the
                 # provided config code
                 for sample in all_samples:
-                    assay_to_samples[all_config_assay_codes[0]] = sample
+                    assay_to_samples[all_config_assay_codes[0]].append(sample)
 
             else:
                 raise Exception(
