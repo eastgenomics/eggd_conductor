@@ -263,7 +263,7 @@ def match_samples_to_assays(configs, all_samples, provided_config) -> dict:
         list of samples parsed from samplesheet or specified with --samples
     provided_config : bool
         if a  config has been provided via the CLI, match the samples to its
-        assay code
+        assay code if sample assay code matching fails
 
     Returns
     -------
