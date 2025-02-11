@@ -293,6 +293,17 @@ def match_samples_to_assays(configs, all_samples, provided_config) -> dict:
     prettier_print("Samples to be used:")
     prettier_print(all_samples)
 
+    # config(s) were provided from the command line
+    if provided_config and len(configs) == 1:
+        # if only one config was provided, assign samples to the
+        # provided config code
+        for sample in all_samples:
+            assay_to_samples[all_config_assay_codes[0]].append(sample)
+
+        prettier_print("Used provided config to assign all samples to it:")
+        prettier_print(dict(assay_to_samples))
+        return assay_to_samples
+
     # for each sample check each assay code if it matches, then select the
     # matching config with highest version
     for sample in all_samples:
@@ -326,29 +337,12 @@ def match_samples_to_assays(configs, all_samples, provided_config) -> dict:
         [f"`{x}`" for x in sorted(set(all_samples) - set(samples_w_codes))]
     )
 
-    # config(s) were provided from the command line
-    if provided_config:
-        # no sample were able to be matched to the config code
-        if not assay_to_samples:
-            if len(configs) == 1:
-                # if only one config was provided, match samples to the
-                # provided config code
-                for sample in all_samples:
-                    assay_to_samples[all_config_assay_codes[0]].append(sample)
-
-            else:
-                raise Exception(
-                    "Not all samples were able to be matched to provided "
-                    f"configs: {all_config_assay_codes} vs "
-                    f"{samples_without_codes}"
-                )
-    else:
-        assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
-            "Could not identify assay code for all samples!\n\n"
-            "Configs for assay codes found: "
-            f"`{', '.join(all_config_assay_codes)}`\n\nSamples not matching "
-            f"any available config:\n\t\t{samples_without_codes}"
-        )
+    assert sorted(all_samples) == sorted(samples_w_codes), Slack().send(
+        "Could not identify assay code for all samples!\n\n"
+        "Configs for assay codes found: "
+        f"`{', '.join(all_config_assay_codes)}`\n\nSamples not matching "
+        f"any available config:\n\t\t{samples_without_codes}"
+    )
 
     prettier_print("Total samples per assay identified:")
     prettier_print(dict(assay_to_samples))
