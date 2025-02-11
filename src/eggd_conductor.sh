@@ -380,7 +380,7 @@ main () {
     message=":receipt: eggd_conductor:"
 
     while read -r project_id assay version jobs; do
-        if [[ $jobs =~ "0" ]]; then
+        if [[ $jobs = "0" ]]; then
             message+="%0A:black_medium_small_square: :rotating_light: No jobs were launched for:%0A"
         else
             message+="%0A:black_medium_small_square: :white_check_mark: ${jobs} jobs were launched for:%0A"
