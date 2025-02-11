@@ -93,8 +93,7 @@ _parse_sentinel_file () {
 
     Globals
         SAMPLESHEET : file ID of samplesheet parsed from sentinel
-            file / upload tars
-             set as global to be picked up in
+            file / upload tars, set as global to be picked up in
             run_workflows.py if INPUT-SAMPLESHEET is set
 
     Arguments
