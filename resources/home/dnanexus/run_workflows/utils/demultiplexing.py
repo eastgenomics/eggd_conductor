@@ -65,6 +65,8 @@ def move_demultiplex_qc_files(
         "Quality_Metrics.csv",
         "Adapter_Metrics.csv",
         "Top_Unknown_Barcodes.csv",
+        "interop_summary.csv",  # InterOp QC metrics for multiQC
+        "interop_index_summary.csv",
     ]
 
     # need to first create destination folder
