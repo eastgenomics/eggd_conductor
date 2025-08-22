@@ -550,6 +550,9 @@ def main():
         check=True,
     )
 
+    # Sort assay_handlers so those with hold=True are last
+    assay_handlers = sorted(assay_handlers, key=lambda h: h.config.get("hold", False))
+
     execution_errors = {}
 
     for handler in assay_handlers:
