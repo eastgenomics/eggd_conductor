@@ -398,7 +398,7 @@ def main():
                             "This run was processed automatically by "
                             "eggd_conductor: "
                         ),
-                        url=f"http://{os.environ.get('conductor_job_url')}",
+                        url=f"https://{os.environ.get('conductor_job_url')}",
                         ticket=ticket["id"],
                     )
 
@@ -551,7 +551,12 @@ def main():
     )
 
     # Sort assay_handlers so those with hold=True are last
-    assay_handlers = sorted(assay_handlers, key=lambda h: h.config.get("hold", False))
+    assay_handlers = sorted(
+        assay_handlers, key=lambda h: manage_dict.is_held(h.config)
+        )
+    print("\nAssay handler order (those with hold=True are last):")
+    for i in assay_handlers:
+        prettier_print(f"Assay handler order: {i} - hold: {i.config.get('hold', '')}")
 
     execution_errors = {}
 

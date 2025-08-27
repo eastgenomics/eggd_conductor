@@ -1051,3 +1051,25 @@ def populate_tso500_reports_workflow(
         prettier_print("\nNo populating for TSO500 reports_workflow required")
 
     return modified_input_dict, missing_output_sample
+
+
+def is_held(config):
+    """
+    Check if a config has any 'hold' key set to True or "true" in
+    its nested structure
+    Parameters
+    ----------
+    config : dict
+        dict of the sequencing assay config to check for hold keys
+    Returns
+    -------
+    bool
+        True if any 'hold' key is set to True or "true", else False
+    """
+    # Find all keys named 'hold' in the nested config
+    found = search('hold', config, check_key=True, return_key=False)
+    # Check if any of those keys are set to True or "true" in found
+    for value in found:
+        if value is True or (isinstance(value, str) and value.lower() == "true"):
+            return True
+    return False
