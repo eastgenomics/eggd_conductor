@@ -554,9 +554,6 @@ def main():
     assay_handlers = sorted(
         assay_handlers, key=lambda h: manage_dict.is_held(h.config)
         )
-    print("\nAssay handler order (those with hold=True are last):")
-    for i in assay_handlers:
-        prettier_print(f"Assay handler order: {i} - hold: {i.config.get('hold', '')}")
 
     execution_errors = {}
 
