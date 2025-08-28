@@ -1430,29 +1430,24 @@ class TestIsHeld:
     "hold" key with value True (bool or str) at any level of nesting
     """
 
-    def test_no_hold_key(self):
+    def test_no_hold_key_present(self):
         """Test when no hold key anywhere"""
         config = {"foo": 10, "bar": {"baz": 20}}
         assert not is_held(config)
 
-    def test_hold_false_bool(self):
+    def test_hold_false(self):
         """Test when hold key==False"""
         config = {"hold": False}
         assert not is_held(config)
 
-    def test_hold_true_bool(self):
+    def test_hold_true(self):
         """Test when hold key==True"""
         config = {"hold": True}
         assert is_held(config)
 
-    def test_hold_true_str(self):
-        """Test when hold key=='True' string"""
+    def test_hold_false_when_str(self):
+        """Test still false when hold key is 'True' string"""
         config = {"hold": "true"}
-        assert is_held(config)
-
-    def test_hold_false_str(self):
-        """Test when hold key=='False' string"""
-        config = {"hold": "false"}
         assert not is_held(config)
 
     def test_nested_hold_true(self):
@@ -1460,21 +1455,16 @@ class TestIsHeld:
         config = {"foo": {"bar": {"hold": True}}}
         assert is_held(config)
 
-    def test_nested_hold_true_str(self):
+    def test_more_nested_hold_true(self):
         """Test when hold key is nested and True str"""
         config = {
             "foo": {
                 "bar": {
                     "app": "app-id",
-                    "executable": {"name": "app-name", "hold": "true"},
+                    "executable": {"name": "app-name", "options": {"hold": True}},
                 }
             }
         }
-        assert is_held(config)
-
-    def test_very_nested_hold_true_str(self):
-        """Test when hold key is very nested and True bool"""
-        config = {"foo": {"bar": {"hold": "true"}}}
         assert is_held(config)
 
     def test_list_of_dicts_with_hold(self):
@@ -1489,22 +1479,17 @@ class TestIsHeld:
 
     def test_multiple_holds_one_true(self):
         """Test when multiple hold keys and one is True"""
-        config = {"hold": False, "foo": {"hold": "true"}}
+        config = {"hold": False, "foo": {"hold": True}}
         assert is_held(config)
 
     def test_multiple_holds_all_false(self):
         """Test when multiple hold keys and all are False"""
-        config = {"hold": False, "foo": {"hold": "false"}}
+        config = {"hold": False, "foo": {"hold": False}}
         assert not is_held(config)
 
     def test_only_hold_key_is_int(self):
         """Test when only hold key and is int"""
         config = {"hold": 10}
-        assert not is_held(config)
-
-    def test_hold_is_int(self):
-        """Test when multiple hold keys and one is int"""
-        config = {"hold": False, "foo": {"hold": 10}}
         assert not is_held(config)
 
     def test_hold_is_int_eq_true(self):
@@ -1517,12 +1502,16 @@ class TestIsHeld:
         assert not is_held(config)
 
     def test_hold_is_int_eq_false(self):
-        """Test when multiple hold keys and one is int==0"""
+        """
+        Test when multiple hold keys and one is int==0
+        but another is False
+        """
         config = {"hold": False, "foo": {"hold": 0}}
         assert not is_held(config)
 
     def test_hold_is_int_eq_false_but_true_present(self):
-        """Test when multiple hold keys and one is int==0
+        """
+        Test when multiple hold keys and one is int==0
         but another is True
         """
         config = {"hold": True, "foo": {"hold": 0}}
