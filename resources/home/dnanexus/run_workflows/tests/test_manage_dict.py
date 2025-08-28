@@ -1561,6 +1561,11 @@ class TestSearchExactKey:
         config = {"behold": "no", "foo": {"holdings": "nope"}}
         assert search_exact_key("hold", config) == []
 
+    def test_value_is_dictionary(self):
+        """Keys containing substring do not match"""
+        config = {"app": "app-id", "hold": {"value": True}}
+        assert search_exact_key("hold", config) == []
+
     def test_list_of_dicts(self):
         """List of dicts with matching key"""
         config = {"foo": [{"hold": 1}, {"hold": 2}]}
