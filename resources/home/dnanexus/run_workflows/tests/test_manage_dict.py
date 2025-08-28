@@ -7,6 +7,7 @@ import pytest
 
 from utils.manage_dict import (
     search,
+    search_exact_key,
     replace,
     add_fastqs,
     add_upload_tars,
@@ -1526,3 +1527,42 @@ class TestIsHeld:
         """
         config = {"hold": True, "foo": {"hold": 0}}
         assert is_held(config)
+
+
+class TestSearchExactKey:
+    """
+    Tests for search_exact_key to ensure it matches only keys named exactly as the identifier,
+    regardless of nesting, and returns their values.
+    """
+
+    def test_no_match(self):
+        """No matching key present"""
+        config = {"foo": 1, "bar": {"baz": 2}}
+        assert search_exact_key("hold", config) == []
+
+    def test_top_level_match(self):
+        """Top-level key matches"""
+        config = {"hold": True, "foo": 1}
+        assert search_exact_key("hold", config) == [True]
+
+    def test_nested_match(self):
+        """Nested key matches"""
+        config = {"foo": {"hold": "yes"}}
+        assert search_exact_key("hold", config) == ["yes"]
+
+    def test_multiple_matches(self):
+        """Multiple keys match"""
+        config = {"hold": False, "foo": {"hold": True}}
+        result = search_exact_key("hold", config)
+        assert set(result) == {False, True}
+
+    def test_key_substring_not_match(self):
+        """Keys containing substring do not match"""
+        config = {"behold": "no", "foo": {"holdings": "nope"}}
+        assert search_exact_key("hold", config) == []
+
+    def test_list_of_dicts(self):
+        """List of dicts with matching key"""
+        config = {"foo": [{"hold": 1}, {"hold": 2}]}
+        result = search_exact_key("hold", config)
+        assert set(result) == {1, 2}
