@@ -17,6 +17,7 @@ from utils.manage_dict import (
     fix_invalid_inputs,
     check_all_inputs,
     populate_tso500_reports_workflow,
+    is_held,
 )
 from .settings import TEST_DATA_DIR
 
@@ -45,9 +46,9 @@ class TestSearchDict:
 
         correct_output = ["A_level1", "B_level1", "C_level1"]
 
-        assert (
-            sorted(output) == correct_output
-        ), 'Wrong keys returned checking keys with identifier "level1"'
+        assert sorted(output) == correct_output, (
+            'Wrong keys returned checking keys with identifier "level1"'
+        )
 
     def test_search_key_return_value_level1(self) -> None:
         """
@@ -75,9 +76,9 @@ class TestSearchDict:
             "C_array1_value3",
         ]
 
-        assert (
-            sorted(output) == correct_output
-        ), 'Wrong values returned checking keys with identifier "level1"'
+        assert sorted(output) == correct_output, (
+            'Wrong values returned checking keys with identifier "level1"'
+        )
 
     def test_search_key_return_array_values(self) -> None:
         """
@@ -97,9 +98,9 @@ class TestSearchDict:
             "A_level3_array_value4",
         ]
 
-        assert (
-            sorted(output) == correct_output
-        ), "Wrong values returned checking array of values"
+        assert sorted(output) == correct_output, (
+            "Wrong values returned checking array of values"
+        )
 
     def test_search_dict_array(self) -> None:
         """
@@ -119,9 +120,9 @@ class TestSearchDict:
             "C_array1_value3",
         ]
 
-        assert (
-            sorted(output) == correct_output
-        ), "Wrong values returned checking array of dict values"
+        assert sorted(output) == correct_output, (
+            "Wrong values returned checking array of dict values"
+        )
 
 
 class TestReplaceDict:
@@ -146,9 +147,7 @@ class TestReplaceDict:
         )
 
         # replacing all level1 keys with same so should only be one key
-        assert list(output.keys()) == [
-            "test"
-        ], "Replacing level1 keys not correct"
+        assert list(output.keys()) == ["test"], "Replacing level1 keys not correct"
 
     def test_replace_all_value1(self):
         """
@@ -190,9 +189,9 @@ class TestReplaceDict:
             },
         ]
 
-        assert (
-            list(output.values()) == correct_output
-        ), "Searching and replacing 'value1' output incorrect"
+        assert list(output.values()) == correct_output, (
+            "Searching and replacing 'value1' output incorrect"
+        )
 
     def test_replace_value_from_key(self):
         """
@@ -234,9 +233,9 @@ class TestReplaceDict:
             },
         }
 
-        assert (
-            output == correct_output
-        ), "Searching keys and replacing values returned wrong output"
+        assert output == correct_output, (
+            "Searching keys and replacing values returned wrong output"
+        )
 
 
 class TestAddFastqs(unittest.TestCase):
@@ -293,9 +292,7 @@ class TestAddFastqs(unittest.TestCase):
             "analysis": "analysis_2",
             "process_fastqs": True,
             "inputs": {"fastqs": "INPUT-R1-R2"},
-            "output_dirs": {
-                "applet-FvyXygj433GbKPPY0QY8ZKQG": "/OUT-FOLDER/APP-NAME"
-            },
+            "output_dirs": {"applet-FvyXygj433GbKPPY0QY8ZKQG": "/OUT-FOLDER/APP-NAME"},
         },
     }
 
@@ -305,15 +302,11 @@ class TestAddFastqs(unittest.TestCase):
         """
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"][
-                    "inputs"
-                ]
+                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"]["inputs"]
             ),
             fastq_details=self.fastq_details,
         )
-        output_R1_fastqs = output[
-            "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs"
-        ]
+        output_R1_fastqs = output["stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs"]
 
         correct_R1_fastqs = [
             {"$dnanexus_link": "file-GGJY9604p3zBzjz5Fp66KF0Y"},
@@ -322,9 +315,7 @@ class TestAddFastqs(unittest.TestCase):
             {"$dnanexus_link": "file-GGJY97j4p3z250PB1yvZj7YF"},
         ]
 
-        assert (
-            output_R1_fastqs == correct_R1_fastqs
-        ), "R1 fastqs not correctly added"
+        assert output_R1_fastqs == correct_R1_fastqs, "R1 fastqs not correctly added"
 
     def test_adding_all_r2(self):
         """
@@ -332,15 +323,11 @@ class TestAddFastqs(unittest.TestCase):
         """
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"][
-                    "inputs"
-                ]
+                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"]["inputs"]
             ),
             fastq_details=self.fastq_details,
         )
-        output_R2_fastqs = output[
-            "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs"
-        ]
+        output_R2_fastqs = output["stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs"]
 
         correct_R2_fastqs = [
             {"$dnanexus_link": "file-GGJY9684p3zG6fvf1vqvbqzx"},
@@ -349,9 +336,7 @@ class TestAddFastqs(unittest.TestCase):
             {"$dnanexus_link": "file-GGJY9804p3z1X9YZJ4xf5v13"},
         ]
 
-        assert (
-            output_R2_fastqs == correct_R2_fastqs
-        ), "R2 fastqs not correctly added"
+        assert output_R2_fastqs == correct_R2_fastqs, "R2 fastqs not correctly added"
 
     def test_adding_all_r1_and_r2(self):
         """
@@ -360,9 +345,7 @@ class TestAddFastqs(unittest.TestCase):
         """
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"][
-                    "inputs"
-                ]
+                self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"]["inputs"]
             ),
             fastq_details=self.fastq_details,
         )
@@ -379,9 +362,7 @@ class TestAddFastqs(unittest.TestCase):
             {"$dnanexus_link": "file-GGJY9804p3z1X9YZJ4xf5v13"},
         ]
 
-        assert (
-            output_fastqs == correct_fastqs
-        ), "R1-R2 fastqs not correctly added"
+        assert output_fastqs == correct_fastqs, "R1-R2 fastqs not correctly added"
 
     def test_adding_per_sample_r1_fastqs(self):
         """
@@ -390,24 +371,18 @@ class TestAddFastqs(unittest.TestCase):
         """
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"][
-                    "inputs"
-                ]
+                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"]["inputs"]
             ),
             fastq_details=self.fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
         )
-        output_R1_fastqs = output[
-            "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs"
-        ]
+        output_R1_fastqs = output["stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs"]
 
-        correct_R1_fastqs = [
-            {"$dnanexus_link": "file-GGJY9704p3z9P41f80bfQ623"}
-        ]
+        correct_R1_fastqs = [{"$dnanexus_link": "file-GGJY9704p3z9P41f80bfQ623"}]
 
-        assert (
-            output_R1_fastqs == correct_R1_fastqs
-        ), "R1 fastqs not correctly added for given sample"
+        assert output_R1_fastqs == correct_R1_fastqs, (
+            "R1 fastqs not correctly added for given sample"
+        )
 
     def test_adding_per_sample_r2_fastqs(self):
         """
@@ -416,24 +391,18 @@ class TestAddFastqs(unittest.TestCase):
         """
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"][
-                    "inputs"
-                ]
+                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"]["inputs"]
             ),
             fastq_details=self.fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
         )
-        output_R2_fastqs = output[
-            "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs"
-        ]
+        output_R2_fastqs = output["stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs"]
 
-        correct_R2_fastqs = [
-            {"$dnanexus_link": "file-GGJY9784p3z78j8F1qkp4GZ4"}
-        ]
+        correct_R2_fastqs = [{"$dnanexus_link": "file-GGJY9784p3z78j8F1qkp4GZ4"}]
 
-        assert (
-            output_R2_fastqs == correct_R2_fastqs
-        ), "R2 fastqs not correctly added for given sample"
+        assert output_R2_fastqs == correct_R2_fastqs, (
+            "R2 fastqs not correctly added for given sample"
+        )
 
     def test_adding_all_r1_and_r2_for_one_sample(self):
         """
@@ -442,9 +411,7 @@ class TestAddFastqs(unittest.TestCase):
         """
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"][
-                    "inputs"
-                ]
+                self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"]["inputs"]
             ),
             fastq_details=self.fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
@@ -456,9 +423,9 @@ class TestAddFastqs(unittest.TestCase):
             {"$dnanexus_link": "file-GGJY9784p3z78j8F1qkp4GZ4"},
         ]
 
-        assert (
-            output_fastqs == correct_fastqs
-        ), "R1-R2 fastqs not correctly added for given sample"
+        assert output_fastqs == correct_fastqs, (
+            "R1-R2 fastqs not correctly added for given sample"
+        )
 
     def test_assert_equal_number_fastqs(self):
         """
@@ -477,9 +444,7 @@ class TestAddFastqs(unittest.TestCase):
         with pytest.raises(AssertionError):
             add_fastqs(
                 input_dict=deepcopy(
-                    self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"][
-                        "inputs"
-                    ]
+                    self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"]["inputs"]
                 ),
                 fastq_details=fastq_details_copy,
             )
@@ -492,9 +457,7 @@ class TestAddFastqs(unittest.TestCase):
         with pytest.raises(AssertionError):
             add_fastqs(
                 input_dict=deepcopy(
-                    self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"][
-                        "inputs"
-                    ]
+                    self.test_input_dict["applet-FvyXygj433GbKPPY0QY8ZKQG"]["inputs"]
                 ),
                 fastq_details=self.fastq_details,
                 sample="test-sample",
@@ -527,9 +490,7 @@ class TestAddFastqs(unittest.TestCase):
 
         output = add_fastqs(
             input_dict=deepcopy(
-                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"][
-                    "inputs"
-                ]
+                self.test_input_dict["workflow-GB6J7qQ433Gkf0ZYGbKfF0x6"]["inputs"]
             ),
             fastq_details=fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
@@ -579,17 +540,15 @@ class TestAddUploadTars:
         {"$dnanexus_link": "file-GGyqgF84X7kY0fjZBk6jb68P"},
     ]
 
-    parsed_dict = add_upload_tars(
-        input_dict=input_dict, upload_tars=upload_tars
-    )
+    parsed_dict = add_upload_tars(input_dict=input_dict, upload_tars=upload_tars)
 
     def test_adding_upload_tars(self):
         """
         Test that INPUT-UPLOAD_TARS is replaced by the list of file IDs
         """
-        assert (
-            self.parsed_dict.get("input_files") == self.upload_tars
-        ), "Upload tars not correctly added to input dict"
+        assert self.parsed_dict.get("input_files") == self.upload_tars, (
+            "Upload tars not correctly added to input dict"
+        )
 
 
 class TestAddOtherInputs:
@@ -646,57 +605,55 @@ class TestAddOtherInputs:
         """
         Test for finding INPUT-SAMPLE-NAME and replacing with sample name
         """
-        assert (
-            other_inputs["sample_name"] == "my_sample_with_a_long_name"
-        ), "INPUT-SAMPLE-NAME not correctly replaced"
+        assert other_inputs["sample_name"] == "my_sample_with_a_long_name", (
+            "INPUT-SAMPLE-NAME not correctly replaced"
+        )
 
     def test_adding_sample_prefix(self, other_inputs):
         """
         Test for finding INPUT-SAMPLE-PREFIX and replacing with sample prefix
         """
-        assert (
-            other_inputs["sample_name_prefix"] == "my_sample"
-        ), "INPUT-SAMPLE-PREFIX not correctly replaced"
+        assert other_inputs["sample_name_prefix"] == "my_sample", (
+            "INPUT-SAMPLE-PREFIX not correctly replaced"
+        )
 
     def test_adding_project_id(self, other_inputs):
         """
         Test for finding INPUT-dx_project_id and replacing with project_id
         from args Namespace object
         """
-        assert (
-            other_inputs["my_project_id"] == "project-12345"
-        ), "INPUT-dx_project_id not correctly replaced"
+        assert other_inputs["my_project_id"] == "project-12345", (
+            "INPUT-dx_project_id not correctly replaced"
+        )
 
     def test_adding_project_name(self, other_inputs):
         """
         Test for finding INPUT-dx_project_name and replacing with project_name
         from args Namespace object
         """
-        assert (
-            other_inputs["my_project_name"] == "some_analysis_project"
-        ), "INPUT-dx_project_name not correctly replaced"
+        assert other_inputs["my_project_name"] == "some_analysis_project", (
+            "INPUT-dx_project_name not correctly replaced"
+        )
 
     def test_adding_parent_out_dir(self, other_inputs):
         """
         Test for finding INPUT-parent_out_dir and replacing with parent output
         directory from args Namespace object
         """
-        assert (
-            other_inputs["all_analysis_output"] == "some_assay-220930-1200"
-        ), "INPUT-parent_out_dir not correctly replaced"
+        assert other_inputs["all_analysis_output"] == "some_assay-220930-1200", (
+            "INPUT-parent_out_dir not correctly replaced"
+        )
 
     def test_adding_samplesheet(self, other_inputs):
         """
         Test for finding and replacing INPUT-SAMPLESHEET from SAMPLESHEET
         environment variable which will be the dnanexus file ID
         """
-        correct_samplesheet = {
-            "$dnanexus_link": "file-GGxPVxQ4X7kbkFBx7b913b0G"
-        }
+        correct_samplesheet = {"$dnanexus_link": "file-GGxPVxQ4X7kbkFBx7b913b0G"}
 
-        assert (
-            other_inputs["run_sample_sheet"] == correct_samplesheet
-        ), "Samplesheet not correctly parsed to input dict"
+        assert other_inputs["run_sample_sheet"] == correct_samplesheet, (
+            "Samplesheet not correctly parsed to input dict"
+        )
 
     def test_adding_analysis_1_out_dir(self, other_inputs):
         """
@@ -704,9 +661,9 @@ class TestAddOtherInputs:
         output path stored in the analysis output directories dictionary
         """
         correct_path = "/out_dir/dir1"
-        assert (
-            other_inputs["output_path"] == correct_path
-        ), "INPUT-analysis_1-out_dir not correctly replaced"
+        assert other_inputs["output_path"] == correct_path, (
+            "INPUT-analysis_1-out_dir not correctly replaced"
+        )
 
     def test_attempting_to_get_analysis_1_in_job_outputs_doesnt_work(self):
         """
@@ -765,9 +722,9 @@ class TestGetDependentJobs:
             "job-GGjgz1j4Bv48yF89GpZ6zkGz",
         ]
 
-        assert (
-            sorted(jobs) == sample_jobs
-        ), "Failed to get correct dependent jobs per sample"
+        assert sorted(jobs) == sample_jobs, (
+            "Failed to get correct dependent jobs per sample"
+        )
 
     def test_per_run_get_analysis_1_jobs(self):
         """
@@ -776,18 +733,16 @@ class TestGetDependentJobs:
         """
         params = {"depends_on": ["analysis_1"]}
 
-        jobs = get_dependent_jobs(
-            params=params, job_outputs_dict=self.job_outputs_dict
-        )
+        jobs = get_dependent_jobs(params=params, job_outputs_dict=self.job_outputs_dict)
 
         analysis_1_jobs = [
             "analysis-GGjgz004Bv4P8yqJGp9pyyqb",
             "analysis-GGjgz0j4Bv4P8yqJGp9pyyv2",
         ]
 
-        assert (
-            sorted(jobs) == analysis_1_jobs
-        ), "Failed to get analysis_1 dependent jobs"
+        assert sorted(jobs) == analysis_1_jobs, (
+            "Failed to get analysis_1 dependent jobs"
+        )
 
     def test_per_run_get_all_jobs(self):
         """
@@ -796,9 +751,7 @@ class TestGetDependentJobs:
         """
         params = {"depends_on": ["analysis_1", "analysis_2", "analysis_3"]}
 
-        jobs = get_dependent_jobs(
-            params=params, job_outputs_dict=self.job_outputs_dict
-        )
+        jobs = get_dependent_jobs(params=params, job_outputs_dict=self.job_outputs_dict)
 
         all_jobs = [
             "analysis-GGjgz004Bv4P8yqJGp9pyyqb",
@@ -818,13 +771,11 @@ class TestGetDependentJobs:
         """
         params = {"depends_on": ["analysis_5"]}
 
-        jobs = get_dependent_jobs(
-            params=params, job_outputs_dict=self.job_outputs_dict
-        )
+        jobs = get_dependent_jobs(params=params, job_outputs_dict=self.job_outputs_dict)
 
-        assert (
-            jobs == []
-        ), "Getting dependent jobs for absent analyis_ did not return an empty list"
+        assert jobs == [], (
+            "Getting dependent jobs for absent analyis_ did not return an empty list"
+        )
 
     def test_absent_analysis_does_not_raise_error_per_sample(self):
         """
@@ -840,9 +791,9 @@ class TestGetDependentJobs:
             sample="2207155-22207Z0091-1-BM-MPD-MYE-M-EGG2",
         )
 
-        assert (
-            jobs == []
-        ), "Getting dependent jobs for absent analyis_ did not return an empty list"
+        assert jobs == [], (
+            "Getting dependent jobs for absent analyis_ did not return an empty list"
+        )
 
 
 class TestLinkInputsToOutputs:
@@ -946,9 +897,9 @@ class TestLinkInputsToOutputs:
             },
         ]
 
-        assert (
-            output_input_dict == correct_input
-        ), "job IDs for all analysis_1 jobs not correctly parsed"
+        assert output_input_dict == correct_input, (
+            "job IDs for all analysis_1 jobs not correctly parsed"
+        )
 
     def test_adding_one_sample_analysis_1(self):
         """
@@ -999,8 +950,7 @@ class TestLinkInputsToOutputs:
         ]
 
         assert (
-            output["stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input"]
-            == correct_output
+            output["stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input"] == correct_output
         ), "job ID for analysis 2 wrongly parsed as input"
 
 
@@ -1029,9 +979,7 @@ class TestFilterJobOutputsDict:
         # dict matching section as would be in config defining the stage
         # input and patterns to filter by
         inputs_filter = {
-            "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": [
-                "Oncospan.*"
-            ]
+            "stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file": ["Oncospan.*"]
         }
 
         # get the jobs for Oncospan sample
@@ -1047,9 +995,9 @@ class TestFilterJobOutputsDict:
             }
         }
 
-        assert (
-            filtered_output == correct_output
-        ), "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+        assert filtered_output == correct_output, (
+            "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+        )
 
     def test_filter_multiple_patterns(self):
         """
@@ -1080,9 +1028,9 @@ class TestFilterJobOutputsDict:
             },
         }
 
-        assert (
-            filtered_output == correct_output
-        ), "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+        assert filtered_output == correct_output, (
+            "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+        )
 
 
 class TestFixInvalidInputs:
@@ -1176,18 +1124,16 @@ class TestFixInvalidInputs:
         """
         output = fix_invalid_inputs(
             input_dict=self.test_input_dict1,
-            input_classes=self.input_classes[
-                "workflow-GB12vxQ433GygFZK6pPF75q8"
-            ],
+            input_classes=self.input_classes["workflow-GB12vxQ433GygFZK6pPF75q8"],
         )
 
         input_type = type(
             output["stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file"]
         )
 
-        assert (
-            input_type == list
-        ), "array:file input not converted to a list as expected"
+        assert input_type == list, (
+            "array:file input not converted to a list as expected"
+        )
 
     def test_file_input_with_array_length_one_given(self):
         """
@@ -1196,14 +1142,10 @@ class TestFixInvalidInputs:
         """
         output = fix_invalid_inputs(
             input_dict=self.test_input_dict2,
-            input_classes=self.input_classes[
-                "workflow-GB12vxQ433GygFZK6pPF75q8"
-            ],
+            input_classes=self.input_classes["workflow-GB12vxQ433GygFZK6pPF75q8"],
         )
 
-        input_type = type(
-            output["stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input"]
-        )
+        input_type = type(output["stage-G9Z2B7Q41bQg2Jy40zVqqGg4.somalier_input"])
 
         assert input_type == dict, "Input type not correctly set to dict"
 
@@ -1215,9 +1157,7 @@ class TestFixInvalidInputs:
         with pytest.raises(RuntimeError):
             fix_invalid_inputs(
                 input_dict=self.test_input_dict3,
-                input_classes=self.input_classes[
-                    "workflow-GB12vxQ433GygFZK6pPF75q8"
-                ],
+                input_classes=self.input_classes["workflow-GB12vxQ433GygFZK6pPF75q8"],
             )
 
     def test_unknown_input_field(self):
@@ -1481,3 +1421,108 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
                 all_output_files=self.all_output_files,
                 job_output_ids=missing_files,
             )
+
+
+class TestIsHeld:
+    """
+    Tests for is_held() that checks a config dict for presence of
+    "hold" key with value True (bool or str) at any level of nesting
+    """
+
+    def test_no_hold_key(self):
+        """Test when no hold key anywhere"""
+        config = {"foo": 10, "bar": {"baz": 20}}
+        assert not is_held(config)
+
+    def test_hold_false_bool(self):
+        """Test when hold key==False"""
+        config = {"hold": False}
+        assert not is_held(config)
+
+    def test_hold_true_bool(self):
+        """Test when hold key==True"""
+        config = {"hold": True}
+        assert is_held(config)
+
+    def test_hold_true_str(self):
+        """Test when hold key=='True' string"""
+        config = {"hold": "true"}
+        assert is_held(config)
+
+    def test_hold_false_str(self):
+        """Test when hold key=='False' string"""
+        config = {"hold": "false"}
+        assert not is_held(config)
+
+    def test_nested_hold_true(self):
+        """Test when hold key is nested and True bool"""
+        config = {"foo": {"bar": {"hold": True}}}
+        assert is_held(config)
+
+    def test_nested_hold_true_str(self):
+        """Test when hold key is nested and True str"""
+        config = {
+            "foo": {
+                "bar": {
+                    "app": "app-id",
+                    "executable": {"name": "app-name", "hold": "true"},
+                }
+            }
+        }
+        assert is_held(config)
+
+    def test_very_nested_hold_true_str(self):
+        """Test when hold key is very nested and True bool"""
+        config = {"foo": {"bar": {"hold": "true"}}}
+        assert is_held(config)
+
+    def test_list_of_dicts_with_hold(self):
+        """Test when hold key is nested in list with True and False bool"""
+        config = {"foo": [{"hold": True}, {"hold": False}]}
+        assert is_held(config)
+
+    def test_key_ending_with_hold_is_not_used(self):
+        """Test when key ends with 'hold' but is not 'hold'"""
+        config = {"foo": [{"threshold": True}]}
+        assert not is_held(config)
+
+    def test_multiple_holds_one_true(self):
+        """Test when multiple hold keys and one is True"""
+        config = {"hold": False, "foo": {"hold": "true"}}
+        assert is_held(config)
+
+    def test_multiple_holds_all_false(self):
+        """Test when multiple hold keys and all are False"""
+        config = {"hold": False, "foo": {"hold": "false"}}
+        assert not is_held(config)
+
+    def test_only_hold_key_is_int(self):
+        """Test when only hold key and is int"""
+        config = {"hold": 10}
+        assert not is_held(config)
+
+    def test_hold_is_int(self):
+        """Test when multiple hold keys and one is int"""
+        config = {"hold": False, "foo": {"hold": 10}}
+        assert not is_held(config)
+
+    def test_hold_is_int_eq_true(self):
+        """
+        Test when multiple hold keys and one is int==1
+        expected to be False as only bool True or str 'true'
+        should be treated as hold
+        """
+        config = {"hold": False, "foo": {"hold": 1}}
+        assert not is_held(config)
+
+    def test_hold_is_int_eq_false(self):
+        """Test when multiple hold keys and one is int==0"""
+        config = {"hold": False, "foo": {"hold": 0}}
+        assert not is_held(config)
+
+    def test_hold_is_int_eq_false_but_true_present(self):
+        """Test when multiple hold keys and one is int==0
+        but another is True
+        """
+        config = {"hold": True, "foo": {"hold": 0}}
+        assert is_held(config)
