@@ -65,7 +65,7 @@ def search(identifier, input_dict, check_key, return_key) -> list:
     return list(set(found))
 
 
-def search_exact_key(identifier, input_dict) -> list:
+def search_exact_key(identifier: str, input_dict: dict) -> list:
     """
     Searches nested dictionary for keys that match exactly the identifier string.
     Returns the values for those keys.
