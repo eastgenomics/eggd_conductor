@@ -1095,7 +1095,4 @@ def is_held(config: dict) -> bool:
     # Find all keys named 'hold' in the nested config
     found = search_exact_key('hold', config)
     # Check if any of those keys are set to True or "true" in found
-    for value in found:
-        if value is True:
-            return True
-    return False
+    return any(val is True for val in found)
