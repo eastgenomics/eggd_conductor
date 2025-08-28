@@ -1081,7 +1081,7 @@ def populate_tso500_reports_workflow(
 
 def is_held(config: dict) -> bool:
     """
-    Check if a config has any 'hold' key set to True or "true" in
+    Check if a config has any 'hold' key set to True boolean in
     its nested structure
     Parameters
     ----------
@@ -1090,7 +1090,7 @@ def is_held(config: dict) -> bool:
     Returns
     -------
     bool
-        True if any 'hold' key is set to True or "true", else False
+        True if any 'hold' key is set to True, else False
     """
     # Find all keys named 'hold' in the nested config
     found = search_exact_key('hold', config)
