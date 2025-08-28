@@ -1427,7 +1427,7 @@ class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
 class TestIsHeld:
     """
     Tests for is_held() that checks a config dict for presence of
-    "hold" key with value True (bool or str) at any level of nesting
+    "hold" key with value True (bool) at any level of nesting
     """
 
     def test_no_hold_key_present(self):
@@ -1456,7 +1456,7 @@ class TestIsHeld:
         assert is_held(config)
 
     def test_more_nested_hold_true(self):
-        """Test when hold key is nested and True str"""
+        """Test when hold key is nested and True bool"""
         config = {
             "foo": {
                 "bar": {
@@ -1495,7 +1495,7 @@ class TestIsHeld:
     def test_hold_is_int_eq_true(self):
         """
         Test when multiple hold keys and one is int==1
-        expected to be False as only bool True or str 'true'
+        expected to be False as only bool True
         should be treated as hold
         """
         config = {"hold": False, "foo": {"hold": 1}}
@@ -1515,6 +1515,17 @@ class TestIsHeld:
         but another is True
         """
         config = {"hold": True, "foo": {"hold": 0}}
+        assert is_held(config)
+
+    def test_tso500_config_with_hold(self):
+        """
+        Test when hold key is present in typical eggd_tso500
+        config structure
+        """
+        test_tso500_config_path = (
+            "resources/home/dnanexus/run_workflows/tests/data/build_job_inputs/tso500_config.json"
+        )
+        config = json.load(open(test_tso500_config_path))
         assert is_held(config)
 
 
