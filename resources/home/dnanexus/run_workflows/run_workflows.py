@@ -620,7 +620,7 @@ def main():
                         jira.add_comment(
                             comment=f"{msg}\n",
                             url=(
-                                "http://platform.dnanexus.com/panx/projects/"
+                                "https://platform.dnanexus.com/panx/projects/"
                                 f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
                             ticket=handler.ticket,
@@ -706,7 +706,7 @@ def main():
                     "\nAnalysis project(s): "
                 ),
                 url=(
-                    "http://platform.dnanexus.com/panx/projects/"
+                    "https://platform.dnanexus.com/panx/projects/"
                     f"{handler.project.id.replace('project-', '')}/monitor/"
                 ),
                 ticket=handler.ticket,
