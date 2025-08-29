@@ -1559,26 +1559,32 @@ class TestSearchExactKey:
 
     def test_key_substring_not_match(self):
         """Keys containing substring do not match"""
-        config = {"behold": "no", "foo": {"holdings": "nope"}}
+        config = {"threshold": 0.5, "foo": {"holdings": True}}
         assert search_exact_key("hold", config) == []
 
-    def test_value_is_list_of_ints_do_not_match(self):
+    def test_value_of_list_of_ints_do_not_match(self):
         """Keys containing substring do not match"""
         config = {"app": "app-id", "details": {"hold": [1, 2, 3]}}
         assert search_exact_key("hold", config) == []
 
-    def test_value_is_bool_list_do_not_match(self):
+    def test_value_of_bool_list_do_not_match(self):
         """Keys containing list of bools do not match"""
         config = {"app": "app-id", "details": {"hold": [True, False, False]}}
         assert search_exact_key("hold", config) == []
 
-    def test_value_is_dict(self):
+    def test_value_is_dict_with_non_hold_last_key(self):
         """Keys of hold with value as dict do not match"""
         config = {"app": "app-id", "details": {"hold": {"key": True}}}
         assert search_exact_key("hold", config) == []
 
-    def test_list_of_dicts(self):
+    def test_list_of_dicts_with_ints(self):
         """List of dicts with matching key"""
         config = {"foo": [{"hold": 1}, {"hold": 2}]}
         result = search_exact_key("hold", config)
         assert set(result) == {1, 2}
+
+    def test_list_of_dicts_with_bools(self):
+        """List of dicts with matching key"""
+        config = {"foo": [{"hold": True}, {"hold": False}]}
+        result = search_exact_key("hold", config)
+        assert set(result) == {True, False}
