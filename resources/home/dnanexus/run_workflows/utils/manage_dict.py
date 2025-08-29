@@ -82,7 +82,7 @@ def search_exact_key(identifier: str, input_dict: dict) -> list:
     list : list of values for keys that match exactly
     """
     flattened_dict = flatten(input_dict, "|")
-    print(flattened_dict)
+
     found = []
     # Match the last part of the key path exactly
     for key, value in flattened_dict.items():
