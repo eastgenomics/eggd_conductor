@@ -1522,10 +1522,11 @@ class TestIsHeld:
         Test when hold key is present in typical eggd_tso500
         config structure
         """
-        test_tso500_config_path = (
-            "resources/home/dnanexus/run_workflows/tests/data/build_job_inputs/tso500_config.json"
+        test_tso500_config_path = os.path.join(
+            TEST_DATA_DIR, "build_job_inputs", "tso500_config.json"
         )
-        config = json.load(open(test_tso500_config_path))
+        with open(test_tso500_config_path) as fh:
+            config = json.load(fh)
         assert is_held(config)
 
 
