@@ -82,24 +82,15 @@ def search_exact_key(identifier: str, input_dict: dict) -> list:
     list : list of values for keys that match exactly
     """
     flattened_dict = flatten(input_dict, "|")
+    print(flattened_dict)
     found = []
     # Match the last part of the key path exactly
     for key, value in flattened_dict.items():
         last_key = key.split('|')[-1]
         if last_key == identifier:
             found.append(value)
-    # Remove duplicates while preserving order and
-    # tolerate unhashable values
-    unique = []
-    seen = set()
-    for v in found:
-        try:
-            if v not in seen:
-                seen.add(v)
-                unique.append(v)
-        except TypeError:
-            unique.append(v)
-    return unique
+
+    return list(set(found))
 
 
 

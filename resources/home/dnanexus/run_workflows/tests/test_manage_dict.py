@@ -1562,9 +1562,19 @@ class TestSearchExactKey:
         config = {"behold": "no", "foo": {"holdings": "nope"}}
         assert search_exact_key("hold", config) == []
 
-    def test_value_is_dictionary(self):
+    def test_value_is_list_of_ints_do_not_match(self):
         """Keys containing substring do not match"""
-        config = {"app": "app-id", "hold": {"value": True}}
+        config = {"app": "app-id", "details": {"hold": [1, 2, 3]}}
+        assert search_exact_key("hold", config) == []
+
+    def test_value_is_bool_list_do_not_match(self):
+        """Keys containing list of bools do not match"""
+        config = {"app": "app-id", "details": {"hold": [True, False, False]}}
+        assert search_exact_key("hold", config) == []
+
+    def test_value_is_dict(self):
+        """Keys of hold with value as dict do not match"""
+        config = {"app": "app-id", "details": {"hold": {"key": True}}}
         assert search_exact_key("hold", config) == []
 
     def test_list_of_dicts(self):
