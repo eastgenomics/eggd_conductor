@@ -1430,92 +1430,199 @@ class TestIsHeld:
     "hold" key with value True (bool) at any level of nesting
     """
 
-    def test_no_hold_key_present(self):
-        """Test when no hold key anywhere"""
-        config = {"foo": 10, "bar": {"baz": 20}}
-        assert not is_held(config)
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            ({"foo": 10, "bar": {"baz": 20}}, False),
+            ({"foo": 10, "bar": {"threshold": 20}}, False),
+            ({"foo": True, "bar": {"baz": True}}, False),
+        ],
+    )
+    def test_no_hold_key_present(self, config, expected):
+        assert is_held(config) == expected
 
-    def test_hold_false(self):
-        """Test when hold key==False"""
-        config = {"hold": False}
-        assert not is_held(config)
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            # hold key False
+            ({"hold": False}, False),
+            # hold key True
+            ({"hold": True}, True),
+            # hold key as string
+            ({"hold": "true"}, False),
+            # Nested hold True
+            ({"foo": {"bar": {"hold": True}}}, True),
+            # Key ending with hold is not used
+            ({"foo": [{"threshold": True}]}, False),
+            # Only hold key is int
+            ({"hold": 10}, False),
+            # Multiple holds, one is int==1
+            ({"hold": False, "foo": {"hold": 1}}, False),
+            # Multiple holds, one is int==0
+            ({"hold": False, "foo": {"hold": 0}}, False),
+            # Multiple holds, int==0 but True present
+            ({"hold": True, "foo": {"hold": 0}}, True),
+        ],
+    )
+    def test_is_held_simple_cases(self, config, expected):
+        assert is_held(config) == expected
 
-    def test_hold_true(self):
-        """Test when hold key==True"""
-        config = {"hold": True}
-        assert is_held(config)
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            # List of dicts with hold True and False
+            ({"foo": [{"hold": True}, {"hold": False}]}, True),
+            # List of dicts with hold True, False, int, string
+            ({"foo": [{"hold": True}, {"hold": False}, {"hold": 1}, {"hold": "true"}]}, True),
+            # List of dicts with hold all False/invalid
+            ({"foo": [{"hold": False}, {"hold": 0}, {"hold": "false"}]}, False),
+            # hold key in list of dicts, all False
+            ({"foo": [{"hold": False}, {"hold": False}]}, False),
+            # hold key in list of dicts, one True
+            ({"foo": [{"hold": False}, {"hold": True}]}, True),
+        ],
+    )
+    def test_is_held_list_of_dicts(self, config, expected):
+        assert is_held(config) == expected
 
-    def test_hold_false_when_str(self):
-        """Test still false when hold key is 'True' string"""
-        config = {"hold": "true"}
-        assert not is_held(config)
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            # hold key in list of dicts, True as string
+            ({"foo": [{"hold": "True"}, {"hold": "False"}]}, False),
+            # hold key in list of dicts, True as int
+            ({"foo": [{"hold": 1}, {"hold": 0}]}, False),
+            # hold key in list of dicts, True as bool and int
+            ({"foo": [{"hold": True}, {"hold": 1}]}, True),
+            # hold key in list of dicts, True as bool and string
+            ({"foo": [{"hold": True}, {"hold": "True"}]}, True),
+            # hold key in list of dicts, True as bool and False as string
+            ({"foo": [{"hold": True}, {"hold": "False"}]}, True),
+            # hold key in list of dicts, True as bool and False as int
+            ({"foo": [{"hold": True}, {"hold": 0}]}, True),
+        ],
+    )
+    def test_is_held_mixed_types(self, config, expected):
+        assert is_held(config) == expected
 
-    def test_nested_hold_true(self):
-        """Test when hold key is nested and True bool"""
-        config = {"foo": {"bar": {"hold": True}}}
-        assert is_held(config)
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            # Multiple holds, one True
+            ({"hold": False, "foo": {"hold": True}}, True),
+            # Multiple holds, all False
+            ({"hold": False, "foo": {"hold": False}}, False),
+            # Multiple holds, one True string, one True bool
+            ({"hold": "True", "foo": {"hold": True}}, True),
+            # Multiple holds, one True string, one False bool
+            ({"hold": "True", "foo": {"hold": False}}, False),
+        ],
+    )
+    def test_is_held_multiple_holds(self, config, expected):
+        assert is_held(config) == expected
 
-    def test_more_nested_hold_true(self):
-        """Test when hold key is nested and True bool"""
-        config = {
-            "foo": {
-                "bar": {
-                    "app": "app-id",
-                    "executable": {"name": "app-name", "options": {"hold": True}},
-                }
-            }
-        }
-        assert is_held(config)
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            # More nested hold True
+            (
+                {
+                    "foo": {
+                        "bar": {
+                            "app": "app-id",
+                            "executable": {"name": "app-name", "options": {"hold": True}},
+                        }
+                    }
+                },
+                True,
+            ),
+            # More nested hold False
+            (
+                {
+                    "foo": {
+                        "bar": {
+                            "app": "app-id",
+                            "executable": {"name": "app-name", "options": {"hold": False}},
+                        }
+                    }
+                },
+                False,
+            ),
+            # More nested hold as string
+            (
+                {
+                    "foo": {
+                        "bar": {
+                            "app": "app-id",
+                            "executable": {"name": "app-name", "options": {"hold": "True"}},
+                        }
+                    }
+                },
+                False,
+            ),
+            # More nested hold as int
+            (
+                {
+                    "foo": {
+                        "bar": {
+                            "app": "app-id",
+                            "executable": {"name": "app-name", "options": {"hold": 1}},
+                        }
+                    }
+                },
+                False,
+            ),
+            # Nested hold within list of dicts
+            (
+                {
+                    "foo": {
+                        "bar": {
+                            "app": "app-id",
+                            "executables": [
+                                {"name": "app-name", "options": {"hold": True}},
+                                {"name": "app-name2", "options": {"hold": False}},
+                                {"name": "app-name3", "options": {"hold": False}}
+                            ]
+                        }
+                    }
+                },
+                True,
+            ),
+        ],
+    )
+    def test_different_levels_of_nested_hold(self, config, expected):
+        assert is_held(config) == expected
 
-    def test_list_of_dicts_with_hold(self):
-        """Test when hold key is nested in list with True and False bool"""
-        config = {"foo": [{"hold": True}, {"hold": False}]}
-        assert is_held(config)
-
-    def test_key_ending_with_hold_is_not_used(self):
+    @pytest.mark.parametrize(
+        "config, expected",
+        [
+            ({"foo": [{"threshold": True}]}, False),
+            ({"bar": {"threshold": False}}, False),
+            ({"baz": {"threshold": 1}}, False),
+            ({"foo": [{"threshold": True}, {"threshold": False}]}, False),
+            ({"holding": [{"threshold": 0}, {"threshold": 1}]}, False),
+        ],
+    )
+    def test_key_ending_with_hold_is_not_used(self, config, expected):
         """Test when key ends with 'hold' but is not 'hold'"""
-        config = {"foo": [{"threshold": True}]}
-        assert not is_held(config)
+        assert is_held(config) == expected
 
-    def test_multiple_holds_one_true(self):
-        """Test when multiple hold keys and one is True"""
-        config = {"hold": False, "foo": {"hold": True}}
-        assert is_held(config)
-
-    def test_multiple_holds_all_false(self):
-        """Test when multiple hold keys and all are False"""
-        config = {"hold": False, "foo": {"hold": False}}
-        assert not is_held(config)
-
-    def test_only_hold_key_is_int(self):
-        """Test when only hold key and is int"""
-        config = {"hold": 10}
-        assert not is_held(config)
-
-    def test_hold_is_int_eq_true(self):
+    def test_case_sensitive(self):
         """
-        Test when multiple hold keys and one is int==1
-        expected to be False as only bool True
-        should be treated as hold
+        Test that key is case-sensitive and only 'hold' (lowercase)
+        is used
         """
-        config = {"hold": False, "foo": {"hold": 1}}
-        assert not is_held(config)
-
-    def test_hold_is_int_eq_false(self):
-        """
-        Test when multiple hold keys and one is int==0
-        but another is False
-        """
-        config = {"hold": False, "foo": {"hold": 0}}
-        assert not is_held(config)
-
-    def test_hold_is_int_eq_false_but_true_present(self):
-        """
-        Test when multiple hold keys and one is int==0
-        but another is True
-        """
-        config = {"hold": True, "foo": {"hold": 0}}
-        assert is_held(config)
+        test_configs = [
+            {"Hold": True},
+            {"HOLD": True},
+            {"hOld": True},
+            {"hoLD": True},
+            {"hoLd": True},
+            {"hOLd": True},
+            {"holD": True},
+        ]
+        for config in test_configs:
+            assert not is_held(config), f"Key case sensitivity failed for {config}"
 
     def test_tso500_config_with_hold(self):
         """
@@ -1529,62 +1636,41 @@ class TestIsHeld:
             config = json.load(fh)
         assert is_held(config)
 
-
 class TestSearchExactKey:
     """
-    Tests for search_exact_key to ensure it matches only keys named exactly as the identifier,
-    regardless of nesting, and returns their values.
+    Tests for search_exact_key() that searches a config dict for presence of
+    an exact key at any level of nesting and returns a list of all values
+    found for that key
     """
-
-    def test_no_match(self):
-        """No matching key present"""
-        config = {"foo": 1, "bar": {"baz": 2}}
-        assert search_exact_key("hold", config) == []
-
-    def test_top_level_match(self):
-        """Top-level key matches"""
-        config = {"hold": True, "foo": 1}
-        assert search_exact_key("hold", config) == [True]
-
-    def test_nested_match(self):
-        """Nested key matches"""
-        config = {"foo": {"hold": "yes"}}
-        assert search_exact_key("hold", config) == ["yes"]
-
-    def test_multiple_matches(self):
-        """Multiple keys match"""
-        config = {"hold": False, "foo": {"hold": True}}
-        result = search_exact_key("hold", config)
-        assert set(result) == {False, True}
-
-    def test_key_substring_not_match(self):
-        """Keys containing substring do not match"""
-        config = {"threshold": 0.5, "foo": {"holdings": True}}
-        assert search_exact_key("hold", config) == []
-
-    def test_value_of_list_of_ints_do_not_match(self):
-        """Keys containing list of ints do not match"""
-        config = {"app": "app-id", "details": {"hold": [1, 2, 3]}}
-        assert search_exact_key("hold", config) == []
-
-    def test_value_of_bool_list_do_not_match(self):
-        """Keys containing list of bools do not match"""
-        config = {"app": "app-id", "details": {"hold": [True, False, False]}}
-        assert search_exact_key("hold", config) == []
-
-    def test_value_is_dict_with_non_hold_last_key(self):
-        """Keys of hold with value as dict do not match"""
-        config = {"app": "app-id", "details": {"hold": {"key": True}}}
-        assert search_exact_key("hold", config) == []
-
-    def test_list_of_dicts_with_ints(self):
-        """List of dicts with matching key"""
-        config = {"foo": [{"hold": 1}, {"hold": 2}]}
-        result = search_exact_key("hold", config)
-        assert set(result) == {1, 2}
-
-    def test_list_of_dicts_with_bools(self):
-        """List of dicts with matching key"""
-        config = {"foo": [{"hold": True}, {"hold": False}]}
-        result = search_exact_key("hold", config)
-        assert set(result) == {True, False}
+    @pytest.mark.parametrize(
+        "config, identifier, expected",
+        [
+            # No matching key present
+            ({"foo": 1, "bar": {"baz": 2}}, "hold", []),
+            # Top-level key matches
+            ({"hold": True, "foo": 1}, "hold", [True]),
+            # Nested key matches
+            ({"foo": {"hold": "yes"}}, "hold", ["yes"]),
+            # Multiple keys match
+            ({"hold": False, "foo": {"hold": True}}, "hold", [False, True]),
+            # Keys containing substring do not match
+            ({"threshold": 0.5, "foo": {"holdings": True}}, "hold", []),
+            # Keys containing list of ints do not match
+            ({"app": "app-id", "details": {"hold": [1, 2, 3]}}, "hold", []),
+            # Keys containing list of bools do not match
+            ({"app": "app-id", "details": {"hold": [True, False, False]}}, "hold", []),
+            # Keys of hold with value as dict do not match
+            ({"app": "app-id", "details": {"hold": {"key": True}}}, "hold", []),
+            # List of dicts with matching key (ints)
+            ({"foo": [{"hold": 1}, {"hold": 2}]}, "hold", [1, 2]),
+            # List of dicts with matching key (bools)
+            ({"foo": [{"hold": True}, {"hold": False}]}, "hold", [True, False]),
+        ],
+    )
+    def test_search_exact_key(self, config, identifier, expected):
+        result = search_exact_key(identifier, config)
+        # For cases with multiple matches, compare as sets
+        if isinstance(expected, list) and len(expected) > 1:
+            assert set(result) == set(expected)
+        else:
+            assert result == expected
