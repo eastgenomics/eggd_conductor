@@ -1563,7 +1563,7 @@ class TestSearchExactKey:
         assert search_exact_key("hold", config) == []
 
     def test_value_of_list_of_ints_do_not_match(self):
-        """Keys containing substring do not match"""
+        """Keys containing list of ints do not match"""
         config = {"app": "app-id", "details": {"hold": [1, 2, 3]}}
         assert search_exact_key("hold", config) == []
 
