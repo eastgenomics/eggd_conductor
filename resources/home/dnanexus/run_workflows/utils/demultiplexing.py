@@ -317,11 +317,12 @@ def demultiplex(
         job.wait_on_done()
     except dx.exceptions.DXJobFailureError as err:
         # dx job error raised (i.e. failed, timed out, terminated)
+        job_id = job.id.replace("job-", "")
         job_url = (
-            f"platform.dnanexus.com/projects/"
+            f"https://platform.dnanexus.com/projects/"
             f"{demultiplex_project.replace('project-', '')}"
             "/monitor/job/"
-            f"{job.id}"
+            f"{job_id}"
         )
 
         Slack().send(

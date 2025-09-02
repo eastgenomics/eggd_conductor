@@ -65,6 +65,35 @@ def search(identifier, input_dict, check_key, return_key) -> list:
     return list(set(found))
 
 
+def search_exact_key(identifier: str, input_dict: dict) -> list:
+    """
+    Searches nested dictionary for keys that match exactly the identifier string.
+    Returns the values for those keys.
+
+    Parameters
+    ----------
+    identifier : str
+        key name to match exactly
+    input_dict : dict
+        dict of input parameters for calling workflow / app
+
+    Returns
+    -------
+    list : list of values for keys that match exactly
+    """
+    flattened_dict = flatten(input_dict, "|")
+
+    found = []
+    # Match the last part of the key path exactly
+    for key, value in flattened_dict.items():
+        last_key = key.split('|')[-1]
+        if last_key == identifier:
+            found.append(value)
+
+    return list(set(found))
+
+
+
 def replace(
     input_dict, to_replace, replacement, search_key, replace_key
 ) -> dict:
@@ -1051,3 +1080,22 @@ def populate_tso500_reports_workflow(
         prettier_print("\nNo populating for TSO500 reports_workflow required")
 
     return modified_input_dict, missing_output_sample
+
+
+def is_held(config: dict) -> bool:
+    """
+    Check if a config has any 'hold' key set to True boolean in
+    its nested structure
+    Parameters
+    ----------
+    config : dict
+        dict of the sequencing assay config to check for hold keys
+    Returns
+    -------
+    bool
+        True if any 'hold' key is set to True, else False
+    """
+    # Find all keys named 'hold' in the nested config
+    found = search_exact_key('hold', config)
+    # Check if any of those keys are set to True or "true" in found
+    return any(val is True for val in found)
