@@ -398,7 +398,7 @@ def main():
                             "This run was processed automatically by "
                             "eggd_conductor: "
                         ),
-                        url=f"http://{os.environ.get('conductor_job_url')}",
+                        url=f"https://{os.environ.get('conductor_job_url')}",
                         ticket=ticket["id"],
                     )
 
@@ -550,6 +550,9 @@ def main():
         check=True,
     )
 
+    # Sort assay_handlers so those with hold=True are last
+    assay_handlers = sorted(assay_handlers, key=lambda h: manage_dict.is_held(h.config))
+
     execution_errors = {}
 
     for handler in assay_handlers:
@@ -617,7 +620,7 @@ def main():
                         jira.add_comment(
                             comment=f"{msg}\n",
                             url=(
-                                "http://platform.dnanexus.com/panx/projects/"
+                                "https://platform.dnanexus.com/panx/projects/"
                                 f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
                             ticket=handler.ticket,
@@ -703,7 +706,7 @@ def main():
                     "\nAnalysis project(s): "
                 ),
                 url=(
-                    "http://platform.dnanexus.com/panx/projects/"
+                    "https://platform.dnanexus.com/panx/projects/"
                     f"{handler.project.id.replace('project-', '')}/monitor/"
                 ),
                 ticket=handler.ticket,

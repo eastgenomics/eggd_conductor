@@ -430,14 +430,14 @@ If one or more are missing / invalid, or any error occurs connecting and / or qu
 Example comment added at begining of processing to link to eggd_conductor job:
 
 ```text
-This run was processed automatically by eggd_conductor: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/job/GJ3ykQ84Bv42ZP8J5zjz6qBb
+This run was processed automatically by eggd_conductor: https://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/job/GJ3ykQ84Bv42ZP8J5zjz6qBb
 ```
 
 Example comment added at end of successfully launching all jobs with link to analysis project:
 
 ```text
 All jobs sucessfully launched by eggd_conductor.
-Analysis project: http://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
+Analysis project: https://platform.dnanexus.com/projects/GB3jx784Bv40j3Zx4P5vvbzQ/monitor/
 ```
 
 ---
