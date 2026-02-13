@@ -1244,12 +1244,8 @@ class TestFixInvalidInputs:
             )
 
 
-class TestCheckAllInputs:
-    """
-    Tests for final check of populated input dict to check for remaining
-    INPUT- or analysis_ that have not been parsed
-    """
-
+@pytest.fixture
+def inputs():
     input_dict_with_unparsed_input = {
         "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs": [
             {"$dnanexus_link": "file-GGJY8Q04p3z2K7qp1qf5bpkf"},
@@ -1271,22 +1267,34 @@ class TestCheckAllInputs:
             }
         }
     }
+    yield input_dict_with_unparsed_input, input_dict_with_unparsed_analysis
+    log_file = "slack_fail_sent.log"
 
-    def test_find_unparsed_input(self):
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
+
+class TestCheckAllInputs:
+    """
+    Tests for final check of populated input dict to check for remaining
+    INPUT- or analysis_ that have not been parsed
+    """
+
+    def test_find_unparsed_input(self, inputs):
         """
         Test that AssertionError is raised from remaining INPUT-
         left in input dictionary
         """
         with pytest.raises(AssertionError):
-            check_all_inputs(input_dict=self.input_dict_with_unparsed_input)
+            check_all_inputs(input_dict=inputs[0])
 
-    def test_find_unparsed_analysis(self):
+    def test_find_unparsed_analysis(self, inputs):
         """
         Test that AssertionError is raised from remaining analysis_
         left in input dictionary
         """
         with pytest.raises(AssertionError):
-            check_all_inputs(input_dict=self.input_dict_with_unparsed_analysis)
+            check_all_inputs(input_dict=inputs[1])
 
 
 class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
