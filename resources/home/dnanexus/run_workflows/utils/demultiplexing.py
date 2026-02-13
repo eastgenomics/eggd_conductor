@@ -34,11 +34,58 @@ def set_config_for_demultiplexing(*configs):
 
     if core_nbs:
         bigger_core_nb = max(core_nbs)
-        return demultiplex_configs[core_nbs.index(bigger_core_nb)].get(
-            "demultiplex_config", None
-        )
 
-    return
+        if core_nbs.count(bigger_core_nb) == 1:
+            return demultiplex_configs[core_nbs.index(bigger_core_nb)].get(
+                "demultiplex_config", None
+            )
+        else:
+            # get configs that have the same instance types
+            return additional_args_check(
+                [
+                    config
+                    for config in demultiplex_configs
+                    if config.get("demultiplex_config")
+                    .get("instance_type")
+                    .endswith(bigger_core_nb)
+                ]
+            )
+
+    else:
+        return additional_args_check(configs)
+
+
+def additional_args_check(configs: list) -> dict:
+    """For instances where multiple configs are competing to become the one
+    demultiplexing config, use the additional args as the tiebreaker
+
+    Parameters
+    ----------
+    configs : list
+        List of configs to compare
+
+    Returns
+    -------
+    dict
+        Dict of the selected demultiplex config
+
+    Raises
+    ------
+    Exception
+        Raised if multiple additional args are detected
+    """
+
+    additional_args = []
+
+    for config in configs:
+        if config.get("demultiplex_config").get("additional_args"):
+            additional_args.append(config)
+
+    if len(additional_args) > 1:
+        if len(set(additional_args)) > 1:
+            raise Exception("Multiple additional args specified")
+        else:
+            return additional_args[0]
 
 
 def move_demultiplex_qc_files(
