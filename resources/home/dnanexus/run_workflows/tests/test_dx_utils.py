@@ -1,4 +1,5 @@
 from copy import deepcopy
+import os
 import unittest
 from unittest.mock import patch
 
@@ -13,30 +14,8 @@ from utils.dx_utils import (
 )
 
 
-@pytest.mark.parametrize(
-    "users", [{"user1": "ADMIN"}, {"user1": "ADMIN", "user2": "CONTRIB"}]
-)
-@patch("utils.dx_utils.dx.bindings.dxproject.DXProject.invite")
-def test_users_are_invited_when_getting_dx_project(mock_invite, users):
-    invite_participants_in_project(users, dxpy.bindings.dxproject.DXProject)
-
-    assert mock_invite.call_count == len(users), (
-        f"Expected {len(users)} calls to invite, "
-        f"got '{mock_invite.call_count}'"
-    )
-
-
-class TestFilterHighestConfigVersion:
-    """
-    Tests for filter_highest_config_version for that filters
-    all JSON config files found for the highest version of each assay code
-    """
-
-    # Minimal test data structure of list of config files returned
-    # from get_json_configs(), including only assay, assay_code,
-    # version and file_id that are required for filtering them down.
-    # Each dict in the list would normally be the full JSON response
-    # from reading the dx file object
+@pytest.fixture
+def all_configs():
     all_config_files = [
         {
             "assay": "MYE",
@@ -75,8 +54,39 @@ class TestFilterHighestConfigVersion:
             "file_id": "file-xxx",
         },
     ]
+    yield all_config_files
+    log_file = "slack_fail_sent.log"
 
-    def test_correct_filtered_configs(self):
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
+
+@pytest.mark.parametrize(
+    "users", [{"user1": "ADMIN"}, {"user1": "ADMIN", "user2": "CONTRIB"}]
+)
+@patch("utils.dx_utils.dx.bindings.dxproject.DXProject.invite")
+def test_users_are_invited_when_getting_dx_project(mock_invite, users):
+    invite_participants_in_project(users, dxpy.bindings.dxproject.DXProject)
+
+    assert mock_invite.call_count == len(users), (
+        f"Expected {len(users)} calls to invite, "
+        f"got '{mock_invite.call_count}'"
+    )
+
+
+class TestFilterHighestConfigVersion:
+    """
+    Tests for filter_highest_config_version for that filters
+    all JSON config files found for the highest version of each assay code
+    """
+
+    # Minimal test data structure of list of config files returned
+    # from get_json_configs(), including only assay, assay_code,
+    # version and file_id that are required for filtering them down.
+    # Each dict in the list would normally be the full JSON response
+    # from reading the dx file object
+
+    def test_correct_filtered_configs(self, all_configs):
         """
         Test that the above set of config files returns the expected configs
         for each assay code.
@@ -118,7 +128,7 @@ class TestFilterHighestConfigVersion:
             },
         }
 
-        filtered_configs = filter_highest_config_version(self.all_config_files)
+        filtered_configs = filter_highest_config_version(all_configs)
 
         assert (
             filtered_configs == correct_configs
@@ -201,7 +211,7 @@ class TestFilterHighestConfigVersion:
             filtered == correct_output
         ), "Wrong version of config file returned for different assay codes"
 
-    def test_assert_raised_with_two_configs_of_same_version(self):
+    def test_assert_raised_with_two_configs_of_same_version(self, all_configs):
         """
         Tests when 2 config files with the sam version are found for a
         given assay code an AssertionError is raised.
@@ -209,7 +219,7 @@ class TestFilterHighestConfigVersion:
         i.e. EGG2 in the following {'EGG2': 1.2.0, 'EGG2|LAB123': 1.2.0}
         """
         # add in a conflicting config file to the returned list
-        config_files = deepcopy(self.all_config_files)
+        config_files = deepcopy(all_configs)
         config_files.append(
             {
                 "assay": "MYE",
@@ -222,12 +232,12 @@ class TestFilterHighestConfigVersion:
         with pytest.raises(AssertionError):
             filter_highest_config_version(config_files)
 
-    def test_assert_raised_on_missing_assay_code(self):
+    def test_assert_raised_on_missing_assay_code(self, all_configs):
         """
         Tests when assay_code key is missing from a config that an
         AssertionError is raised
         """
-        config_files = deepcopy(self.all_config_files)
+        config_files = deepcopy(all_configs)
         config_files.append(
             {"assay": "test", "version": "1.0.0", "file_id": "file-xxx"}
         )
@@ -235,12 +245,12 @@ class TestFilterHighestConfigVersion:
         with pytest.raises(AssertionError):
             filter_highest_config_version(config_files)
 
-    def test_assert_raised_on_missing_version(self):
+    def test_assert_raised_on_missing_version(self, all_configs):
         """
         Tests when version key is missing from a config that an
         AssertionError is raised
         """
-        config_files = deepcopy(self.all_config_files)
+        config_files = deepcopy(all_configs)
         config_files.append(
             {"assay": "test", "assay_code": "TEST", "file_id": "file-xxx"}
         )
