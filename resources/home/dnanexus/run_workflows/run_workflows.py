@@ -168,11 +168,15 @@ def parse_args() -> argparse.Namespace:
         ]
         prettier_print("Samples specified to run jobs for:")
         prettier_print(args.samples)
+
     if args.fastqs:
         args.fastqs = [x.replace(" ", "") for x in args.fastqs.split(",") if x]
 
     if not args.samples:
-        args.samples = parse_sample_sheet(args.samplesheet)
+        if args.samplesheet:
+            args.samples = parse_sample_sheet(args.samplesheet)
+        else:
+            raise Exception("No sample source provided")
 
     if args.job_reuse:
         # check given JOB_REUSE is valid JSON
@@ -197,6 +201,13 @@ def parse_args() -> argparse.Namespace:
             args.exclude_samples
         )
 
+    # check valid inputs
+    if not args.sentinel_file and not (
+        args.fastqs and args.run_id and args.samples
+    ):
+        print(args.fastqs, args.run_id, args.samples)
+        raise Exception("No valid inputs provided to start Conductor")
+
     return args
 
 
@@ -206,6 +217,7 @@ def main():
     """
 
     args = parse_args()
+    exit()
 
     if args.assay_config:
         configs = {
@@ -551,7 +563,9 @@ def main():
     )
 
     # Sort assay_handlers so those with hold=True are last
-    assay_handlers = sorted(assay_handlers, key=lambda h: manage_dict.is_held(h.config))
+    assay_handlers = sorted(
+        assay_handlers, key=lambda h: manage_dict.is_held(h.config)
+    )
 
     execution_errors = {}
 
