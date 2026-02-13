@@ -23,6 +23,13 @@ from utils.manage_dict import (
 from .settings import TEST_DATA_DIR
 
 
+def teardown_module():
+    log_file = "slack_fail_sent.log"
+
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
+
 class TestSearchDict:
     """
     Tests for search() that searches a given dictionary for a
@@ -241,8 +248,11 @@ class TestReplaceDict:
         ), "Searching keys and replacing values returned wrong output"
 
 
-@pytest.fixture
-def fastq_details():
+class TestAddFastqs:
+    """
+    Tests for adding fastq file IDs to input dict
+    """
+
     fastq_details = [
         (
             "file-GGJY9604p3zBzjz5Fp66KF0Y",
@@ -277,17 +287,6 @@ def fastq_details():
             "Oncospan-158-2-AA1-BBB-MYE-U-EGG2_S33_L002_R2_001.fastq.gz",
         ),
     ]
-    yield fastq_details
-    log_file = "slack_fail_sent.log"
-
-    if os.path.exists(log_file):
-        os.remove(log_file)
-
-
-class TestAddFastqs:
-    """
-    Tests for adding fastq file IDs to input dict
-    """
 
     # minimal test section of config with executables requiring fastqs
     test_input_dict = {
@@ -309,7 +308,7 @@ class TestAddFastqs:
         },
     }
 
-    def test_adding_all_r1(self, fastq_details):
+    def test_adding_all_r1(self):
         """
         Test adding R1 fastqs from all samples as input where INPUT-R1 given
         """
@@ -319,7 +318,7 @@ class TestAddFastqs:
                     "inputs"
                 ]
             ),
-            fastq_details=fastq_details,
+            fastq_details=self.fastq_details,
         )
         output_R1_fastqs = output[
             "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads_fastqgzs"
@@ -336,7 +335,7 @@ class TestAddFastqs:
             output_R1_fastqs == correct_R1_fastqs
         ), "R1 fastqs not correctly added"
 
-    def test_adding_all_r2(self, fastq_details):
+    def test_adding_all_r2(self):
         """
         Test adding R2 fastqs from all samples as input where INPUT-R2 given
         """
@@ -346,7 +345,7 @@ class TestAddFastqs:
                     "inputs"
                 ]
             ),
-            fastq_details=fastq_details,
+            fastq_details=self.fastq_details,
         )
         output_R2_fastqs = output[
             "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs"
@@ -363,7 +362,7 @@ class TestAddFastqs:
             output_R2_fastqs == correct_R2_fastqs
         ), "R2 fastqs not correctly added"
 
-    def test_adding_all_r1_and_r2(self, fastq_details):
+    def test_adding_all_r1_and_r2(self):
         """
         Test adding R1 and R2 fastqs from all samples as input
         where INPUT-R1-R2 given
@@ -374,7 +373,7 @@ class TestAddFastqs:
                     "inputs"
                 ]
             ),
-            fastq_details=fastq_details,
+            fastq_details=self.fastq_details,
         )
         output_fastqs = output["fastqs"]
 
@@ -393,7 +392,7 @@ class TestAddFastqs:
             output_fastqs == correct_fastqs
         ), "R1-R2 fastqs not correctly added"
 
-    def test_adding_per_sample_r1_fastqs(self, fastq_details):
+    def test_adding_per_sample_r1_fastqs(self):
         """
         Test adding fastqs when a sample defined => fastqs should be for just
         that sample
@@ -404,7 +403,7 @@ class TestAddFastqs:
                     "inputs"
                 ]
             ),
-            fastq_details=fastq_details,
+            fastq_details=self.fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
         )
         output_R1_fastqs = output[
@@ -419,7 +418,7 @@ class TestAddFastqs:
             output_R1_fastqs == correct_R1_fastqs
         ), "R1 fastqs not correctly added for given sample"
 
-    def test_adding_per_sample_r2_fastqs(self, fastq_details):
+    def test_adding_per_sample_r2_fastqs(self):
         """
         Test adding fastqs when a sample defined => fastqs should be for just
         that sample
@@ -430,7 +429,7 @@ class TestAddFastqs:
                     "inputs"
                 ]
             ),
-            fastq_details=fastq_details,
+            fastq_details=self.fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
         )
         output_R2_fastqs = output[
@@ -445,7 +444,7 @@ class TestAddFastqs:
             output_R2_fastqs == correct_R2_fastqs
         ), "R2 fastqs not correctly added for given sample"
 
-    def test_adding_all_r1_and_r2_for_one_sample(self, fastq_details):
+    def test_adding_all_r1_and_r2_for_one_sample(self):
         """
         Test adding R1 and R2 fastqs for given sample as input
         where INPUT-R1-R2 given
@@ -456,7 +455,7 @@ class TestAddFastqs:
                     "inputs"
                 ]
             ),
-            fastq_details=fastq_details,
+            fastq_details=self.fastq_details,
             sample="2207714-22222Z0110-1-BM-MPD-MYE-M-EGG2",
         )
         output_fastqs = output["fastqs"]
@@ -470,13 +469,13 @@ class TestAddFastqs:
             output_fastqs == correct_fastqs
         ), "R1-R2 fastqs not correctly added for given sample"
 
-    def test_assert_equal_number_fastqs(self, fastq_details):
+    def test_assert_equal_number_fastqs(self):
         """
         Test for assertion being raised where an unequal no. R1 and R2
         fastqs found
         """
         # copy list and remove one fastq to be unequal
-        fastq_details_copy = fastq_details
+        fastq_details_copy = self.fastq_details
         fastq_details_copy.remove(
             (
                 "file-GGJY9604p3zBzjz5Fp66KF0Y",
@@ -494,7 +493,7 @@ class TestAddFastqs:
                 fastq_details=fastq_details_copy,
             )
 
-    def test_assert_found_fastqs(self, fastq_details):
+    def test_assert_found_fastqs(self):
         """
         Test when giving a sample to filter fastqs for if none are found
         then an AssertionError is raised
@@ -506,7 +505,7 @@ class TestAddFastqs:
                         "inputs"
                     ]
                 ),
-                fastq_details=fastq_details,
+                fastq_details=self.fastq_details,
                 sample="test-sample",
             )
 
@@ -1244,8 +1243,12 @@ class TestFixInvalidInputs:
             )
 
 
-@pytest.fixture
-def inputs():
+class TestCheckAllInputs:
+    """
+    Tests for final check of populated input dict to check for remaining
+    INPUT- or analysis_ that have not been parsed
+    """
+
     input_dict_with_unparsed_input = {
         "stage-G0qpXy0433Gv75XbPJ3xj8jV.reads2_fastqgzs": [
             {"$dnanexus_link": "file-GGJY8Q04p3z2K7qp1qf5bpkf"},
@@ -1267,34 +1270,22 @@ def inputs():
             }
         }
     }
-    yield input_dict_with_unparsed_input, input_dict_with_unparsed_analysis
-    log_file = "slack_fail_sent.log"
 
-    if os.path.exists(log_file):
-        os.remove(log_file)
-
-
-class TestCheckAllInputs:
-    """
-    Tests for final check of populated input dict to check for remaining
-    INPUT- or analysis_ that have not been parsed
-    """
-
-    def test_find_unparsed_input(self, inputs):
+    def test_find_unparsed_input(self):
         """
         Test that AssertionError is raised from remaining INPUT-
         left in input dictionary
         """
         with pytest.raises(AssertionError):
-            check_all_inputs(input_dict=inputs[0])
+            check_all_inputs(input_dict=self.input_dict_with_unparsed_input)
 
-    def test_find_unparsed_analysis(self, inputs):
+    def test_find_unparsed_analysis(self):
         """
         Test that AssertionError is raised from remaining analysis_
         left in input dictionary
         """
         with pytest.raises(AssertionError):
-            check_all_inputs(input_dict=inputs[1])
+            check_all_inputs(input_dict=self.input_dict_with_unparsed_analysis)
 
 
 class TestPopulateTso500ReportsWorkflow(unittest.TestCase):
