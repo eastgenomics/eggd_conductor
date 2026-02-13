@@ -205,8 +205,9 @@ def parse_args() -> argparse.Namespace:
     if not args.sentinel_file and not (
         args.fastqs and args.run_id and args.samples
     ):
-        print(args.fastqs, args.run_id, args.samples)
-        raise Exception("No valid inputs provided to start Conductor")
+        raise Exception(
+            "No sentinel file or fastqs + run id + samples provided"
+        )
 
     return args
 
@@ -217,7 +218,6 @@ def main():
     """
 
     args = parse_args()
-    exit()
 
     if args.assay_config:
         configs = {
