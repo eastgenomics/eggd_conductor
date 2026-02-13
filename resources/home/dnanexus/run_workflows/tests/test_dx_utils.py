@@ -14,6 +14,13 @@ from utils.dx_utils import (
 )
 
 
+def teardown_module():
+    log_file = "slack_fail_sent.log"
+
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
+
 @pytest.fixture
 def all_configs():
     all_config_files = [
@@ -55,10 +62,6 @@ def all_configs():
         },
     ]
     yield all_config_files
-    log_file = "slack_fail_sent.log"
-
-    if os.path.exists(log_file):
-        os.remove(log_file)
 
 
 @pytest.mark.parametrize(
@@ -219,8 +222,7 @@ class TestFilterHighestConfigVersion:
         i.e. EGG2 in the following {'EGG2': 1.2.0, 'EGG2|LAB123': 1.2.0}
         """
         # add in a conflicting config file to the returned list
-        config_files = deepcopy(all_configs)
-        config_files.append(
+        all_configs.append(
             {
                 "assay": "MYE",
                 "assay_code": "EGG2",
@@ -230,33 +232,31 @@ class TestFilterHighestConfigVersion:
         )
 
         with pytest.raises(AssertionError):
-            filter_highest_config_version(config_files)
+            filter_highest_config_version(all_configs)
 
     def test_assert_raised_on_missing_assay_code(self, all_configs):
         """
         Tests when assay_code key is missing from a config that an
         AssertionError is raised
         """
-        config_files = deepcopy(all_configs)
-        config_files.append(
+        all_configs.append(
             {"assay": "test", "version": "1.0.0", "file_id": "file-xxx"}
         )
 
         with pytest.raises(AssertionError):
-            filter_highest_config_version(config_files)
+            filter_highest_config_version(all_configs)
 
     def test_assert_raised_on_missing_version(self, all_configs):
         """
         Tests when version key is missing from a config that an
         AssertionError is raised
         """
-        config_files = deepcopy(all_configs)
-        config_files.append(
+        all_configs.append(
             {"assay": "test", "assay_code": "TEST", "file_id": "file-xxx"}
         )
 
         with pytest.raises(AssertionError):
-            filter_highest_config_version(config_files)
+            filter_highest_config_version(all_configs)
 
 
 class TestGetJobOutputDetails(unittest.TestCase):
