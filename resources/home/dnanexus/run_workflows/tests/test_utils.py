@@ -11,6 +11,13 @@ from utils.utils import (
 )
 
 
+def teardown_module():
+    log_file = "slack_fail_sent.log"
+
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
+
 class TestSelectInstanceTypes:
     instance_types = {
         "*": {"default_instances": ""},
@@ -229,13 +236,6 @@ class TestMatchSamplesToAssays:
     single_assay_sample_list = [f"sample{x}-EGG2" for x in range(1, 11)]
     mixed_assay_sample_list = single_assay_sample_list + ["sample11-EGG3"]
     sample_list_w_no_code = single_assay_sample_list + ["sample11"]
-
-    @classmethod
-    def teardown_class(cls):
-        log_file = "slack_fail_sent.log"
-
-        if os.path.exists(log_file):
-            os.remove(log_file)
 
     def test_return_single_assay(self):
         """
