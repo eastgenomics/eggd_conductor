@@ -230,6 +230,13 @@ class TestMatchSamplesToAssays:
     mixed_assay_sample_list = single_assay_sample_list + ["sample11-EGG3"]
     sample_list_w_no_code = single_assay_sample_list + ["sample11"]
 
+    @classmethod
+    def teardown_class(cls):
+        log_file = "slack_fail_sent.log"
+
+        if os.path.exists(log_file):
+            os.remove(log_file)
+
     def test_return_single_assay(self):
         """
         Test that when all samples are for one assay that they are matched
@@ -260,7 +267,9 @@ class TestMatchSamplesToAssays:
             assay_samples == correct_output
         ), "Incorrectly matched samples to assay codes"
 
-    def test_selected_highest_version(self):
+    def test_selected_highest_version(
+        self,
+    ):
         """
         Test that when matching samples to assays and multiple configs match,
         that the config wiht highest version is used
@@ -312,7 +321,9 @@ class TestMatchSamplesToAssays:
             "EGG2|123"
         ], "Wrong version of config file selected when matching to samples"
 
-    def test_mismatch_set_zero(self):
+    def test_mismatch_set_zero(
+        self,
+    ):
         """
         Tests when missing assay code for sample to assay matching occurs
         and mismatch set to zero (i.e. not allowed) and should raise an
