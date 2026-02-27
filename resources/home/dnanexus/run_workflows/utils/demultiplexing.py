@@ -37,7 +37,7 @@ def set_config_for_demultiplexing(*configs):
 
         if core_nbs.count(bigger_core_nb) == 1:
             return demultiplex_configs[core_nbs.index(bigger_core_nb)].get(
-                "demultiplex_config", None
+                "demultiplex_config"
             )
         else:
             # get configs that have the same instance types
@@ -84,11 +84,19 @@ def additional_args_check(configs: list) -> dict:
             if demultiplex_config.get("additional_args"):
                 additional_args.append(config)
 
-    if len(additional_args) > 1:
-        if len(set(additional_args)) > 1:
+    if len(additional_args) == 1:
+        return additional_args[0]
+
+    elif len(additional_args) > 1:
+        if list(
+            set(
+                [
+                    additional_arg["demultiplex_config"]["additional_args"]
+                    for additional_arg in additional_args
+                ]
+            )
+        ):
             raise Exception("Multiple additional args specified")
-        else:
-            return additional_args[0]
 
     return
 
