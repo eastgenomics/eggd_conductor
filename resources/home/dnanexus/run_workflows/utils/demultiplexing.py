@@ -23,7 +23,7 @@ def set_config_for_demultiplexing(*configs):
     core_nbs = []
 
     for config in configs:
-        demultiplex_config = config.get("demultiplex_config", None)
+        demultiplex_config = config.get("demultiplex_config")
 
         if demultiplex_config:
             instance_type = demultiplex_config.get("instance_type", 0)
@@ -78,14 +78,19 @@ def additional_args_check(configs: list) -> dict:
     additional_args = []
 
     for config in configs:
-        if config.get("demultiplex_config").get("additional_args"):
-            additional_args.append(config)
+        demultiplex_config = config.get("demultiplex_config")
+
+        if demultiplex_config:
+            if demultiplex_config.get("additional_args"):
+                additional_args.append(config)
 
     if len(additional_args) > 1:
         if len(set(additional_args)) > 1:
             raise Exception("Multiple additional args specified")
         else:
             return additional_args[0]
+
+    return
 
 
 def move_demultiplex_qc_files(
