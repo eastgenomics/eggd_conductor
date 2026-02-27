@@ -551,7 +551,9 @@ def main():
     )
 
     # Sort assay_handlers so those with hold=True are last
-    assay_handlers = sorted(assay_handlers, key=lambda h: manage_dict.is_held(h.config))
+    assay_handlers = sorted(
+        assay_handlers, key=lambda h: manage_dict.is_held(h.config)
+    )
 
     execution_errors = {}
 
