@@ -402,8 +402,8 @@ def filter_job_output(job_id: str, patterns: list, field: str):
 
     links_to_files = job.describe()["output"][field]
 
-    for _, output_info in links_to_files.items():
-        for file_id in output_info.values():
+    for output_info in links_to_files:
+        for _, file_id in output_info.values():
             file = dx.DXFile(file_id)
 
             for pattern in patterns:
