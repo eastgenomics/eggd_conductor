@@ -380,6 +380,42 @@ def wait_on_done(analysis, analysis_name, all_job_ids) -> None:
     print("All jobs to wait on completed")
 
 
+def filter_job_output(job_id: str, patterns: list, field: str):
+    """Filter the outputs to grab a specific DNAnexus file
+
+    Parameters
+    ----------
+    job_id : str
+        Job id to look at
+    patterns : list
+        Patterns to filter with
+    field : str
+        Output field to look into for files
+
+    Returns
+    -------
+    dict
+        Dict containing the project and file ids
+    """
+
+    job = dx.DXJob(job_id)
+
+    links_to_files = job.describe()["output"][field]
+
+    for _, output_info in links_to_files.items():
+        for file_id in output_info.values():
+            file = dx.DXFile(file_id)
+
+            for pattern in patterns:
+                if re.search(pattern, file.name):
+                    return {
+                        "project": file.project,
+                        "id": file.id,
+                    }
+
+    return
+
+
 def terminate_jobs(jobs) -> None:
     """
     Terminate all launched jobs in testing mode
