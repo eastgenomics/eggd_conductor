@@ -391,12 +391,13 @@ main () {
 
         message+="Analysis project: *${project_name}*%0A${analysis_project_url}%0A"
         message+="Config used: *${assay}* (v${version})%0A"
+
+        # tag conductor job with downstream project used for analysis
+        dx tag "$PARENT_JOB_ID" "$analysis_project_url"
     done < analysis_project.log
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
-    # tag conductor job with downstream project used for analysis
-    dx tag "$PARENT_JOB_ID" "$analysis_project_url"
 
     # set all job IDs as output
     job_ids=$(cat all_job_ids.log)
