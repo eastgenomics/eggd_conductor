@@ -398,7 +398,6 @@ main () {
 
     _slack_notify "$message" "$SLACK_LOG_CHANNEL"
 
-
     # set all job IDs as output
     job_ids=$(cat all_job_ids.log)
     job_ids="${job_ids%?}"  # trim off trailing comma
