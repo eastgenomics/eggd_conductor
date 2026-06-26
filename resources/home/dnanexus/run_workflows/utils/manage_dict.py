@@ -86,12 +86,11 @@ def search_exact_key(identifier: str, input_dict: dict) -> list:
     found = []
     # Match the last part of the key path exactly
     for key, value in flattened_dict.items():
-        last_key = key.split('|')[-1]
+        last_key = key.split("|")[-1]
         if last_key == identifier:
             found.append(value)
 
     return list(set(found))
-
 
 
 def replace(
@@ -823,9 +822,6 @@ def fix_invalid_inputs(input_dict, input_classes) -> dict:
     input_dict_copy = deepcopy(input_dict)
     original_input_dict = deepcopy(input_dict)
 
-    prettier_print("\nExpected input classes:")
-    prettier_print(input_classes)
-
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
 
@@ -1096,6 +1092,6 @@ def is_held(config: dict) -> bool:
         True if any 'hold' key is set to True, else False
     """
     # Find all keys named 'hold' in the nested config
-    found = search_exact_key('hold', config)
+    found = search_exact_key("hold", config)
     # Check if any of those keys are set to True or "true" in found
     return any(val is True for val in found)
