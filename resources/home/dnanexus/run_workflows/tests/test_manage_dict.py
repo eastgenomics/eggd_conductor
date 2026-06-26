@@ -2,6 +2,7 @@ from copy import deepcopy
 import json
 import os
 import unittest
+from unittest.mock import patch
 
 import pytest
 
@@ -973,6 +974,13 @@ class TestFilterJobOutputsDict:
         "analysis_2": "job-GGjgz1j4Bv48yF89GpZ6zkGz",
     }
 
+    # example of stage input for query_vcf for happy
+    stage_input = {
+        "analysis": "analysis_1",
+        "stage": "stage-sentieon_dnaseq",
+        "field": "variants_vcf"
+    }
+
     def test_filter_job_outputs_dict_one_pattern(self):
         """
         Test filtering job outputs -> inputs dict by given pattern(s)
@@ -988,6 +996,7 @@ class TestFilterJobOutputsDict:
             stage="stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file",
             outputs_dict=self.job_outputs_dict,
             filter_dict=inputs_filter,
+            filter_type=self.stage_input,
         )
 
         correct_output = {
@@ -1018,6 +1027,7 @@ class TestFilterJobOutputsDict:
             stage="stage-G9Z2B8841bQY907z1ygq7K9x.somalier_extract_file",
             outputs_dict=self.job_outputs_dict,
             filter_dict=inputs_filter,
+            filter_type=self.stage_input,
         )
 
         correct_output = {
@@ -1031,6 +1041,42 @@ class TestFilterJobOutputsDict:
 
         assert filtered_output == correct_output, (
             "Filtering outputs dict with filter_job_outputs_dict() incorrect"
+        )
+
+    @patch("utils.manage_dict.filter_job_output")
+    def test_filter_job_output(self, mock_job_output):
+        mock_job_output.return_value = {
+            "project": "project-id", "id": "file-id"
+        }
+
+        job_outputs_dict = {"analysis_1": "job-id"}
+
+        inputs_filter = {
+            "query_vcf": [
+                "NA12878.*",
+                "-[0-9]+Q[0-9]+-"
+            ]
+        }
+
+        stage_input = {
+            "analysis": "analysis_1",
+            "job": "eggd_tso500",
+            "field": "gvcfs"
+        }
+
+        filtered_output = filter_job_outputs_dict(
+            stage="query_vcf",
+            outputs_dict=job_outputs_dict,
+            filter_dict=inputs_filter,
+            filter_type=stage_input,
+        )
+
+        correct_output = {
+            "$dnanexus_link": {"project": "project-id", "id": "file-id"}
+        }
+
+        assert filtered_output == correct_output, (
+            "The filtering of the job output is not functioning correctly"
         )
 
 
