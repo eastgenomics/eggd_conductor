@@ -381,7 +381,7 @@ def wait_on_done(analysis, analysis_name, all_job_ids) -> None:
 
 
 def filter_job_output(job_id: str, patterns: list, field: str):
-    """Filter the outputs to grab a specific DNAnexus file
+    """Get a specific file from a job using patterns and an output field
 
     Parameters
     ----------
