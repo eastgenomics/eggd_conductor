@@ -576,7 +576,7 @@ def load_test_data(test_samples) -> list:
     return fastq_details
 
 
-def create_project_name(run_id, assay, development, testing):
+def create_project_name(run_id, assay, development, testing, run_type):
     """Create a project name given a few parameters
 
     Parameters
@@ -590,6 +590,8 @@ def create_project_name(run_id, assay, development, testing):
     testing : bool
         Bool to determine whether to add a suffix to the project name to tag it
         for testing purposes
+    run_type : list
+        List containing the run type based on the Run type field on the ticket
 
     Returns
     -------
@@ -597,10 +599,16 @@ def create_project_name(run_id, assay, development, testing):
         Name of the project to find or to create
     """
 
+    # the development parameter still takes precedence over the run type
+    # parameter
     if development:
         prefix = f'003_{datetime.now().strftime("%y%m%d")}_run-'
     else:
-        prefix = "002_"
+        # cover cases where multiple run types are present for a ticket
+        if "Validation" in run_type:
+            prefix = "003_"
+        else:
+            prefix = "002_"
 
     suffix = ""
 
