@@ -15,7 +15,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.realpath(__file__), "../../"))
 )
 
-from utils.dx_utils import get_job_out_folder
+from utils.dx_utils import get_job_out_folder, filter_job_output
 from utils.utils import prettier_print
 from utils.WebClasses import Slack
 
@@ -86,12 +86,11 @@ def search_exact_key(identifier: str, input_dict: dict) -> list:
     found = []
     # Match the last part of the key path exactly
     for key, value in flattened_dict.items():
-        last_key = key.split('|')[-1]
+        last_key = key.split("|")[-1]
         if last_key == identifier:
             found.append(value)
 
     return list(set(found))
-
 
 
 def replace(
@@ -689,17 +688,10 @@ def link_inputs_to_outputs(
 
                     # filter job outputs to search by sample name patterns
                     job_outputs_dict_copy = filter_job_outputs_dict(
-                        stage=input_field,
                         outputs_dict=job_outputs_dict,
                         filter_dict=input_filter_dict,
-                    )
-
-                    # gather all job IDs for current analysis ID
-                    job_ids = search(
-                        identifier=analysis_id,
-                        input_dict=job_outputs_dict_copy,
-                        check_key=True,
-                        return_key=False,
+                        stage=input_field,
+                        filter_type=stage_input,
                     )
 
                     # copy input structure from input dict, turn into an array
@@ -707,18 +699,32 @@ def link_inputs_to_outputs(
                     stage_input_template = deepcopy(link_dict)
                     modified_input_dict[input_field] = []
 
-                    for job in job_ids:
-                        stage_input_tmp = deepcopy(stage_input_template)
-                        stage_input_tmp = replace(
-                            input_dict=stage_input_tmp,
-                            to_replace=analysis_id,
-                            replacement=job,
-                            search_key=False,
-                            replace_key=False,
+                    # check whether we have a file reference or a job reference
+                    if "$dnanexus_link" in job_outputs_dict_copy:
+                        modified_input_dict[input_field] = (
+                            job_outputs_dict_copy
                         )
-                        modified_input_dict[input_field].append(
-                            stage_input_tmp
+                    else:
+                        # gather all job IDs for current analysis ID
+                        job_ids = search(
+                            identifier=analysis_id,
+                            input_dict=job_outputs_dict_copy,
+                            check_key=True,
+                            return_key=False,
                         )
+
+                        for job in job_ids:
+                            stage_input_tmp = deepcopy(stage_input_template)
+                            stage_input_tmp = replace(
+                                input_dict=stage_input_tmp,
+                                to_replace=analysis_id,
+                                replacement=job,
+                                search_key=False,
+                                replace_key=False,
+                            )
+                            modified_input_dict[input_field].append(
+                                stage_input_tmp
+                            )
 
     diff_res = list(diff(modified_input_dict, input_dict))
 
@@ -731,7 +737,9 @@ def link_inputs_to_outputs(
     return modified_input_dict
 
 
-def filter_job_outputs_dict(stage, outputs_dict, filter_dict) -> dict:
+def filter_job_outputs_dict(
+    outputs_dict: dict, filter_dict: dict, stage: str, filter_type: dict
+) -> dict:
     """
     Filter given dict of sample names -> job IDs to only keep job IDs
     of jobs for those sample(s) matching given pattern(s).
@@ -742,18 +750,22 @@ def filter_job_outputs_dict(stage, outputs_dict, filter_dict) -> dict:
 
     Parameters
     ----------
-    stage : str
-        stage ID to select patterns from filter_dict by
     outputs_dict : dict
         dict of sample IDs -> launched jobs
     filter_dict : dict
         mapping of stage_ID.inputs to a list of regex pattern(s) to
         filter sample IDs by
+    stage : str
+        stage ID to select patterns from filter_dict by
+    filter_type : dict
+        dict containing the info that needs to be replaced from the assay
+        config
+
 
     Returns
     -------
     dict
-        filtered jobs dict
+        filtered jobs/file dict
     """
 
     if not filter_dict:
@@ -767,18 +779,30 @@ def filter_job_outputs_dict(stage, outputs_dict, filter_dict) -> dict:
     prettier_print(f"\nFilter dict:{filter_dict}")
 
     new_outputs = {}
-    stage_match = False
+    type_match = False
 
     for filter_stage, filter_patterns in filter_dict.items():
         if stage == filter_stage:
             # current stage has filter(s) to apply
-            stage_match = True
-            for pattern in filter_patterns:
-                for sample, job in outputs_dict.items():
-                    if re.search(pattern, sample):
-                        new_outputs[sample] = job
+            type_match = True
 
-    if not stage_match:
+            if "stage" in filter_type:
+                for pattern in filter_patterns:
+                    for sample, job in outputs_dict.items():
+                        if re.search(pattern, sample):
+                            new_outputs[sample] = job
+
+            elif "job" in filter_type:
+                # look for correct file in eggd_tso500 job
+                for analysis, job in outputs_dict.items():
+                    if analysis == filter_type["analysis"]:
+                        prettier_print(f"Filtering the job output: {job}")
+                        # filter the job output to get the correct file
+                        new_outputs["$dnanexus_link"] = filter_job_output(
+                            job, filter_patterns, filter_type["field"]
+                        )
+
+    if not type_match:
         # stage has no filters to apply => just return the outputs dict
         prettier_print(f"\nNo filters to apply for stage: {stage}")
         return outputs_dict
@@ -1096,6 +1120,6 @@ def is_held(config: dict) -> bool:
         True if any 'hold' key is set to True, else False
     """
     # Find all keys named 'hold' in the nested config
-    found = search_exact_key('hold', config)
+    found = search_exact_key("hold", config)
     # Check if any of those keys are set to True or "true" in found
     return any(val is True for val in found)
