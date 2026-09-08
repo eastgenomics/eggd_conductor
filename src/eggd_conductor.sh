@@ -337,12 +337,6 @@ main () {
         # an incomplete set of jobs for a given app / workflow
         if [ "$testing" == 'true' ] && [ -s all_job_ids.log ]; then
             _testing_clean_up
-        elif [ -s all_job_ids.log ]; then
-            # should only be ran if there is an error after starting all the jobs
-            # non empty log => jobs to terminate
-            echo "Terminating jobs"
-            jobs=$(sed -e "s/,/ /g" all_job_ids.log | sed -E "s/project-[0-9A-Za-z]+://g" | xargs)
-            dx terminate $jobs
         fi
 
         if [ -f slack_fail_sent.log ]; then
