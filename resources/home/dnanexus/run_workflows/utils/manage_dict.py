@@ -847,9 +847,6 @@ def fix_invalid_inputs(input_dict, input_classes) -> dict:
     input_dict_copy = deepcopy(input_dict)
     original_input_dict = deepcopy(input_dict)
 
-    prettier_print("\nExpected input classes:")
-    prettier_print(input_classes)
-
     for input_field, configured_input in input_dict.items():
         input_details = input_classes.get(input_field)
 
