@@ -1,6 +1,6 @@
 # eggd_conductor (DNAnexus Platform App)
 
-DNAnexus app for automating end to end analysis of samples through apps and workflows.
+DNAnexus app for automating end to end analysis of samples through apps and workflows. It will achieve this by using an assay config and replacing the placeholder job/file ids by actual job/file ids. This allows for a full workflow to be ran and a hierarchy between jobs to be implemented i.e. jobs depending on other jobs will be launched but will wait for the completion of those jobs before starting.
 
 ---
 
@@ -199,18 +199,61 @@ See the below section **Dynamic instance types** for full explanation.
 - `depends_on` (list): Where an executables input(s) are dependent on the output of a previous job(s), these should be defined as a list of strings. This relies on using the `analysis_X` key, where `X` is the number of the dependent executable to collect the output from
   - (e.g. `"output_dirs": ["analysis_1"]`, where the job is dependent on the first executable completing successfully before starting)
 - `sample_name_delimeter` (str): string to split sample name on and pass to where `INPUT-SAMPLE-NAME` is used. Useful for passing as input where full sample name is not wanted (i.e. for displaying in a report)
-- `extra_args` (dict): mapping of [additional paramaters][dx-run-parameters] to pass to underlying API call for running dx analysis (i.e priority, cost_limit, instance_type) - see below for example formatting
+- `extra_args` (dict): mapping of [additional parameters][dx-run-parameters] to pass to underlying API call for running dx analysis (i.e priority, cost_limit, instance_type) - see below for example formatting
 - `hold` (boolean): controls whether to hold conductor until all jobs for the given executable complete before attempting to launch the next analysis steps. This may be used when downstream analysis may need to split out an array of output files from an upstream job, instead of taking the full array as input.
 - `instance_types` (dict): mapping of flowcell identifiers to instance types to use for jobs, this allows for dynamically setting instances types based upon the flowcell used for sequencing. See the **Dynamic instance types** selection below for details.
+
+
 - `inputs_filter` (dict): mapping of stage / app input field and list of pattern(s) to filter input by. This is used when providing the output of one app as input to another, but not all files want to be provided as input (i.e. taking all output bam files of analysis_X jobs, but only wanting to use the one from a control). This should be structured as such:
 
 ```json
+# job that needs to be started using only one sample
+"inputs": {
+  "stage-vcfeval_happy.query_vcf": {
+    "$dnanexus_link": {
+        "analysis": "analysis_1",
+        "stage": "stage-sentieon_dnaseq",
+        "field": "variants_vcf"
+    }
+  }
+}
+
+[...]
+
+# corresponding inputs filter dict to find that one sample
 "inputs_filter": {
-    "stage-G9Z2B8841bQY907z1ygq7K9x.bam": [
-        "NA12878.*"
-    ]
+  "stage-vcfeval_happy.query_vcf": [
+      "NA12878.*",
+      "-[0-9]+Q[0-9]+-"
+  ]
 }
 ```
+
+In the code, Conductor will match `stage-vcfeval_happy.query_vcf` in `inputs` and `inputs_filter` to know which jobs need to have the filtering applied. Then it will look for files in `analysis_1 -> stage-sentieon_dnaseq -> variants_vcf` and it will grab the ones matching `NA12878.*` or `-[0-9]+Q[0-9]+-`.
+
+Additionally another structure can be applied to match to single jobs:
+
+```json
+"inputs": {
+  "query_vcf": {
+    "$dnanexus_link": {
+        "analysis": "analysis_1",
+        "job": "eggd_tso500",
+        "field": "gvcfs"
+    }
+  }
+
+[...]
+
+"inputs_filter": {
+  "query_vcf": [
+      "NA12878.*",
+      "-[0-9]+Q[0-9]+-"
+  ]
+}
+```
+
+Note `stage` vs `job` change in the `inputs` dict. The overall logic is the same but the underlying code is different to account for the changes.
 
 Example of per executable config:
 
