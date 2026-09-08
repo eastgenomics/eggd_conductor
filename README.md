@@ -215,7 +215,7 @@ See the below section **Dynamic instance types** for full explanation.
         "stage": "stage-sentieon_dnaseq",
         "field": "variants_vcf"
     }
-  },
+  }
 }
 
 [...]
@@ -226,7 +226,7 @@ See the below section **Dynamic instance types** for full explanation.
       "NA12878.*",
       "-[0-9]+Q[0-9]+-"
   ]
-},
+}
 ```
 
 In the code, Conductor will match `stage-vcfeval_happy.query_vcf` in `inputs` and `inputs_filter` to know which jobs need to have the filtering applied. Then it will look for files in `analysis_1 -> stage-sentieon_dnaseq -> variants_vcf` and it will grab the ones matching `NA12878.*` or `-[0-9]+Q[0-9]+-`.
@@ -241,7 +241,7 @@ Additionally another structure can be applied to match to single jobs:
         "job": "eggd_tso500",
         "field": "gvcfs"
     }
-  },
+  }
 
 [...]
 
