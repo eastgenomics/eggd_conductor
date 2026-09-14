@@ -334,43 +334,6 @@ def main():
     for assay_handler, limiting_nb in zip_longest(
         assay_handlers, limiting_nb_per_assay
     ):
-        if limiting_nb:
-            assay_handler.limit_samples(limit_nb=limiting_nb)
-
-        assay_handler.subset_samples()
-
-        # A project id was passed, no need to try and get/create one.
-        # This also means that for mixed assay runs, only one project will be
-        # used for launching the jobs
-        if project:
-            assay_handler.project = project
-
-        else:
-            # create dnanexus project name
-            project_name = create_project_name(
-                run_id, assay_handler.assay, args.development, args.testing
-            )
-            assay_handler.get_or_create_dx_project(
-                project_name, run_id, args.testing
-            )
-            users = assay_handler.config.get("users")
-            invite_participants_in_project(users, assay_handler.project)
-
-        # set parent output directory, each app will have sub dir in here
-        assay_handler.set_parent_out_dir(run_time)
-
-        # get upload tars from sentinel file
-        assay_handler.get_upload_tars(args.sentinel_file)
-
-        # sense check per_sample defined for all workflows / apps in config
-        # before starting as we want this explicitly defined for everything to
-        # ensure it is launched correctly
-        for executable, params in assay_handler.config["executables"].items():
-            assert "per_sample" in params.keys(), Slack().send(
-                f"per_sample key missing from {executable} in config, check "
-                "config and re-run"
-            )
-
         assay_handler.ticket = None
 
         # go through the tickets to try and assign one to the assay handler
@@ -420,6 +383,57 @@ def main():
             ticket_errors.append(
                 f"{run_id} - {assay_handler.assay} couldn't be assigned a "
                 "ticket"
+            )
+
+        if limiting_nb:
+            assay_handler.limit_samples(limit_nb=limiting_nb)
+
+        assay_handler.subset_samples()
+
+        # A project id was passed, no need to try and get/create one.
+        # This also means that for mixed assay runs, only one project will be
+        # used for launching the jobs
+        if project:
+            assay_handler.project = project
+
+        else:
+            if assay_handler.ticket:
+                run_type = [
+                    subfield["value"]
+                    for field, subfields in ticket["fields"].items()
+                    if field == "customfield_10483"
+                    for subfield in subfields
+                ]
+            else:
+                run_type = ["Production"]
+
+            # create dnanexus project name
+            project_name = create_project_name(
+                run_id,
+                assay_handler.assay,
+                args.development,
+                args.testing,
+                run_type,
+            )
+            assay_handler.get_or_create_dx_project(
+                project_name, run_id, args.testing
+            )
+            users = assay_handler.config.get("users")
+            invite_participants_in_project(users, assay_handler.project)
+
+        # set parent output directory, each app will have sub dir in here
+        assay_handler.set_parent_out_dir(run_time)
+
+        # get upload tars from sentinel file
+        assay_handler.get_upload_tars(args.sentinel_file)
+
+        # sense check per_sample defined for all workflows / apps in config
+        # before starting as we want this explicitly defined for everything to
+        # ensure it is launched correctly
+        for executable, params in assay_handler.config["executables"].items():
+            assert "per_sample" in params.keys(), Slack().send(
+                f"per_sample key missing from {executable} in config, check "
+                "config and re-run"
             )
 
     if ticket_errors:
@@ -551,7 +565,9 @@ def main():
     )
 
     # Sort assay_handlers so those with hold=True are last
-    assay_handlers = sorted(assay_handlers, key=lambda h: manage_dict.is_held(h.config))
+    assay_handlers = sorted(
+        assay_handlers, key=lambda h: manage_dict.is_held(h.config)
+    )
 
     execution_errors = {}
 
