@@ -239,6 +239,7 @@ def parse_sample_sheet(samplesheet) -> list:
     """
 
     sheet = pd.read_csv(samplesheet, header=None, usecols=[0])
+    sheet = sheet.dropna()
     column = sheet[0].tolist()
     sample_list = column[column.index("Sample_ID") + 1 :]
 
