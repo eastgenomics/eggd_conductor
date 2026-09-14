@@ -1,8 +1,11 @@
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 from utils.demultiplexing import (
     set_config_for_demultiplexing,
     get_demultiplex_job_details,
+    additional_args_check,
 )
 
 
@@ -64,3 +67,52 @@ def test_get_demultiplex_job_details(mock_job, mock_data_objects):
     output = get_demultiplex_job_details("")
 
     assert output == expected_output
+
+
+class TestAdditionalArgsCheck:
+    def test_no_config(self):
+        test_output = additional_args_check([{"not_demultiplex_config": 1}])
+
+        assert test_output is None
+
+    def test_one_config_no_additional_args(self):
+        test_output = additional_args_check([{"demultiplex_config": {}}])
+
+        assert test_output is None
+
+    def test_one_config_with_additional_args(self):
+        test_output = additional_args_check(
+            [{"demultiplex_config": {"additional_args": 1}}]
+        )
+
+        assert test_output == {"demultiplex_config": {"additional_args": 1}}
+
+    def test_multiple_config(self):
+        test_output = additional_args_check(
+            [{"demultiplex_config": {}}, {"demultiplex_config": {}}]
+        )
+
+        assert test_output is None
+
+    def test_multiple_config_one_additional_args(self):
+        test_output = additional_args_check(
+            [
+                {"demultiplex_config": {}},
+                {"demultiplex_config": {"additional_args": 1}},
+            ]
+        )
+
+        assert test_output == {"demultiplex_config": {"additional_args": 1}}
+
+    def test_multiple_config_multiple_additional_args(
+        self,
+    ):
+        with pytest.raises(
+            Exception, match="Multiple additional args specified"
+        ):
+            additional_args_check(
+                [
+                    {"demultiplex_config": {"additional_args": 1}},
+                    {"demultiplex_config": {"additional_args": 2}},
+                ]
+            )
