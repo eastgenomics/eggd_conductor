@@ -738,7 +738,7 @@ def main():
                 for error in errors:
                     error_msg += f"```{error}```"
 
-            prettier_print(f"{error_msg.strip("`")}")
+            prettier_print(f"{error_msg.strip('`')}")
 
             raise Exception(
                 Slack().send(
