@@ -332,9 +332,9 @@ main () {
     } || {
         # failed to launch all jobs -> handle clean up and sending error notification
 
-        # if in testing mode terminate everything and clear output, else
-        # terminate whatever is in 'all_job_ids.log' if present as these will be
-        # an incomplete set of jobs for a given app / workflow
+        # if in testing mode terminate everything and clear output. Jobs of a
+        # failed assay are terminated in run_workflows.py so that the jobs of
+        # other assays in the same run are left running
         if [ "$testing" == 'true' ] && [ -s all_job_ids.log ]; then
             _testing_clean_up
         fi
