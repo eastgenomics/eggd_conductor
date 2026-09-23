@@ -17,6 +17,7 @@ import math
 import os
 import pathlib
 import subprocess
+import sys
 import traceback
 
 import dxpy as dx
@@ -734,11 +735,13 @@ def main():
 
             for handler, errors in execution_errors.items():
                 error_msg += f"{handler}:\n"
+                # print the errors to STDERR so that they are visible in the
+                # job logs and not only in the Slack message
+                print(f"{handler}:", file=sys.stderr)
 
                 for error in errors:
                     error_msg += f"```{error}```"
-
-            prettier_print(f"{error_msg.strip('`')}")
+                    print(error, file=sys.stderr)
 
             raise Exception(
                 Slack().send(
