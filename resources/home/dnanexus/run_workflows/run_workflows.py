@@ -352,7 +352,8 @@ def main():
                     prettier_print(
                         f"Assigned {ticket['key']} to {assay_handler}"
                     )
-                    assay_handler.ticket = ticket["id"]
+                    # store the whole ticket to be able to access its fields
+                    assay_handler.ticket = ticket
 
                     # add comment to Jira ticket for run to link to
                     # this eggd_conductor job
@@ -398,11 +399,13 @@ def main():
 
         else:
             if assay_handler.ticket:
+                # the run type field can be empty
                 run_type = [
                     subfield["value"]
-                    for field, subfields in ticket["fields"].items()
-                    if field == "customfield_10483"
-                    for subfield in subfields
+                    for subfield in assay_handler.ticket["fields"].get(
+                        "customfield_10483"
+                    )
+                    or []
                 ]
             else:
                 run_type = ["Production"]
@@ -639,7 +642,9 @@ def main():
                                 "https://platform.dnanexus.com/panx/projects/"
                                 f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
-                            ticket=handler.ticket,
+                            ticket=(
+                                handler.ticket["id"] if handler.ticket else None
+                            ),
                         )
 
                         for missing_sample in handler.missing_output_samples:
@@ -725,7 +730,7 @@ def main():
                     "https://platform.dnanexus.com/panx/projects/"
                     f"{handler.project.id.replace('project-', '')}/monitor/"
                 ),
-                ticket=handler.ticket,
+                ticket=handler.ticket["id"] if handler.ticket else None,
             )
 
         except Exception:
