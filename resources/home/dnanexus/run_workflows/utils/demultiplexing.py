@@ -26,33 +26,36 @@ def set_config_for_demultiplexing(*configs):
         demultiplex_config = config.get("demultiplex_config")
 
         if demultiplex_config:
-            instance_type = demultiplex_config.get("instance_type", 0)
+            instance_type = demultiplex_config.get("instance_type")
+            demultiplex_configs.append(config)
 
+            # configs without an instance type are still kept so that their
+            # other parameters (i.e. additional_args) are not disregarded
             if instance_type:
-                demultiplex_configs.append(config)
                 core_nbs.append(int(instance_type.split("_")[-1].strip("x")))
+            else:
+                core_nbs.append(0)
 
-    if core_nbs:
-        bigger_core_nb = max(core_nbs)
+    if not demultiplex_configs:
+        return
 
-        if core_nbs.count(bigger_core_nb) == 1:
-            return demultiplex_configs[core_nbs.index(bigger_core_nb)].get(
-                "demultiplex_config"
-            )
-        else:
-            # get configs that have the same instance types
-            return additional_args_check(
-                [
-                    config
-                    for config in demultiplex_configs
-                    if config.get("demultiplex_config")
-                    .get("instance_type")
-                    .endswith(bigger_core_nb)
-                ]
-            )
+    bigger_core_nb = max(core_nbs)
 
-    else:
-        return additional_args_check(configs)
+    # get configs that have the biggest instance type
+    candidates = [
+        config
+        for config, core_nb in zip(demultiplex_configs, core_nbs)
+        if core_nb == bigger_core_nb
+    ]
+
+    if len(candidates) == 1:
+        return candidates[0].get("demultiplex_config")
+
+    # use the additional args as the tiebreaker, defaulting to the first
+    # config if none of them have additional args
+    return additional_args_check(candidates) or candidates[0].get(
+        "demultiplex_config"
+    )
 
 
 def additional_args_check(configs: list) -> dict:
@@ -67,12 +70,13 @@ def additional_args_check(configs: list) -> dict:
     Returns
     -------
     dict
-        Dict of the selected demultiplex config
+        Demultiplex config of the config with additional args, None if no
+        config has additional args
 
     Raises
     ------
     Exception
-        Raised if multiple additional args are detected
+        Raised if different additional args are detected
     """
 
     additional_args = []
@@ -82,23 +86,20 @@ def additional_args_check(configs: list) -> dict:
 
         if demultiplex_config:
             if demultiplex_config.get("additional_args"):
-                additional_args.append(config)
+                additional_args.append(demultiplex_config)
 
-    if len(additional_args) == 1:
-        return additional_args[0]
+    if not additional_args:
+        return
 
-    elif len(additional_args) > 1:
-        if list(
-            set(
-                [
-                    additional_arg["demultiplex_config"]["additional_args"]
-                    for additional_arg in additional_args
-                ]
-            )
-        ):
-            raise Exception("Multiple additional args specified")
+    # identical additional args are not conflicting
+    if any(
+        demultiplex_config["additional_args"]
+        != additional_args[0]["additional_args"]
+        for demultiplex_config in additional_args[1:]
+    ):
+        raise Exception("Multiple additional args specified")
 
-    return
+    return additional_args[0]
 
 
 def move_demultiplex_qc_files(

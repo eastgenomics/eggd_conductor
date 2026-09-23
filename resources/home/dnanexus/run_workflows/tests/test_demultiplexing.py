@@ -20,7 +20,56 @@ def test_set_config_for_demultiplexing_no_core_nb():
         {"demultiplex_config": {"not_instance_type": 1}}
     )
 
-    assert output is None
+    assert output == {"not_instance_type": 1}
+
+
+def test_set_config_for_demultiplexing_additional_args_no_core_nb():
+    output = set_config_for_demultiplexing(
+        {"assay": "CEN", "demultiplex_config": {"additional_args": "--foo"}},
+        {"assay": "TWE", "demultiplex_config": {}},
+    )
+
+    assert output == {"additional_args": "--foo"}
+
+
+def test_set_config_for_demultiplexing_same_core_nb_additional_args():
+    output = set_config_for_demultiplexing(
+        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
+        {
+            "demultiplex_config": {
+                "instance_type": "mem1_ssd1_v2_x16",
+                "additional_args": "--foo",
+            }
+        },
+    )
+
+    assert output == {
+        "instance_type": "mem1_ssd1_v2_x16",
+        "additional_args": "--foo",
+    }
+
+
+def test_set_config_for_demultiplexing_same_core_nb_no_additional_args():
+    output = set_config_for_demultiplexing(
+        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
+        {"demultiplex_config": {"instance_type": "mem2_ssd1_v2_x16"}},
+    )
+
+    assert output == {"instance_type": "mem1_ssd1_v2_x16"}
+
+
+def test_set_config_for_demultiplexing_biggest_core_nb_wins_over_args():
+    output = set_config_for_demultiplexing(
+        {
+            "demultiplex_config": {
+                "instance_type": "mem1_ssd1_v2_x16",
+                "additional_args": "--foo",
+            }
+        },
+        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x72"}},
+    )
+
+    assert output == {"instance_type": "mem1_ssd1_v2_x72"}
 
 
 def test_set_config_for_demultiplexing_w_core_nb():
@@ -85,7 +134,7 @@ class TestAdditionalArgsCheck:
             [{"demultiplex_config": {"additional_args": 1}}]
         )
 
-        assert test_output == {"demultiplex_config": {"additional_args": 1}}
+        assert test_output == {"additional_args": 1}
 
     def test_multiple_config(self):
         test_output = additional_args_check(
@@ -102,7 +151,17 @@ class TestAdditionalArgsCheck:
             ]
         )
 
-        assert test_output == {"demultiplex_config": {"additional_args": 1}}
+        assert test_output == {"additional_args": 1}
+
+    def test_multiple_config_identical_additional_args(self):
+        test_output = additional_args_check(
+            [
+                {"demultiplex_config": {"additional_args": 1}},
+                {"demultiplex_config": {"additional_args": 1}},
+            ]
+        )
+
+        assert test_output == {"additional_args": 1}
 
     def test_multiple_config_multiple_additional_args(
         self,
