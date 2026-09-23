@@ -4,6 +4,7 @@ import pytest
 
 from .settings import TEST_DATA_DIR
 from utils.utils import (
+    create_project_name,
     exclude_samples,
     select_instance_types,
     match_samples_to_assays,
@@ -471,3 +472,45 @@ def test_exclude_samples(test_input, expected):
     assert sorted(expected) == sorted(output) and len(expected) == len(
         output
     ), "Unexpected samples kept"
+
+
+class TestCreateProjectName:
+    def test_production_run_type(self):
+        output = create_project_name(
+            "run1", "CEN", False, False, ["Production"]
+        )
+
+        assert output == "002_run1_CEN"
+
+    def test_validation_run_type(self):
+        output = create_project_name(
+            "run1", "CEN", False, False, ["Validation"]
+        )
+
+        assert output == "003_run1_CEN"
+
+    def test_multiple_run_types_including_validation(self):
+        output = create_project_name(
+            "run1", "CEN", False, False, ["Production", "Validation"]
+        )
+
+        assert output == "003_run1_CEN"
+
+    def test_empty_run_type(self):
+        output = create_project_name("run1", "CEN", False, False, [])
+
+        assert output == "002_run1_CEN"
+
+    def test_development_takes_precedence(self):
+        output = create_project_name(
+            "run1", "CEN", True, False, ["Validation"]
+        )
+
+        assert output.startswith("003_") and output.endswith("_run-run1_CEN")
+
+    def test_testing_suffix(self):
+        output = create_project_name(
+            "run1", "CEN", False, True, ["Validation"]
+        )
+
+        assert output == "003_run1_CEN-EGGD_CONDUCTOR_TESTING"
