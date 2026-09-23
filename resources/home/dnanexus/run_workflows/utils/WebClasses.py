@@ -132,11 +132,22 @@ class Jira:
         response_data = []
 
         while True:
-            response = self.http.get(
-                url=f"{self.queue_url}/issue?start={start}",
-                headers=self.headers,
-                auth=self.auth,
-            )
+            try:
+                response = self.http.get(
+                    url=f"{self.queue_url}/issue?start={start}",
+                    headers=self.headers,
+                    auth=self.auth,
+                )
+            except requests.exceptions.RequestException as error:
+                # Jira couldn't be reached at all i.e. connection error or
+                # timeout
+                self.send_slack_alert(
+                    f"Error connecting to Jira for tickets."
+                    f"\nAPI endpoint: {self.queue_url}/issue?start={start}\n"
+                    f"Error:```{error}```\n"
+                    "Continuing analysis without linking to Jira ticket."
+                )
+                return []
 
             if not response.ok:
                 self.send_slack_alert(
