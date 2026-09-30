@@ -3,7 +3,6 @@ import os
 import pytest
 from utils.utils import (
     exclude_samples,
-    filter_instance_type_numbers,
     match_samples_to_assays,
     parse_sample_sheet,
     select_instance_types,
