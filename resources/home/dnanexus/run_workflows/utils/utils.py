@@ -692,53 +692,35 @@ def write_job_summary(specified_dx_project, *handlers):
             )
 
 
-def filter_instance_type_numbers(
-    list_to_filter, separator, pos, what_to_strip
-):
+def sort_key(element_to_sort: str) -> tuple:
     """
+    Build a sort key for a DNAnexus instance type name so that instance
+    types can be compared and ordered by size, e.g. with max() or
+    sorted().
+
+    Instance type names are made up of prefix/number pairs separated by
+    underscores (e.g. "mem1_ssd1_v2_x8"). Each pair is parsed and the
+    numbers are returned in order of priority: number of cores ("x")
+    first, then memory level ("mem"), then storage ("sdd"), then
+    instance version ("v"). Any component missing from the name
+    defaults to 0.
 
     Parameters
     ----------
-    list_to_filter : list
-        DX project passed to the conductor app
-    separator : string
-        Separator to use for splitting elements in list_to_filter
-    pos : int
-        Position of element being compared after splitting
-    what_to_strip : string
-        What superfluous string to remove in the element
-
-    Raises
-    ------
-    Exception: raised when the element is not a string or a None
+    element_to_sort : str
+        DNAnexus instance type name, e.g. "mem1_ssd1_v2_x8"
 
     Returns
     -------
-    list
-        List of position indexes of the instance types to keep considering
+    tuple
+        Tuple of ints ordered by priority, e.g. (8, 1, 0, 2) for
+        "mem1_ssd1_v2_x8"
     """
-
-    if not list_to_filter:
-        return None
-
-    all_numbers = []
-
-    for i, number_element in enumerate(list_to_filter):
-        if type(number_element) is str:
-            all_numbers.append(
-                (
-                    i,
-                    int(
-                        number_element.split(separator)[pos].strip(
-                            what_to_strip
-                        )
-                    ),
-                )
-            )
-        elif number_element is None:
-            all_numbers.append((i, -1))
-        else:
-            raise Exception("Not a number and not a None")
-
-    max_number = max(all_numbers, key=lambda n: n[1])[1]
-    return [index for index, value in all_numbers if value == max_number]
+    # components to compare, ordered from most to least significant
+    priority = ["x", "mem", "ssd", "v"]
+    # map each alphabetical prefix to its number,
+    # e.g. "mem1_ssd1_v2_x8" -> {"mem": "1", "ssd": "1", "v": "2", "x": "8"}
+    parts = dict(re.findall(r"([a-z]+)(\d+)", element_to_sort))
+    # tuples compare element by element, so the number of cores is
+    # compared first and later components only act as tiebreakers
+    return tuple(int(parts.get(k, 0)) for k in priority)
