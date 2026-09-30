@@ -150,6 +150,107 @@ class TestSetConfigForDemultiplexing:
                 },
             )
 
+    def test_identical_configs_no_app_id(self):
+        demultiplex_config = {
+            "instance_type": "mem2_ssd1_v2_x48",
+            "additional_args": "--foo",
+        }
+
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": dict(demultiplex_config)},
+            {"demultiplex_config": dict(demultiplex_config)},
+        )
+
+        assert output == demultiplex_config
+
+    def test_identical_configs_with_app_id(self):
+        demultiplex_config = {
+            "instance_type": "mem2_ssd1_v2_x48",
+            "additional_args": "--foo",
+            "app_id": "app-id",
+        }
+
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": dict(demultiplex_config)},
+            {"demultiplex_config": dict(demultiplex_config)},
+        )
+
+        assert output == demultiplex_config
+
+    def test_smaller_instance_type_conflicting_args_ignored(self):
+        output = set_config_for_demultiplexing(
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem2_ssd1_v2_x48",
+                    "additional_args": "--foo",
+                }
+            },
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem2_ssd1_v2_x48",
+                    "additional_args": "--foo",
+                }
+            },
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem2_ssd1_v2_x32",
+                    "additional_args": "--bar",
+                }
+            },
+        )
+
+        assert output == {
+            "instance_type": "mem2_ssd1_v2_x48",
+            "additional_args": "--foo",
+        }
+
+    def test_smaller_instance_type_conflicting_app_id_ignored(self):
+        output = set_config_for_demultiplexing(
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem2_ssd1_v2_x48",
+                    "app_id": "app-id1",
+                }
+            },
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem2_ssd1_v2_x48",
+                    "app_id": "app-id1",
+                }
+            },
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem2_ssd1_v2_x32",
+                    "app_id": "app-id2",
+                }
+            },
+        )
+
+        assert output == {
+            "instance_type": "mem2_ssd1_v2_x48",
+            "app_id": "app-id1",
+        }
+
+    def test_non_identical_configs_left_exception(self):
+        with pytest.raises(
+            Exception,
+            match=("Couldn't select a demultiplex config"),
+        ):
+            set_config_for_demultiplexing(
+                {
+                    "demultiplex_config": {
+                        "instance_type": "mem2_ssd1_v2_x48",
+                        "app_name": "app-name1",
+                    }
+                },
+                {
+                    "demultiplex_config": {
+                        "instance_type": "mem2_ssd1_v2_x48",
+                        "app_name": "app-name2",
+                    }
+                },
+            )
+
 
 @patch("utils.demultiplexing.dx.search.find_data_objects")
 @patch("utils.demultiplexing.dx.bindings.dxjob.DXJob")
