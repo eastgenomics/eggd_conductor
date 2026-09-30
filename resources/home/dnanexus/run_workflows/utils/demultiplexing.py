@@ -19,9 +19,11 @@ def set_config_for_demultiplexing(*configs):
 
     Tiebreakers are applied in order (instance type, additional args,
     app id). Each tiebreaker only considers the demultiplex configs that
-    define the key it compares. As soon as a tiebreaker narrows the
-    candidates down to a single value, the first demultiplex config
-    containing that value is returned.
+    won the previous tiebreakers and that define the key it compares.
+    As soon as a tiebreaker narrows the candidates down to a single
+    demultiplex config, that config is returned. If several identical
+    demultiplex configs are left after all tiebreakers, the first one is
+    returned.
 
     Parameters
     ----------
@@ -33,14 +35,17 @@ def set_config_for_demultiplexing(*configs):
     -------
     dict | None
         Demultiplex config selected from one of the given configs, or
-        None if no config has a demultiplex config or no tiebreaker
-        could select a single one
+        None if no config has a demultiplex config or no demultiplex
+        config defines any of the tiebreaker keys
 
     Raises
     ------
     AssertionError
         Raised by the additional args or app id tiebreakers if the
         configs specify conflicting values
+    Exception
+        Raised if the demultiplex configs left after all tiebreakers
+        are not identical
     """
 
     # only keep the configs that have a non-empty demultiplex config
@@ -64,7 +69,8 @@ def set_config_for_demultiplexing(*configs):
     no_key_flags = []
 
     for config_key, function in tiebreakers:
-        # demultiplex configs that define the key for this tiebreaker
+        # demultiplex configs still in the running that define the key
+        # for this tiebreaker
         candidate_configs = [
             demultiplex_config
             for demultiplex_config in demultiplex_configs
@@ -78,18 +84,26 @@ def set_config_for_demultiplexing(*configs):
         # values that won the tiebreaker
         values = function(*candidate_configs)
 
-        # demultiplex configs that contain one of the winning values
-        demultiplex_config_from_tiebreaker = get_demultiplex_config_from_value(
+        # only the demultiplex configs that contain one of the winning
+        # values go on to the next tiebreaker
+        demultiplex_configs = get_demultiplex_config_from_value(
             candidate_configs, values
         )
 
-        if len(values) == 1:
-            # single winning value, no need for further tiebreakers
-            return demultiplex_config_from_tiebreaker[0]
+        if len(demultiplex_configs) == 1:
+            # single winning config, no need for further tiebreakers
+            return demultiplex_configs[0]
 
     # couldn't find any match keys in the demultiplex configs
     if no_key_flags == [True, True, True]:
         return
+
+    # the configs left are the same, so any of them can be used
+    if all(
+        demultiplex_config == demultiplex_configs[0]
+        for demultiplex_config in demultiplex_configs
+    ):
+        return demultiplex_configs[0]
 
     raise Exception(
         f"Couldn't select a demultiplex config given the options: {demultiplex_configs}"
@@ -150,9 +164,8 @@ def additional_args_tiebreaker(*configs):
     Returns
     -------
     list
-        Additional args from every config that specifies them. As they
-        must all be identical, the list only has more than one element
-        if several configs specify the same additional args.
+        Single element list containing the additional args shared by
+        the configs
 
     Raises
     ------
@@ -175,10 +188,7 @@ def additional_args_tiebreaker(*configs):
         len(unique_additional_args) == 1
     ), "Multiple conflicting additional args specified"
 
-    if len(additional_args) != len(unique_additional_args):
-        return unique_additional_args
-
-    return additional_args
+    return unique_additional_args
 
 
 def app_id_tiebreaker(*configs):
@@ -211,10 +221,7 @@ def app_id_tiebreaker(*configs):
     # app ids are conflicting
     assert len(unique_app_ids) == 1, "Multiple conflicting app ids specified"
 
-    if len(app_ids) != len(unique_app_ids):
-        return unique_app_ids
-
-    return app_ids
+    return unique_app_ids
 
 
 def move_demultiplex_qc_files(
@@ -522,5 +529,8 @@ def get_demultiplex_config_from_value(configs, values=None):
         for v in config.values():
             if v in values:
                 configs_to_return.append(config)
+                # only add each config once even if several of its
+                # values match
+                break
 
     return configs_to_return
