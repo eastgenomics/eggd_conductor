@@ -2,23 +2,22 @@
 Random utility functions
 """
 
-from collections import defaultdict
-from datetime import datetime
 import json
 import os
 import pathlib
 import re
 import sys
+from collections import defaultdict
+from datetime import datetime
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.realpath(__file__), "../"))
 )
 
 import dxpy as dx
-from packaging.version import parse as parseVersion
 import pandas as pd
-
 import utils.WebClasses as WebClasses
+from packaging.version import parse as parseVersion
 from WebClasses import Slack
 
 
@@ -691,3 +690,55 @@ def write_job_summary(specified_dx_project, *handlers):
             f.write(
                 f"Number of jobs started for {assay}: {nb_jobs_per_assay}\n"
             )
+
+
+def filter_instance_type_numbers(
+    list_to_filter, separator, pos, what_to_strip
+):
+    """
+
+    Parameters
+    ----------
+    list_to_filter : list
+        DX project passed to the conductor app
+    separator : string
+        Separator to use for splitting elements in list_to_filter
+    pos : int
+        Position of element being compared after splitting
+    what_to_strip : string
+        What superfluous string to remove in the element
+
+    Raises
+    ------
+    Exception: raised when the element is not a string or a None
+
+    Returns
+    -------
+    list
+        List of position indexes of the instance types to keep considering
+    """
+
+    if not list_to_filter:
+        return None
+
+    all_numbers = []
+
+    for i, number_element in enumerate(list_to_filter):
+        if type(number_element) is str:
+            all_numbers.append(
+                (
+                    i,
+                    int(
+                        number_element.split(separator)[pos].strip(
+                            what_to_strip
+                        )
+                    ),
+                )
+            )
+        elif number_element is None:
+            all_numbers.append((i, -1))
+        else:
+            raise Exception("Not a number and not a None")
+
+    max_number = max(all_numbers, key=lambda n: n[1])[1]
+    return [index for index, value in all_numbers if value == max_number]
