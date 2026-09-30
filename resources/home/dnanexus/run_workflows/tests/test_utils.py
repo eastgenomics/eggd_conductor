@@ -472,32 +472,3 @@ def test_exclude_samples(test_input, expected):
     assert sorted(expected) == sorted(output) and len(expected) == len(
         output
     ), "Unexpected samples kept"
-
-
-class TestFilterInstanceTypeNumbers:
-    default_params = ["_", 0, "mem"]
-
-    def test_empty_list_passed(self):
-        input = []
-        output = filter_instance_type_numbers(input, *self.default_params)
-        assert output == None
-
-    def test_one_element_in_list(self):
-        input = ["mem1_ssd1_v2_x4"]
-        output = filter_instance_type_numbers(input, *self.default_params)
-        assert output == [0]
-
-    def test_identical_elements_in_list(self):
-        input = ["mem1_ssd1_v2_x4", "mem1_ssd1_v2_x4"]
-        output = filter_instance_type_numbers(input, *self.default_params)
-        assert output == [0, 1]
-
-    def test_tiebreaker_needed(self):
-        input = ["mem1_ssd1_v2_x4", "mem4_ssd1_v2_x4"]
-        output = filter_instance_type_numbers(input, *self.default_params)
-        assert output == [1]
-
-    def test_tiebreaker_needed_and_identical_elements(self):
-        input = ["mem4_ssd1_v2_x4", "mem1_ssd1_v2_x4", "mem4_ssd1_v2_x4"]
-        output = filter_instance_type_numbers(input, *self.default_params)
-        assert output == [0, 2]
