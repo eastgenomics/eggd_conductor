@@ -2,104 +2,219 @@ import os
 import re
 
 import dxpy as dx
-
-from utils.utils import prettier_print, select_instance_types, time_stamp
+from utils.utils import (
+    prettier_print,
+    select_instance_types,
+    sort_key,
+    time_stamp,
+)
 from utils.WebClasses import Slack
 
 
 def set_config_for_demultiplexing(*configs):
     """Select the config parameters that will be used in the
     demultiplexing job using the biggest instance type as the tie breaker.
-    This also allows selection of additional args that could be
-    antagonistic.
+    If there is no bigger instance type, the additional args and app id will be
+    used as tiebreaker.
+
+    Tiebreakers are applied in order (instance type, additional args,
+    app id). Each tiebreaker only considers the demultiplex configs that
+    define the key it compares. As soon as a tiebreaker narrows the
+    candidates down to a single value, the first demultiplex config
+    containing that value is returned.
 
     Parameters
     ----------
-    *configs:
-        Variable number of config files to compare between themselves
-    """
-
-    demultiplex_configs = []
-    core_nbs = []
-
-    for config in configs:
-        demultiplex_config = config.get("demultiplex_config")
-
-        if demultiplex_config:
-            instance_type = demultiplex_config.get("instance_type")
-            demultiplex_configs.append(config)
-
-            # configs without an instance type are still kept so that their
-            # other parameters (i.e. additional_args) are not disregarded
-            if instance_type:
-                core_nbs.append(int(instance_type.split("_")[-1].strip("x")))
-            else:
-                core_nbs.append(0)
-
-    if not demultiplex_configs:
-        return
-
-    bigger_core_nb = max(core_nbs)
-
-    # get configs that have the biggest instance type
-    candidates = [
-        config
-        for config, core_nb in zip(demultiplex_configs, core_nbs)
-        if core_nb == bigger_core_nb
-    ]
-
-    if len(candidates) == 1:
-        return candidates[0].get("demultiplex_config")
-
-    # use the additional args as the tiebreaker, defaulting to the first
-    # config if none of them have additional args
-    return additional_args_check(candidates) or candidates[0].get(
-        "demultiplex_config"
-    )
-
-
-def additional_args_check(configs: list) -> dict:
-    """For instances where multiple configs are competing to become the one
-    demultiplexing config, use the additional args as the tiebreaker
-
-    Parameters
-    ----------
-    configs : list
-        List of configs to compare
+    *configs : dict
+        Variable number of assay config dicts to compare between
+        themselves, each of which may contain a "demultiplex_config" key
 
     Returns
     -------
-    dict
-        Demultiplex config of the config with additional args, None if no
-        config has additional args
+    dict | None
+        Demultiplex config selected from one of the given configs, or
+        None if no config has a demultiplex config or no tiebreaker
+        could select a single one
 
     Raises
     ------
-    Exception
-        Raised if different additional args are detected
+    AssertionError
+        Raised by the additional args or app id tiebreakers if the
+        configs specify conflicting values
     """
 
-    additional_args = []
+    # only keep the configs that have a non-empty demultiplex config
+    demultiplex_configs = [
+        config.get("demultiplex_config")
+        for config in configs
+        if config.get("demultiplex_config")
+    ]
 
-    for config in configs:
-        demultiplex_config = config.get("demultiplex_config")
-
-        if demultiplex_config:
-            if demultiplex_config.get("additional_args"):
-                additional_args.append(demultiplex_config)
-
-    if not additional_args:
+    if len(demultiplex_configs) == 0:
         return
 
-    # identical additional args are not conflicting
-    if any(
-        demultiplex_config["additional_args"]
-        != additional_args[0]["additional_args"]
-        for demultiplex_config in additional_args[1:]
-    ):
-        raise Exception("Multiple additional args specified")
+    # config keys to compare and the function used to compare them,
+    # ordered from highest to lowest priority
+    tiebreakers = (
+        ("instance_type", instance_type_tiebreaker),
+        ("additional_args", additional_args_tiebreaker),
+        ("app_id", app_id_tiebreaker),
+    )
 
-    return additional_args[0]
+    no_key_flags = []
+
+    for config_key, function in tiebreakers:
+        # demultiplex configs that define the key for this tiebreaker
+        candidate_configs = [
+            demultiplex_config
+            for demultiplex_config in demultiplex_configs
+            if demultiplex_config.get(config_key)
+        ]
+        if not any(candidate_configs):
+            # no config defines this key, move on to the next tiebreaker
+            no_key_flags.append(True)
+            continue
+
+        # values that won the tiebreaker
+        values = function(*candidate_configs)
+
+        # demultiplex configs that contain one of the winning values
+        demultiplex_config_from_tiebreaker = get_demultiplex_config_from_value(
+            candidate_configs, values
+        )
+
+        if len(values) == 1:
+            # single winning value, no need for further tiebreakers
+            return demultiplex_config_from_tiebreaker[0]
+
+    # couldn't find any match keys in the demultiplex configs
+    if no_key_flags == [True, True, True]:
+        return
+
+    raise Exception(
+        f"Couldn't select a demultiplex config given the options: {demultiplex_configs}"
+    )
+
+
+def instance_type_tiebreaker(*configs):
+    """Select the biggest instance type from the given demultiplex
+    configs, using sort_key to order the instance types by number of
+    cores, then memory, then storage, then version.
+
+    Parameters
+    ----------
+    *configs : dict
+        Variable number of demultiplex config dicts, each of which may
+        contain an "instance_type" key
+
+    Returns
+    -------
+    list
+        Instance types sharing the biggest size, i.e. a single instance
+        type unless several configs specify instance types of the same
+        size. Empty list if no config specifies an instance type.
+    """
+
+    instance_types = [
+        config.get("instance_type")
+        for config in configs
+        if config.get("instance_type")
+    ]
+
+    if not instance_types:
+        return []
+
+    # sort key of the biggest instance type
+    top_instance_type = max(
+        sort_key(instance_type) for instance_type in instance_types
+    )
+
+    # keep every instance type that is as big as the biggest one
+    return [
+        instance_type
+        for instance_type in instance_types
+        if sort_key(instance_type) == top_instance_type
+    ]
+
+
+def additional_args_tiebreaker(*configs):
+    """Check that the given demultiplex configs agree on the additional
+    args to pass to the demultiplexing app.
+
+    Parameters
+    ----------
+    *configs : dict
+        Variable number of demultiplex config dicts, each of which may
+        contain an "additional_args" key
+
+    Returns
+    -------
+    list
+        Additional args from every config that specifies them. As they
+        must all be identical, the list only has more than one element
+        if several configs specify the same additional args.
+
+    Raises
+    ------
+    AssertionError
+        Raised if the configs specify different additional args
+    """
+
+    additional_args = [
+        config.get("additional_args")
+        for config in configs
+        if config.get("additional_args")
+    ]
+
+    unique_additional_args = list(
+        {additional_args for additional_args in additional_args}
+    )
+
+    # additional args are conflicting
+    assert (
+        len(unique_additional_args) == 1
+    ), "Multiple conflicting additional args specified"
+
+    if len(additional_args) != len(unique_additional_args):
+        return unique_additional_args
+
+    return additional_args
+
+
+def app_id_tiebreaker(*configs):
+    """Check that the given demultiplex configs agree on the app id to
+    use for demultiplexing.
+
+    Parameters
+    ----------
+    *configs : dict
+        Variable number of demultiplex config dicts, each of which may
+        contain an "app_id" key
+
+    Returns
+    -------
+    list
+        Single element list containing the app id shared by the configs
+
+    Raises
+    ------
+    AssertionError
+        Raised if the configs specify different app ids
+    """
+
+    app_ids = [
+        config.get("app_id") for config in configs if config.get("app_id")
+    ]
+    # deduplicate app ids so that configs specifying the same app id
+    # don't conflict
+    unique_app_ids = list({app_id for app_id in app_ids})
+    # app ids are conflicting
+    assert len(unique_app_ids) == 1, "Multiple conflicting app ids specified"
+
+    if len(app_ids) != len(unique_app_ids):
+        return unique_app_ids
+
+    return app_ids
 
 
 def move_demultiplex_qc_files(
@@ -270,7 +385,7 @@ def demultiplex(
 
             demultiplex_output = f"{run_id}:/demultiplex_{time_stamp()}"
 
-    (demultiplex_project, demultiplex_folder) = demultiplex_output.split(":")
+    demultiplex_project, demultiplex_folder = demultiplex_output.split(":")
 
     prettier_print(f"demultiplex app ID set: {app_id}")
     prettier_print(f"demultiplex app name set: {app_name}")
@@ -395,3 +510,17 @@ def demultiplex(
     prettier_print("Demuliplexing completed!")
 
     return job, demultiplex_output
+
+
+def get_demultiplex_config_from_value(configs, values=None):
+    if values is None:
+        return configs
+
+    configs_to_return = []
+
+    for config in configs:
+        for v in config.values():
+            if v in values:
+                configs_to_return.append(config)
+
+    return configs_to_return

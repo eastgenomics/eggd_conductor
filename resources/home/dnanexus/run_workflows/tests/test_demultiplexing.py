@@ -1,93 +1,154 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from utils.demultiplexing import (
-    set_config_for_demultiplexing,
     get_demultiplex_job_details,
-    additional_args_check,
+    instance_type_tiebreaker,
+    set_config_for_demultiplexing,
 )
 
 
-def test_set_config_for_demultiplexing_no_configs():
-    output = set_config_for_demultiplexing({"not_demultiplex_config": 1})
+class TestSetConfigForDemultiplexing:
+    def test_no_configs(self):
+        output = set_config_for_demultiplexing({"not_demultiplex_config": 1})
 
-    assert output is None
+        assert output is None
 
+    def test_no_instance_type(self):
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": {"not_instance_type": 1}}
+        )
 
-def test_set_config_for_demultiplexing_no_core_nb():
-    output = set_config_for_demultiplexing(
-        {"demultiplex_config": {"not_instance_type": 1}}
-    )
+        assert output == None
 
-    assert output == {"not_instance_type": 1}
+    def test_additional_args_no_instance_type(self):
+        output = set_config_for_demultiplexing(
+            {
+                "assay": "CEN",
+                "demultiplex_config": {"additional_args": "--foo"},
+            },
+            {"assay": "TWE", "demultiplex_config": {}},
+        )
 
+        assert output == {"additional_args": "--foo"}
 
-def test_set_config_for_demultiplexing_additional_args_no_core_nb():
-    output = set_config_for_demultiplexing(
-        {"assay": "CEN", "demultiplex_config": {"additional_args": "--foo"}},
-        {"assay": "TWE", "demultiplex_config": {}},
-    )
+    def test_same_instance_type_additional_args(self):
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem1_ssd1_v2_x16",
+                    "additional_args": "--foo",
+                }
+            },
+        )
 
-    assert output == {"additional_args": "--foo"}
+        assert output == {
+            "instance_type": "mem1_ssd1_v2_x16",
+            "additional_args": "--foo",
+        }
 
+    def test_higher_instance_type(self):
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
+            {"demultiplex_config": {"instance_type": "mem2_ssd1_v2_x16"}},
+        )
 
-def test_set_config_for_demultiplexing_same_core_nb_additional_args():
-    output = set_config_for_demultiplexing(
-        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
-        {
-            "demultiplex_config": {
-                "instance_type": "mem1_ssd1_v2_x16",
-                "additional_args": "--foo",
-            }
-        },
-    )
+        assert output == {"instance_type": "mem2_ssd1_v2_x16"}
 
-    assert output == {
-        "instance_type": "mem1_ssd1_v2_x16",
-        "additional_args": "--foo",
-    }
+    def test_biggest_instance_type_wins_over_args(self):
+        output = set_config_for_demultiplexing(
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem1_ssd1_v2_x16",
+                    "additional_args": "--foo",
+                }
+            },
+            {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x72"}},
+        )
 
+        assert output == {"instance_type": "mem1_ssd1_v2_x72"}
 
-def test_set_config_for_demultiplexing_same_core_nb_no_additional_args():
-    output = set_config_for_demultiplexing(
-        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
-        {"demultiplex_config": {"instance_type": "mem2_ssd1_v2_x16"}},
-    )
+    def test_single_instance_type(self):
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}}
+        )
 
-    assert output == {"instance_type": "mem1_ssd1_v2_x16"}
+        assert output == {"instance_type": "mem1_ssd1_v2_x16"}
 
+    def test_select_highest_instance_type_config(self):
+        output = set_config_for_demultiplexing(
+            {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
+            {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x72"}},
+            {"demultiplex_config": {"instance_type": "mem1_ssd2_v2_x36"}},
+        )
 
-def test_set_config_for_demultiplexing_biggest_core_nb_wins_over_args():
-    output = set_config_for_demultiplexing(
-        {
-            "demultiplex_config": {
-                "instance_type": "mem1_ssd1_v2_x16",
-                "additional_args": "--foo",
-            }
-        },
-        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x72"}},
-    )
+        assert output == {"instance_type": "mem1_ssd1_v2_x72"}
 
-    assert output == {"instance_type": "mem1_ssd1_v2_x72"}
+    def test_app_id_as_tiebreaker(self):
+        output = set_config_for_demultiplexing(
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem1_ssd1_v2_x16",
+                    "additional_args": "--foo",
+                    "app_id": "app-id",
+                }
+            },
+            {
+                "demultiplex_config": {
+                    "instance_type": "mem1_ssd1_v2_x16",
+                    "additional_args": "--foo",
+                }
+            },
+        )
 
+        assert output == {
+            "instance_type": "mem1_ssd1_v2_x16",
+            "additional_args": "--foo",
+            "app_id": "app-id",
+        }
 
-def test_set_config_for_demultiplexing_w_core_nb():
-    output = set_config_for_demultiplexing(
-        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}}
-    )
+    def test_additional_args_exception(self):
+        with pytest.raises(
+            AssertionError,
+            match=("Multiple conflicting additional args specified"),
+        ):
+            set_config_for_demultiplexing(
+                {
+                    "demultiplex_config": {
+                        "instance_type": "mem1_ssd1_v2_x16",
+                        "additional_args": "--foo",
+                    }
+                },
+                {
+                    "demultiplex_config": {
+                        "instance_type": "mem1_ssd1_v2_x16",
+                        "additional_args": "--bar",
+                    }
+                },
+            )
 
-    assert output == {"instance_type": "mem1_ssd1_v2_x16"}
-
-
-def test_set_config_for_demultiplexing_select_highest_core_nb_config():
-    output = set_config_for_demultiplexing(
-        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x16"}},
-        {"demultiplex_config": {"instance_type": "mem1_ssd1_v2_x72"}},
-        {"demultiplex_config": {"instance_type": "mem1_ssd2_v2_x36"}},
-    )
-
-    assert output == {"instance_type": "mem1_ssd1_v2_x72"}
+    def test_app_id_exception(self):
+        with pytest.raises(
+            AssertionError,
+            match=("Multiple conflicting app ids specified"),
+        ):
+            set_config_for_demultiplexing(
+                {
+                    "demultiplex_config": {
+                        "instance_type": "mem1_ssd1_v2_x16",
+                        "additional_args": "--foo",
+                        "app_id": "app-id1",
+                    }
+                },
+                {
+                    "demultiplex_config": {
+                        "instance_type": "mem1_ssd1_v2_x16",
+                        "additional_args": "--foo",
+                        "app_id": "app-id2",
+                    }
+                },
+            )
 
 
 @patch("utils.demultiplexing.dx.search.find_data_objects")
@@ -118,60 +179,39 @@ def test_get_demultiplex_job_details(mock_job, mock_data_objects):
     assert output == expected_output
 
 
-class TestAdditionalArgsCheck:
-    def test_no_config(self):
-        test_output = additional_args_check([{"not_demultiplex_config": 1}])
+class TestInstanceTypeTiebreaker:
+    def test_no_instance_type(self):
+        input = [{}, {}]
+        output = instance_type_tiebreaker(*input)
+        assert output == []
 
-        assert test_output is None
+    def test_different_key_than_instance_type(self):
+        input = [
+            {"not_instance_type": "mem1_ssd1_v2_x2"},
+            {"another_instance_type": "mem1_ssd1_v2_x2"},
+        ]
+        output = instance_type_tiebreaker(*input)
+        assert output == []
 
-    def test_one_config_no_additional_args(self):
-        test_output = additional_args_check([{"demultiplex_config": {}}])
+    def test_one_instance_type(self):
+        input = [{"instance_type": "mem1_ssd1_v2_x2"}, {}]
+        output = instance_type_tiebreaker(*input)
+        assert output == ["mem1_ssd1_v2_x2"]
 
-        assert test_output is None
+    def test_identical_instance_type(self):
+        input = [
+            {"instance_type": "mem1_ssd1_v2_x2"},
+            {"instance_type": "mem1_ssd1_v2_x2"},
+        ]
+        output = instance_type_tiebreaker(*input)
+        assert output == ["mem1_ssd1_v2_x2", "mem1_ssd1_v2_x2"]
 
-    def test_one_config_with_additional_args(self):
-        test_output = additional_args_check(
-            [{"demultiplex_config": {"additional_args": 1}}]
-        )
-
-        assert test_output == {"additional_args": 1}
-
-    def test_multiple_config(self):
-        test_output = additional_args_check(
-            [{"demultiplex_config": {}}, {"demultiplex_config": {}}]
-        )
-
-        assert test_output is None
-
-    def test_multiple_config_one_additional_args(self):
-        test_output = additional_args_check(
-            [
-                {"demultiplex_config": {}},
-                {"demultiplex_config": {"additional_args": 1}},
-            ]
-        )
-
-        assert test_output == {"additional_args": 1}
-
-    def test_multiple_config_identical_additional_args(self):
-        test_output = additional_args_check(
-            [
-                {"demultiplex_config": {"additional_args": 1}},
-                {"demultiplex_config": {"additional_args": 1}},
-            ]
-        )
-
-        assert test_output == {"additional_args": 1}
-
-    def test_multiple_config_multiple_additional_args(
-        self,
-    ):
-        with pytest.raises(
-            Exception, match="Multiple additional args specified"
-        ):
-            additional_args_check(
-                [
-                    {"demultiplex_config": {"additional_args": 1}},
-                    {"demultiplex_config": {"additional_args": 2}},
-                ]
-            )
+    def test_complex_tiebreaker(self):
+        input = [
+            {"instance_type": "mem1_ssd1_v2_x2"},
+            {"instance_type": "mem3_ssd2_v2_x16"},
+            {"instance_type": "mem3_ssd1_v1_x16"},
+            {"instance_type": "mem3_ssd3_v2_x16"},
+        ]
+        output = instance_type_tiebreaker(*input)
+        assert output == ["mem3_ssd3_v2_x16"]
