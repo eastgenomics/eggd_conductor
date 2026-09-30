@@ -1,14 +1,14 @@
 import os
 
 import pytest
-
-from .settings import TEST_DATA_DIR
 from utils.utils import (
     exclude_samples,
-    select_instance_types,
     match_samples_to_assays,
     parse_sample_sheet,
+    select_instance_types,
 )
+
+from .settings import TEST_DATA_DIR
 
 
 class TestSelectInstanceTypes:

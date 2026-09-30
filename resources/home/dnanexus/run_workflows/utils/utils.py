@@ -2,23 +2,22 @@
 Random utility functions
 """
 
-from collections import defaultdict
-from datetime import datetime
 import json
 import os
 import pathlib
 import re
 import sys
+from collections import defaultdict
+from datetime import datetime
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.realpath(__file__), "../"))
 )
 
 import dxpy as dx
-from packaging.version import parse as parseVersion
 import pandas as pd
-
 import utils.WebClasses as WebClasses
+from packaging.version import parse as parseVersion
 from WebClasses import Slack
 
 
@@ -692,3 +691,37 @@ def write_job_summary(specified_dx_project, *handlers):
             f.write(
                 f"Number of jobs started for {assay}: {nb_jobs_per_assay}\n"
             )
+
+
+def sort_key(element_to_sort: str) -> tuple:
+    """
+    Build a sort key for a DNAnexus instance type name so that instance
+    types can be compared and ordered by size, e.g. with max() or
+    sorted().
+
+    Instance type names are made up of prefix/number pairs separated by
+    underscores (e.g. "mem1_ssd1_v2_x8"). Each pair is parsed and the
+    numbers are returned in order of priority: number of cores ("x")
+    first, then memory level ("mem"), then storage ("sdd"), then
+    instance version ("v"). Any component missing from the name
+    defaults to 0.
+
+    Parameters
+    ----------
+    element_to_sort : str
+        DNAnexus instance type name, e.g. "mem1_ssd1_v2_x8"
+
+    Returns
+    -------
+    tuple
+        Tuple of ints ordered by priority, e.g. (8, 1, 0, 2) for
+        "mem1_ssd1_v2_x8"
+    """
+    # components to compare, ordered from most to least significant
+    priority = ["x", "mem", "ssd", "v"]
+    # map each alphabetical prefix to its number,
+    # e.g. "mem1_ssd1_v2_x8" -> {"mem": "1", "ssd": "1", "v": "2", "x": "8"}
+    parts = dict(re.findall(r"([a-z]+)(\d+)", element_to_sort))
+    # tuples compare element by element, so the number of cores is
+    # compared first and later components only act as tiebreakers
+    return tuple(int(parts.get(k, 0)) for k in priority)
