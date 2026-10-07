@@ -231,22 +231,18 @@ class TestSetConfigForDemultiplexing:
             "app_id": "app-id1",
         }
 
-    def test_non_identical_configs_left_exception(self):
+    def test_different_instance_types_same_size_exception(self):
+        # sort_key ignores the "azure:" prefix so both instance types tie
+        # on size and are kept, leaving non-identical configs
         with pytest.raises(
             Exception,
             match=("Couldn't select a demultiplex config"),
         ):
             set_config_for_demultiplexing(
+                {"demultiplex_config": {"instance_type": "mem2_ssd1_v2_x48"}},
                 {
                     "demultiplex_config": {
-                        "instance_type": "mem2_ssd1_v2_x48",
-                        "app_name": "app-name1",
-                    }
-                },
-                {
-                    "demultiplex_config": {
-                        "instance_type": "mem2_ssd1_v2_x48",
-                        "app_name": "app-name2",
+                        "instance_type": "azure:mem2_ssd1_v2_x48"
                     }
                 },
             )
