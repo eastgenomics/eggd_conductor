@@ -20,7 +20,7 @@ The following describes default app input behaviour
 
 and either:
 
-- `-iupload_sentinel_record` (`record`): sentinel file created by dx-streaming-upload to use for specifying run data for analysis (*n.b. this is the only input that is lowercase as this is a fixed requirement from dx-streaming-upload*)
+- `-iupload_sentinel_record` (`record`): sentinel file created by dx-streaming-upload to use for specifying run data for analysis
 
 OR
 

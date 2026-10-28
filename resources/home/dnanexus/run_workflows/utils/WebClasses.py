@@ -132,11 +132,22 @@ class Jira:
         response_data = []
 
         while True:
-            response = self.http.get(
-                url=f"{self.queue_url}/issue?start={start}",
-                headers=self.headers,
-                auth=self.auth,
-            )
+            try:
+                response = self.http.get(
+                    url=f"{self.queue_url}/issue?start={start}",
+                    headers=self.headers,
+                    auth=self.auth,
+                )
+            except requests.exceptions.RequestException as error:
+                # Jira couldn't be reached at all i.e. connection error or
+                # timeout
+                self.send_slack_alert(
+                    f"Error connecting to Jira for tickets."
+                    f"\nAPI endpoint: {self.queue_url}/issue?start={start}\n"
+                    f"Error:```{error}```\n"
+                    "Continuing analysis without linking to Jira ticket."
+                )
+                return []
 
             if not response.ok:
                 self.send_slack_alert(
@@ -146,6 +157,7 @@ class Jira:
                     f"Error:```{response.content.decode()}```\n"
                     "Continuing analysis without linking to Jira ticket."
                 )
+                return []
             else:
                 response = response.json()
 
@@ -159,7 +171,7 @@ class Jira:
 
         return response_data
 
-    def filter_tickets_using_run_id(self, run_id, tickets) -> str:
+    def filter_tickets_using_run_id(self, run_id, tickets) -> list:
         """
         Given a list of tickets, filter out the one for the current
         sequencing run and return its ID(s)
@@ -173,16 +185,18 @@ class Jira:
 
         Returns
         -------
-        str
-            ticket ID
+        list
+            ticket IDs
         """
 
         run_tickets = [x for x in tickets if run_id in x["fields"]["summary"]]
 
         utils.prettier_print("Filtering Jira tickets for current run")
-        utils.prettier_print(
-            f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
-        )
+
+        if run_tickets:
+            utils.prettier_print(
+                f"Run ticket(s) found: {[ticket['key'] for ticket in run_tickets]}"
+            )
 
         return run_tickets
 
