@@ -757,6 +757,8 @@ def main():
                 for error in errors:
                     error_msg += f"```{error}```"
 
+            prettier_print(f"{error_msg.strip('`')}")
+
             raise Exception(
                 Slack().send(
                     f"Detected error in setting or starting jobs for {error_msg}"
