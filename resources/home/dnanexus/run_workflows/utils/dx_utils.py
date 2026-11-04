@@ -12,7 +12,6 @@ from typing import Tuple
 
 import dxpy as dx
 from packaging.version import Version, parse
-
 from utils.utils import prettier_print
 from utils.WebClasses import Slack
 
@@ -399,19 +398,14 @@ def filter_job_output(job_id: str, patterns: list, field: str):
     """
 
     job = dx.DXJob(job_id)
+    job_desc = job.describe()
 
-    links_to_files = job.describe()["output"][field]
+    for link in job_desc["output"][field]:
+        file = dx.DXFile(link, project=job_desc["project"])
 
-    for output_info in links_to_files:
-        for _, file_id in output_info.values():
-            file = dx.DXFile(file_id)
-
-            for pattern in patterns:
-                if re.search(pattern, file.name):
-                    return {
-                        "project": file.project,
-                        "id": file.id,
-                    }
+        for pattern in patterns:
+            if re.search(pattern, file.name):
+                return {"project": job_desc["project"], "id": file.id}
 
     return
 
