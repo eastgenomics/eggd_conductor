@@ -3,15 +3,14 @@ Functions related to querying and managing objects in DNAnexus, as well
 as running jobs.
 """
 
-from collections import defaultdict
 import os
 import random
 import re
+from collections import defaultdict
 
 import dxpy as dx
-
-from utils.dx_utils import find_dx_project, get_job_output_details, dx_run
 from utils import manage_dict
+from utils.dx_utils import dx_run, find_dx_project, get_job_output_details
 from utils.utils import (
     prettier_print,
 )
@@ -33,6 +32,7 @@ class AssayHandler:
             Dict containing information for an assay
         """
 
+        self.project = None
         self.config = config
         self.assay_code = config.get("assay_code")
         self.assay = config.get("assay")
@@ -54,7 +54,10 @@ class AssayHandler:
             String with essential info about the handler
         """
 
-        return f"{self.project.name} - {self.assay}:{self.version}"
+        if self.project:
+            return f"{self.project.name} - {self.assay}:{self.version}"
+
+        return f"{self.assay}:{self.version}"
 
     def limit_samples(self, limit_nb=None):
         """Randomly keep a given number of samples from the sample list
@@ -80,10 +83,8 @@ class AssayHandler:
             prettier_print("No samples were removed")
         else:
             prettier_print(
-                (
-                    f"Limiting samples to {limit_nb}, the following samples "
-                    f"were excluded: {excluded_samples}"
-                )
+                f"Limiting samples to {limit_nb}, the following samples "
+                f"were excluded: {excluded_samples}"
             )
 
     def subset_samples(self):

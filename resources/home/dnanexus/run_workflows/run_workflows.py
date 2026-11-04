@@ -11,46 +11,45 @@ inputs are valid.
 """
 
 import argparse
-from itertools import zip_longest
 import json
 import math
 import os
 import pathlib
 import subprocess
 import traceback
+from itertools import zip_longest
 
 import dxpy as dx
-
-from utils.AssayHandler import AssayHandler
-from utils.dx_utils import (
-    get_json_configs,
-    filter_highest_config_version,
-    wait_on_done,
-    terminate_jobs,
-    invite_participants_in_project,
-)
 from utils import manage_dict
-from utils.WebClasses import Jira, Slack
-from utils.utils import (
-    load_config,
-    load_test_data,
-    match_samples_to_assays,
-    preprocess_exclusion_patterns,
-    exclude_samples,
-    parse_sample_sheet,
-    prettier_print,
-    time_stamp,
-    select_instance_types,
-    create_project_name,
-    write_job_summary,
-    get_previous_job_from_job_reuse,
-)
+from utils.AssayHandler import AssayHandler
 from utils.demultiplexing import (
     demultiplex,
     get_demultiplex_job_details,
     move_demultiplex_qc_files,
     set_config_for_demultiplexing,
 )
+from utils.dx_utils import (
+    filter_highest_config_version,
+    get_json_configs,
+    invite_participants_in_project,
+    terminate_jobs,
+    wait_on_done,
+)
+from utils.utils import (
+    create_project_name,
+    exclude_samples,
+    get_previous_job_from_job_reuse,
+    load_config,
+    load_test_data,
+    match_samples_to_assays,
+    parse_sample_sheet,
+    preprocess_exclusion_patterns,
+    prettier_print,
+    select_instance_types,
+    time_stamp,
+    write_job_summary,
+)
+from utils.WebClasses import Jira, Slack
 
 
 def parse_args() -> argparse.Namespace:
@@ -350,7 +349,8 @@ def main():
             if len(assay_options) == 1:
                 if assay_options[0] in assay_handler.assay:
                     prettier_print(
-                        f"Assigned {ticket['key']} to {assay_handler}"
+                        f"Assigned {ticket['key']} to {run_id} - "
+                        f"{assay_handler.assay}:{assay_handler.version}"
                     )
                     # store the whole ticket to be able to access its fields
                     assay_handler.ticket = ticket
@@ -369,13 +369,13 @@ def main():
             elif len(assay_options) == 0:
                 ticket_errors.append(
                     f"Ticket {ticket['key']} could be assigned to "
-                    f"{assay_handler} but has no assays"
+                    f"{run_id} - {assay_handler.assay}:{assay_handler.version} but has no assays"
                 )
 
             else:
                 ticket_errors.append(
                     f"Ticket {ticket['key']} could be assigned to "
-                    f"{assay_handler} but has multiple assays: "
+                    f"{run_id} - {assay_handler.assay}:{assay_handler.version} but has multiple assays: "
                     f"{';'.join(assay_options)}"
                 )
 
@@ -643,7 +643,9 @@ def main():
                                 f"{handler.project.id.replace('project-', '')}/monitor/"
                             ),
                             ticket=(
-                                handler.ticket["id"] if handler.ticket else None
+                                handler.ticket["id"]
+                                if handler.ticket
+                                else None
                             ),
                         )
 
