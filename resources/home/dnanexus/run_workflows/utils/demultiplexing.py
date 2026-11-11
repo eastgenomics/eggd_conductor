@@ -378,6 +378,7 @@ def demultiplex(
             demultiplex_output = sentinel_path.replace("/runs", "")
     else:
         if not demultiplex_output:
+            output_project = run_id
             # running in testing and going to demultiplex -> dump output to
             # our testing analysis project to not go to sentinel file dir
             if not re.match(r"project-[A-Za-z0-9]", run_id):
@@ -388,9 +389,11 @@ def demultiplex(
                         f"'{run_id}' found no or multiple projects in DNAnexus"
                     )
                 else:
-                    run_id = projects[0].get("id")
+                    output_project = projects[0].get("id")
 
-            demultiplex_output = f"{run_id}:/demultiplex_{time_stamp()}"
+            demultiplex_output = (
+                f"{output_project}:/demultiplex_{time_stamp()}"
+            )
 
     demultiplex_project, demultiplex_folder = demultiplex_output.split(":")
 
@@ -458,13 +461,8 @@ def demultiplex(
     )
 
     if app_id.startswith("applet-"):
-        job = dx.bindings.dxapplet.DXApplet(dxid=app_id).run(
-            applet_input=inputs,
-            project=demultiplex_project,
-            folder=demultiplex_folder,
-            priority="high",
-            instance_type=instance_type,
-        )
+        executable = dx.bindings.dxapplet.DXApplet(dxid=app_id)
+        ex_name = executable.name
     elif app_id.startswith("app-") or app_name:
         # running from app, prefer name over ID
         # have to set to None to only use ID or name if both set
@@ -473,17 +471,24 @@ def demultiplex(
         else:
             app_name = None
 
-        job = dx.bindings.dxapp.DXApp(dxid=app_id, name=app_name).run(
-            app_input=inputs,
-            project=demultiplex_project,
-            folder=demultiplex_folder,
-            priority="high",
-            instance_type=instance_type,
-        )
+        executable = dx.bindings.dxapp.DXApp(dxid=app_id, name=app_name)
+        ex_name = f"{executable.name} ({executable.version})"
+
     else:
         raise RuntimeError(
             f"Provided demultiplex app ID does not appear valid: {app_id}"
         )
+
+    job_name = f"{ex_name} - {run_id}"
+
+    job = executable.run(
+        inputs,
+        project=demultiplex_project,
+        folder=demultiplex_folder,
+        priority="high",
+        instance_type=instance_type,
+        name=job_name,
+    )
 
     # tag demultiplexing job so we easily know it was launched by conductor
     job.add_tags(
