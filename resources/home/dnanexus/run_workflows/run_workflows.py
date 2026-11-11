@@ -447,6 +447,17 @@ def main():
         # previous demultiplexing job specified to use fastqs from
         fastq_details = get_demultiplex_job_details(args.demultiplex_job_id)
 
+        demultiplex_job = dx.bindings.dxjob.DXJob(
+            dxid=args.demultiplex_job_id
+        ).describe()
+
+        for assay_handler in assay_handlers:
+            move_demultiplex_qc_files(
+                assay_handler.project.id,
+                demultiplex_job["project"],
+                demultiplex_job["folder"],
+            )
+
     elif args.fastqs:
         fastq_details = []
 
