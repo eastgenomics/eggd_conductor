@@ -209,7 +209,7 @@ _parse_sentinel_file () {
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
             samplesheet=$(dx upload "$local_samplesheet" --path "$sentinel_path" --brief)
-            dx tag "$samplesheet" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
+            dx tag "${sentinel_project}:${samplesheet}" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
 
             # move samplesheet to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
