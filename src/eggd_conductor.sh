@@ -86,6 +86,37 @@ _slack_notify () {
     printf "Message sent to $channel: $message"
 }
 
+_check_samplesheets_identical () {
+    : '''
+    Checks that all samplesheets found in the run data have identical
+    content. If they differ we cannot tell which one is correct, so send
+    a Slack alert and fail the job.
+
+    Arguments
+        array : paths to the samplesheets found in the run data
+    '''
+    local samplesheet_paths=("$@")
+    local unique_checksum_count
+    unique_checksum_count=$(md5sum "${samplesheet_paths[@]}" | awk '{print $1}' | sort -u | wc -l)
+
+    if [ "$unique_checksum_count" -eq 1 ]; then
+        printf '\nFound %s samplesheets in run data with identical content, using %s\n' \
+            "${#samplesheet_paths[@]}" "${samplesheet_paths[0]}"
+        return 0
+    fi
+
+    local samplesheet_names
+    samplesheet_names=$(printf '%s, ' "${samplesheet_paths[@]##*/}")
+
+    local message=":warning: *Error - eggd_conductor*%0A%0A"
+    message+="Multiple samplesheets with different content found in the run data for run "
+    message+="*${run_id}*: \`${samplesheet_names%, }\`. Please rerun this job and provide "
+    message+="the correct samplesheet with \`-isamplesheet\`.%0A%0A"
+    message+="eggd_conductor job: ${conductor_job_url}"
+    _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
+    dx-jobutil-report-error "Multiple samplesheets with different content found in run data."
+}
+
 _parse_sentinel_file () {
     : '''
     Parses given sentinel file from dx-streaming-upload to find samplesheet
@@ -153,9 +184,13 @@ _parse_sentinel_file () {
         # unpack tar and find samplesheet
         mkdir ./first_tar_dir
         tar -xzf first_tar.tar.gz -C ./first_tar_dir
-        local_samplesheet=$(find ./first_tar_dir -regextype posix-extended  -iregex '.*sample[-_ ]?sheet.csv$')
+        # a run may contain more than one samplesheet (e.g. a named samplesheet
+        # and a copy saved as SampleSheet.csv), so collect all matches
+        mapfile -t found_samplesheets < <(
+            find ./first_tar_dir -regextype posix-extended -iregex '.*sample[-_ ]?sheet.csv$' | sort
+        )
 
-        if [ -z "$local_samplesheet" ]; then
+        if [ "${#found_samplesheets[@]}" -eq 0 ]; then
             # sample sheet missing from root and first tar
             message=":warning: *Error - eggd_conductor*%0A%0A"
             message+="No samplesheet could be found for run *${run_id}* from the app input, "
@@ -165,10 +200,16 @@ _parse_sentinel_file () {
             _slack_notify "$message" "$SLACK_ALERT_CHANNEL"
             dx-jobutil-report-error "No samplesheet found for analysis."
         else
+            if [ "${#found_samplesheets[@]}" -gt 1 ]; then
+                # fails the job with a Slack alert if the contents differ
+                _check_samplesheets_identical "${found_samplesheets[@]}"
+            fi
+            local_samplesheet="${found_samplesheets[0]}"
+
             # found samplesheet in run data, upload back to project in same dir as sentinel file
             # to be able to get file ID for passing as input for INPUT-SAMPLESHEET
             samplesheet=$(dx upload "$local_samplesheet" --path "$sentinel_path" --brief)
-            dx tag "$samplesheet" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
+            dx tag "${sentinel_project}:${samplesheet}" "samplesheet uploaded from eggd_conductor job: ${PARENT_JOB_ID}"
 
             # move samplesheet to parse sample names from in run_workflows.py
             mv "$local_samplesheet" /home/dnanexus/SampleSheet.csv
